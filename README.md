@@ -1,4 +1,4 @@
-# Adaptive Quiz Renderer
+# Adaptive Quiz Recommender
 
 An adaptive quiz-generation and rendering system built around Llama 3.1.
 
