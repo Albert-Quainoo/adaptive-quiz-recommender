@@ -1,0 +1,16 @@
+model:
+  name: meta-llama/Llama-3.1-8B-Instruct
+  trust_remote_code: false
+  use_4bit_quantization: true
+  torch_dtype: bfloat16
+
+generation:
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+  do_sample: true
+
+quiz:
+  default_number_of_questions: 5
+  default_difficulty: intermediate
+  include_explanations: true

@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE files
+.vscode/
+.idea/
+
+# Raw and processed datasets
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Model files and checkpoints
+outputs/*
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# Training logs and tracking
+logs/*
+wandb/
+runs/
+
+# Hugging Face cache
+.cache/
+huggingface/
+hf_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Kaggle and temporary files
+kaggle.json
+*.tar.gz
+*.zip
+
+!outputs/.gitkeep
+!logs/.gitkeep
