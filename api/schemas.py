@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field, model_validator, field_validator
-from typing import Literal,
+from typing import Literal
 
+
+difficulty_level = Literal[
+     "introductory",
+     "intermediate",
+     "advanced",
+]
 
 class QuizQuestion(BaseModel):
     question: str
@@ -8,7 +14,7 @@ class QuizQuestion(BaseModel):
     correct_answer: str
     explanation: str
     concept: str
-    difficulty: str
+    difficulty: difficulty_level
 
     @model_validator(mode='after')
     def validate_correct_answer(self) -> 'QuizQuestion':
@@ -17,24 +23,23 @@ class QuizQuestion(BaseModel):
         return self
 
 
-    @field_validator('questions')
+    @field_validator('options')
     @classmethod
-        def validate_unique_options_text(cls, questions: list[QuizQuestion]) -> list[QuizQuestion]:
-            for idx, question in enumerate(questions):
-                normalized_texts = [option.strip().lower() for option in question.options]
+    def validate_unique_options_text(cls, options: list[str]) -> list[str]:
+            normalized_texts = [option.strip().lower() for option in options]
 
-                if len(normalized_texts) != len(set(normalized_texts)):
-                    raise ValueError(f"Duplicate option text content found inside question at index {idx}")
-            return questions
+            if len(normalized_texts) != len(set(normalized_texts)):
+                raise ValueError("Duplicate option text content found")
+            return options
 
 
 class QuizResponse(BaseModel):
-    questions: list[QuizQuestion] = Field(min_length=1)
+    questions: list[QuizQuestion] = Field(min_length=1, max_length=10)
 
 
 class QuizGenerationRequest(BaseModel):
     topic: str = Field(min_length=1)
-    difficulty: Literal["introductory", "intermediate", "advanced"]
-    learning_objectives: str = Field(min_length=1)
+    difficulty: difficulty_level
+    learning_objective: str = Field(min_length=1)
     question_count: int = Field(ge=1, le=10)
 
