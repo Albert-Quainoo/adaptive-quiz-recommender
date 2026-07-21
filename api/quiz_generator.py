@@ -26,7 +26,7 @@ def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200
             pad_token_id=tokenizer.eos_token_id,
         )
     
-    generated_tokens = output[0, input["input_ids"].shape[1] :]
+    generated_tokens = output[0, inputs["input_ids"].shape[1] :]
 
     response = tokenizer.decode(
         generated_tokens,

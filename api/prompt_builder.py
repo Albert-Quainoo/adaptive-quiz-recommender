@@ -29,6 +29,9 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     - Keep each explanation concise.
     - Avoid ambiguous and trick questions.
 
+    The schema is an instruction only. Do not repeat or reproduce it.
+    Output exactly one JSON object whose top-level key is "questions".
+
     Your response must follow this JSON schema:
 
     {response_schema}
