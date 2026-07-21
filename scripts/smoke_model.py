@@ -1,49 +1,18 @@
 import torch
 
-from api.model_loader import load_model, load_tokenizer
-
+from api.quiz_generator import generate_raw_quiz
+from api.schemas import QuizGenerationRequest
 
 def main() -> None:
-    tokenizer = load_tokenizer()
-    model = load_model()
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an educational quiz generator. "
-                "Return one concise multiple-choice question."
-            ),
-        },
-        {
-            "role": "user",
-            "content": "Generate one introductory question about queues.",
-        },
-    ]
-
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True,
+    request = QuizGenerationRequest(
+        topic="Queues",
+        difficulty="introductory",
+        learning_objective="Identify basic queue operations",
+        question_count=1,
     )
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    with torch.inference_mode():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=150,
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    generated_tokens = output[0, inputs["input_ids"].shape[1] :]
-
-    response = tokenizer.decode(
-        generated_tokens,
-        skip_special_tokens=True,
-    )
-
+    response = generate_raw_quiz(request)
+    
     print("\nGenerated response:\n")
     print(response)
 
