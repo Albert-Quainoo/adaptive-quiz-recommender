@@ -1,8 +1,9 @@
 import torch
 
-from api.schemas import QuizGenerationRequest
+from api.schemas import QuizGenerationRequest, QuizResponse
 from api.model_loader import load_model, load_tokenizer
 from api.prompt_builder import build_quiz_messages
+from api.response_parser import parse_quiz_messages
 
 def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200) -> str:
     tokenizer = load_tokenizer()
@@ -34,6 +35,19 @@ def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200
     )
     return response
 
+
+def generate_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200,) -> QuizResponse:
+    raw_response = generate_raw_quiz(request, max_new_tokens)
+
+    quiz = parse_quiz_messages(raw_response)
+
+    if len(quiz.questions) != request.question_count:
+        raise ValueError(
+            f"Expected {request.question_count} questions, "
+            f"but received {len(quiz.questions)} questions."
+        )
+
+    return quiz
 
 
 

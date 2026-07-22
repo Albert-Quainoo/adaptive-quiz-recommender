@@ -60,3 +60,6 @@ kaggle.json
 
 !outputs/.gitkeep
 !logs/.gitkeep
+
+# Misc
+.python-version

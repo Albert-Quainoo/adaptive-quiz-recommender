@@ -1,8 +1,7 @@
 import torch
 
-from api.quiz_generator import generate_raw_quiz
+from api.quiz_generator import generate_quiz
 from api.schemas import QuizGenerationRequest
-from api.response_parser import parse_quiz_messages
 
 def main() -> None:
     request = QuizGenerationRequest(
@@ -12,16 +11,8 @@ def main() -> None:
         question_count=1,
     )
 
-    raw_response = generate_raw_quiz(request)
-    quiz = parse_quiz_messages(raw_response)
+    quiz = generate_quiz(request)
 
-    if len(quiz.questions) != request.question_count:
-        raise ValueError(
-            f"Expected {request.question_count} questions, "
-            f"but received {len(quiz.questions)} questions."
-
-        )
-    
     print(quiz.model_dump_json(indent=2))
 
     if torch.cuda.is_available():
