@@ -5,12 +5,11 @@ from api.schemas import QuizGenerationRequest
 
 def main() -> None:
     request = QuizGenerationRequest(
-        topic="Queues",
-        difficulty="introductory",
-        learning_objective="Identify basic queue operations",
-        question_count=1,
-    )
-
+    topic="Search algorithms",
+    difficulty="intermediate",
+    learning_objective="Compare BFS, uniform-cost search, and A-star search",
+    question_count=3,
+)
     quiz = generate_quiz(request)
 
     print(quiz.model_dump_json(indent=2))
