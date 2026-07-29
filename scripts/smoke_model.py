@@ -11,7 +11,7 @@ def main() -> None:
     question_count=3,
 )
     quiz = generate_quiz(request)
-
+    
     print(quiz.model_dump_json(indent=2))
 
     if torch.cuda.is_available():

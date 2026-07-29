@@ -28,6 +28,9 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     - Use the requested difficulty.
     - Keep each explanation concise.
     - Avoid ambiguous and trick questions.
+    - Use plain text in all JSON string values.
+    - Do not include backslash characters in generated field values.
+    - Do not escape asterisks. Write "A-star" instead of "A*".
 
     The schema is an instruction only. Do not repeat or reproduce it.
     Output exactly one JSON object whose top-level key is "questions".
