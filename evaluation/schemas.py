@@ -29,3 +29,4 @@ class EvaluationResult(BaseModel):
     validated_response: QuizResponse | None = None
     error_type: str | None = None
     error_message: str | None = None
+    max_new_tokens: int
