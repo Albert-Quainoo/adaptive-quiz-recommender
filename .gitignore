@@ -44,6 +44,10 @@ logs/*
 wandb/
 runs/
 
+# Evaluation results
+evaluation/results/*
+!evaluation/results/.gitkeep
+
 # Hugging Face cache
 .cache/
 huggingface/

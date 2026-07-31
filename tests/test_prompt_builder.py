@@ -2,7 +2,6 @@ from api.schemas import QuizGenerationRequest
 import pytest
 from api.prompt_builder import build_quiz_messages
 
-
 def test_builds_system_and_user_messages():
     valid_request = QuizGenerationRequest(
         topic="Stacks",

@@ -55,14 +55,15 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
 
     return [turn.model_dump() for turn in turns]
 
-quiz_input = QuizGenerationRequest(
-    topic="Python Pydantic V2",
-    difficulty="intermediate",
-    learning_objective="Understand validation",
-    question_count=5
-)
-messages = build_quiz_messages(quiz_input)
+if __name__ == "__main__":
+    quiz_input = QuizGenerationRequest(
+        topic="Python Pydantic V2",
+        difficulty="intermediate",
+        learning_objective="Understand validation",
+        question_count=5
+    )
+    messages = build_quiz_messages(quiz_input)
 
-for message in messages:
-    print(f"\n--- {message['role'].upper()} ---\n")
-    print(message["content"])
+    for message in messages:
+        print(f"\n--- {message['role'].upper()} ---\n")
+        print(message["content"])
