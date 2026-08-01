@@ -111,7 +111,7 @@ def main() -> None:
     model_id = get_model_id()
     output_path = create_output_path()
 
-    cases = BASELINE_CASES[:1]
+    cases = BASELINE_CASES
 
     with output_path.open("w", encoding="utf-8") as result_file:
         for index, case in enumerate(cases, start=1):
