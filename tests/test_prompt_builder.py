@@ -75,3 +75,45 @@ def test_system_message_contains_output_requirements():
 
      for fragment in required_system_fragments:
         assert fragment in system_content, f"Required system prompt fragment is missing: '{fragment!r}'"
+
+@pytest.fixture
+def system_content():
+    request = QuizGenerationRequest(
+        topic="Neural networks",
+        difficulty="advanced",
+        learning_objective="Analyse a neural-network forward pass.",
+        question_count=3,
+    )
+
+    messages = build_quiz_messages(request)
+
+    return messages[0]["content"]
+
+def test_system_message_defines_difficulty_levels(system_content):
+    assert "Introductory:" in system_content
+    assert "Intermediate:" in system_content
+    assert "Advanced:" in system_content
+
+def test_system_message_requires_objective_alignment(system_content):
+    assert "directly assess the learning objective" in system_content
+    assert "adjacent topics" in system_content
+
+def test_system_message_respects_objective_verbs(system_content):
+    assert "calculate, apply, analyse, or evaluate" in system_content
+    assert "definition recall" in system_content
+
+def test_system_message_prohibits_duplicate_questions(system_content):
+    assert "distinct aspect of the learning objective" in system_content
+    assert "Do not restate an earlier question" in system_content
+
+def test_system_message_requires_plausible_distractors(system_content):
+    assert "plausible misconceptions" in system_content
+    assert "obviously unrelated options" in system_content
+
+def test_system_message_requires_teaching_explanations(system_content):
+    assert "Explain why the correct answer is correct" in system_content
+    assert "Do not merely repeat the correct answer" in system_content
+
+def test_system_message_does_not_use_broad_a_star_replacement(system_content):
+    assert 'Write "A-star" instead of "A*"' not in system_content
+    assert 'Do not use "-star" as an answer-option label' in system_content

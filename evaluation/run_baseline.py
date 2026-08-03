@@ -9,10 +9,11 @@ from api.model_loader import get_model_id, load_model, load_tokenizer
 from api.quiz_generator import generate_raw_quiz
 from api.response_parser import parse_quiz_messages
 from evaluation.baseline_cases import BASELINE_CASES
+from api.prompt_builder import PROMPT_VERSION
 from evaluation.schemas import EvaluationCase, EvaluationResult
 
-RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
+RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 def create_output_path() -> Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,14 @@ def create_output_path() -> Path:
 
 
 def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
+
+    result_metadata = {
+    "case_id": case.case_id,
+    "model_id": model_id,
+    "prompt_version": PROMPT_VERSION,
+    "request": case.request,
+    }
+
     start_time = time.perf_counter()
 
     try:
@@ -32,9 +41,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
         )
     except Exception as error:  # noqa: BLE001 - record the failure and keep evaluating later cases
         return EvaluationResult(
-            case_id=case.case_id,
-            model_id=model_id,
-            request=case.request,
+            **result_metadata,
             status="generation_error",
             latency_seconds=time.perf_counter() - start_time,
             error_type=type(error).__name__,
@@ -46,9 +53,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
         quiz = parse_quiz_messages(raw_response)
     except json.JSONDecodeError as error:
         return EvaluationResult(
-            case_id=case.case_id,
-            model_id=model_id,
-            request=case.request,
+            **result_metadata,
             status="json_error",
             latency_seconds=time.perf_counter() - start_time,
             json_valid=False,
@@ -59,9 +64,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
         )
     except ValidationError as error:
         return EvaluationResult(
-            case_id=case.case_id,
-            model_id=model_id,
-            request=case.request,
+            **result_metadata,
             status="schema_error",
             latency_seconds=time.perf_counter() - start_time,
             json_valid=True,
@@ -88,9 +91,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     )
 
     return EvaluationResult(
-        case_id=case.case_id,
-        model_id=model_id,
-        request=case.request,
+        **result_metadata,
         max_new_tokens=case.max_new_tokens,
         status=status,
         latency_seconds=time.perf_counter() - start_time,

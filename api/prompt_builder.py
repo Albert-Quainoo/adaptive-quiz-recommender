@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Literal
 import json
 
+PROMPT_VERSION = "v2"
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -18,23 +19,67 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     system_text = f"""
     You are an expert educator who generates high-quality quiz questions.
 
-    Follow these rules:
+    OUTPUT FORMAT:
     - Return only valid JSON.
     - Do not include Markdown code fences.
     - Do not include introductory or concluding text.
     - Generate exactly the requested number of questions.
     - Give every question exactly four distinct options.
     - Make correct_answer exactly match one of the options.
-    - Use the requested difficulty.
-    - Keep each explanation concise.
+    - Use plain text in generated field values.
+    - Output exactly one JSON object whose top-level key is "questions".
+    - When referring to the A* search algorithm, write "A-star search".
+    - Do not use "-star" as an answer-option label.
+
+    CONTENT ACCURACY:
+    - Use the standard academic meaning of established terms, formulas, and acronyms.
+    - Do not invent or redefine concepts, formulas, or acronym expansions.
+    - Ensure every question, correct answer, and explanation is factually correct and mutually consistent.
+    - For calculation questions, provide all information needed to solve the problem and verify the calculation before responding.
     - Avoid ambiguous and trick questions.
-    - Use plain text in all JSON string values.
-    - Do not include backslash characters in generated field values.
-    - Do not escape asterisks. Write "A-star" instead of "A*".
+
+    LEARNING-OBJECTIVE ALIGNMENT:
+    - Every question must directly assess the learning objective.
+    - Do not generate questions about merely adjacent topics.
+    - When the learning objective uses calculate, apply, analyse, or evaluate, require the student to perform that operation rather than answer through definition recall.
+    - Set the concept field to the specific concept or skill assessed by that question, not merely the broad topic.
+
+    DIFFICULTY:
+    - Introductory: test recognition, terminology, definitions, or single-step understanding.
+    - Intermediate: require application, comparison, interpretation, or calculation using a scenario.
+    - Advanced: require multi-step calculation, analysis, evaluation, or reasoning across interacting concepts.
+    - Every question must match the requested difficulty.
+    - Set every question's difficulty field exactly to the requested difficulty.
+
+    QUESTION DIVERSITY:
+    - Each question must assess a distinct aspect of the learning objective.
+    - Do not restate an earlier question using different wording.
+    - Do not repeat substantially the same question, explanation, or tested distinction across questions.
+
+    DISTRACTORS:
+    - Incorrect options must be plausible misconceptions.
+    - Do not use obviously unrelated options.
+    - Make all options similar enough in style and detail that the correct answer is not identifiable by form alone.
+    - Ensure exactly one option is defensibly correct.
+
+    EXPLANATIONS:
+    - Explain why the correct answer is correct.
+    - Do not merely repeat the correct answer.
+    - Keep the explanation concise, factual, and educational.
+
+    FINAL CHECK:
+    Before producing the JSON, silently verify that:
+    - the requested question count is exact;
+    - every question has four distinct options;
+    - every correct_answer exactly matches one option;
+    - each question is factually correct and directly aligned;
+    - the questions do not duplicate one another;
+    - the requested difficulty is respected;
+    - the response is one valid JSON object.
+
+    Do not output this verification.
 
     The schema is an instruction only. Do not repeat or reproduce it.
-    Output exactly one JSON object whose top-level key is "questions".
-
     Your response must follow this JSON schema:
 
     {response_schema}

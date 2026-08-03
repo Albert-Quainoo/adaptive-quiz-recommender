@@ -7,6 +7,9 @@ from api.schemas import(
     QuizResponse,
 )
 
+from evaluation.schemas import EvaluationResult
+from evaluation.schemas import EvaluationCase
+
 def test_valid_generation_request():
     request = QuizGenerationRequest(
         topic="Stacks",
@@ -91,9 +94,56 @@ def test_invalid_question_counts_are_rejected(invalid_count):
             question_count=invalid_count
         )
 
+def test_evaluation_result_tracks_prompt_version():
+    case = EvaluationCase(
+        case_id="TEST_001",
+        request=QuizGenerationRequest(
+            topic="Stacks",
+            difficulty="introductory",
+            learning_objective="Identify stack operations.",
+            question_count=1,
+        ),
+        max_new_tokens=1200,
+    )
 
+    result = EvaluationResult(
+        case_id=case.case_id,
+        model_id="test-model",
+        prompt_version="v2",
+        request=case.request,
+        status="generation_error",
+        latency_seconds=0.1,
+        max_new_tokens=case.max_new_tokens,
+        error_type="TestError",
+        error_message="Intentional test failure",
+    )
 
+    assert result.prompt_version == "v2"
+    assert result.model_dump()["prompt_version"] == "v2"
 
+def test_evaluation_result_requires_prompt_version():
+    case = EvaluationCase(
+        case_id="TEST_001",
+        request=QuizGenerationRequest(
+            topic="Stacks",
+            difficulty="introductory",
+            learning_objective="Identify stack operations.",
+            question_count=1,
+        ),
+        max_new_tokens=1200,
+    )
+
+    with pytest.raises(ValidationError, match="prompt_version"):
+        EvaluationResult(
+            case_id=case.case_id,
+            model_id="test-model",
+            request=case.request,
+            status="generation_error",
+            latency_seconds=0.1,
+            max_new_tokens=case.max_new_tokens,
+            error_type="TestError",
+            error_message="Intentional test failure",
+        )
 
 
 

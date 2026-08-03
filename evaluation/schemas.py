@@ -18,6 +18,7 @@ class EvaluationCase(BaseModel):
 class EvaluationResult(BaseModel):
     case_id: str
     model_id: str
+    prompt_version: str
     request: QuizGenerationRequest
     status: EvaluationStatus
     latency_seconds: float = Field(ge=0)

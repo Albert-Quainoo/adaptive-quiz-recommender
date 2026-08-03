@@ -51,3 +51,4 @@ def test_topic_learning_objective_not_empty():
 
 def test_nine_cases_present():
     assert len(BASELINE_CASES) == 9
+
