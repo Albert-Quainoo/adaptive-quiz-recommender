@@ -15,19 +15,22 @@ from evaluation.schemas import EvaluationCase, EvaluationResult
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
-def create_output_path() -> Path:
+def create_run_id() -> str:
+    return datetime.now(timezone.utc).strftime("baseline_%Y%m%d_%H%M%S")
+
+
+def create_output_path(run_id: str) -> Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-    return RESULTS_DIR / f"baseline_{timestamp}.jsonl"
+    return RESULTS_DIR / f"{run_id}.jsonl"
 
 
-def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
+def evaluate_case(case: EvaluationCase, model_id: str, run_id: str) -> EvaluationResult:
 
     max_new_tokens = case.max_new_tokens or token_budget(case.request.question_count)
 
     result_metadata = {
+    "run_id": run_id,
     "case_id": case.case_id,
     "model_id": model_id,
     "prompt_version": PROMPT_VERSION,
@@ -113,14 +116,15 @@ def main() -> None:
     load_model()
 
     model_id = get_model_id()
-    output_path = create_output_path()
+    run_id = create_run_id()
+    output_path = create_output_path(run_id)
 
     cases = BASELINE_CASES
     results: list[EvaluationResult] = []
 
     with output_path.open("w", encoding="utf-8") as result_file:
         for index, case in enumerate(cases, start=1):
-            result = evaluate_case(case, model_id)
+            result = evaluate_case(case, model_id, run_id)
             results.append(result)
 
             result_file.write(result.model_dump_json() + "\n")
@@ -135,7 +139,10 @@ def main() -> None:
     for objective in ("conceptual", "calculation"):
         matching = [result for result in results if result.objective_type == objective]
         succeeded = sum(result.pipeline_status == "valid" for result in matching)
-        print(f"{objective}: {succeeded}/{len(matching)} succeeded")
+        print(
+            f"{objective}: "
+            f"{succeeded}/{len(matching)} pipeline-valid"
+        )
 
     print(f"\nResults written to {output_path}")
 

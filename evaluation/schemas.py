@@ -42,6 +42,7 @@ class EvaluationCase(BaseModel):
     max_new_tokens: int | None = Field(default=None,gt=0)
 
 class EvaluationResult(BaseModel):
+    run_id: str
     case_id: str
     model_id: str
     prompt_version: str
@@ -58,4 +59,3 @@ class EvaluationResult(BaseModel):
     error_type: str | None = None
     error_message: str | None = None
     max_new_tokens: int
-    human_review: HumanReview | None = None

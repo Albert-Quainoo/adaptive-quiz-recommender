@@ -109,6 +109,7 @@ def test_evaluation_result_tracks_prompt_version():
     )
 
     result = EvaluationResult(
+        run_id="baseline_20260804_040615",
         case_id=case.case_id,
         model_id="test-model",
         prompt_version="v2",
@@ -139,6 +140,7 @@ def test_evaluation_result_requires_prompt_version():
 
     with pytest.raises(ValidationError, match="prompt_version"):
         EvaluationResult(
+            run_id="baseline_20260804_040615",
             case_id=case.case_id,
             model_id="test-model",
             request=case.request,
@@ -152,6 +154,7 @@ def test_evaluation_result_requires_prompt_version():
 
 def valid_evaluation_result(**overrides) -> EvaluationResult:
     fields = {
+        "run_id": "baseline_20260804_040615",
         "case_id": "TEST_001",
         "model_id": "test-model",
         "prompt_version": "v3.1",
@@ -192,26 +195,16 @@ def test_invalid_pipeline_status_is_rejected():
         valid_evaluation_result(pipeline_status="success")
 
 
-def test_evaluation_result_human_review_is_optional():
-    assert valid_evaluation_result().human_review is None
+def test_evaluation_result_tracks_run_id():
+    result = valid_evaluation_result()
+
+    assert result.run_id == "baseline_20260804_040615"
 
 
-def test_evaluation_result_carries_human_review_through_serialisation():
-    result = valid_evaluation_result(
-        human_review=HumanReview(
-            quality_status="rejected",
-            factually_correct=False,
-            objective_aligned=True,
-            reviewer_notes="Distractor is also correct.",
-        )
-    )
+def test_pipeline_result_does_not_contain_human_review():
+    result = valid_evaluation_result()
 
-    dumped = result.model_dump()
-    assert dumped["human_review"]["quality_status"] == "rejected"
-    assert dumped["human_review"]["factually_correct"] is False
-    assert dumped["human_review"]["difficulty_appropriate"] is None
-
-    assert EvaluationResult.model_validate_json(result.model_dump_json()) == result
+    assert "human_review" not in result.model_dump()
 
 
 def test_human_review_record_links_run_and_case():
