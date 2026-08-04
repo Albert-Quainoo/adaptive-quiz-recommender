@@ -38,6 +38,12 @@ def test_positive_token_budget():
     )
 
 
+def test_objective_types_cover_both_kinds():
+    objective_types = {case.objective_type for case in BASELINE_CASES}
+
+    assert objective_types == {"conceptual", "calculation"}
+
+
 def test_every_case_supplies_reference_material():
     assert all(
         case.request.reference_material

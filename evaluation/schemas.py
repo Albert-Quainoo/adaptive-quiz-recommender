@@ -10,9 +10,15 @@ EvaluationStatus = Literal[
     "generation_error"
 ]
 
+objective_type = Literal[
+    "conceptual",
+    "calculation",
+]
+
 class EvaluationCase(BaseModel):
     case_id: str
     request: QuizGenerationRequest
+    objective_type: objective_type
     max_new_tokens: int | None = Field(default=None,gt=0)
 
 class EvaluationResult(BaseModel):
@@ -20,6 +26,7 @@ class EvaluationResult(BaseModel):
     model_id: str
     prompt_version: str
     request: QuizGenerationRequest
+    objective_type: objective_type
     status: EvaluationStatus
     latency_seconds: float = Field(ge=0)
     json_valid: bool | None = None

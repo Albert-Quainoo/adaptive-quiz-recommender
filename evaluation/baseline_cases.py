@@ -4,6 +4,7 @@ from evaluation.schemas import EvaluationCase
 BASELINE_CASES: list[EvaluationCase] = [
     EvaluationCase(
         case_id="BASE_AGENT_001",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="Intelligent agents",
             difficulty="introductory",
@@ -18,6 +19,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_AGENT_002",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="PEAS and environment types",
             difficulty="intermediate",
@@ -33,6 +35,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_SEARCH_001",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="BFS and DFS",
             difficulty="intermediate",
@@ -48,6 +51,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_SEARCH_002",
+        objective_type="calculation",
         request=QuizGenerationRequest(
             topic="Uniform-cost search",
             difficulty="intermediate",
@@ -63,6 +67,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_SEARCH_003",
+        objective_type="calculation",
         request=QuizGenerationRequest(
             topic="A-star search",
             difficulty="advanced",
@@ -79,6 +84,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_ML_001",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="Supervised learning",
             difficulty="introductory",
@@ -93,6 +99,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_ML_002",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="Classification and regression",
             difficulty="intermediate",
@@ -107,6 +114,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_ML_003",
+        objective_type="calculation",
         request=QuizGenerationRequest(
             topic="K-means clustering",
             difficulty="intermediate",
@@ -121,6 +129,7 @@ BASELINE_CASES: list[EvaluationCase] = [
     ),
     EvaluationCase(
         case_id="BASE_NN_001",
+        objective_type="calculation",
         request=QuizGenerationRequest(
             topic="Neural networks",
             difficulty="advanced",

@@ -32,6 +32,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     "model_id": model_id,
     "prompt_version": PROMPT_VERSION,
     "request": case.request,
+    "objective_type": case.objective_type,
     }
 
     start_time = time.perf_counter()
@@ -115,10 +116,12 @@ def main() -> None:
     output_path = create_output_path()
 
     cases = BASELINE_CASES
+    results: list[EvaluationResult] = []
 
     with output_path.open("w", encoding="utf-8") as result_file:
         for index, case in enumerate(cases, start=1):
             result = evaluate_case(case, model_id)
+            results.append(result)
 
             result_file.write(result.model_dump_json() + "\n")
             result_file.flush()
@@ -127,6 +130,13 @@ def main() -> None:
                 f"[{index}/{len(cases)}] {case.case_id}: "
                 f"{result.status} - {result.latency_seconds:.2f} seconds"
             )
+
+    print()
+    for objective in ("conceptual", "calculation"):
+        matching = [result for result in results if result.objective_type == objective]
+        succeeded = sum(result.status == "success" for result in matching)
+
+        print(f"{objective}: {succeeded}/{len(matching)} succeeded")
 
     print(f"\nResults written to {output_path}")
 

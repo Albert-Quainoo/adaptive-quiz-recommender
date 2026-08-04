@@ -97,6 +97,7 @@ def test_invalid_question_counts_are_rejected(invalid_count):
 def test_evaluation_result_tracks_prompt_version():
     case = EvaluationCase(
         case_id="TEST_001",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="Stacks",
             difficulty="introductory",
@@ -111,6 +112,7 @@ def test_evaluation_result_tracks_prompt_version():
         model_id="test-model",
         prompt_version="v2",
         request=case.request,
+        objective_type=case.objective_type,
         status="generation_error",
         latency_seconds=0.1,
         max_new_tokens=case.max_new_tokens,
@@ -124,6 +126,7 @@ def test_evaluation_result_tracks_prompt_version():
 def test_evaluation_result_requires_prompt_version():
     case = EvaluationCase(
         case_id="TEST_001",
+        objective_type="conceptual",
         request=QuizGenerationRequest(
             topic="Stacks",
             difficulty="introductory",
