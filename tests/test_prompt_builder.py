@@ -142,6 +142,9 @@ def test_user_message_omits_reference_material_when_absent():
     assert "Reference material:" not in build_quiz_messages(request)[1]["content"]
 
 
+def test_system_message_forbids_positional_correct_answers(system_content):
+    assert "never a letter, number, or position" in system_content
+
 def test_system_message_prefers_reference_material_over_recall(system_content):
     assert "treat it as the authoritative source" in system_content
 

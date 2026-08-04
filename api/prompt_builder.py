@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Literal
 import json
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v3.1"
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -26,6 +26,7 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     - Generate exactly the requested number of questions.
     - Give every question exactly four distinct options.
     - Make correct_answer exactly match one of the options.
+    - Set correct_answer to the full text of the correct option, never a letter, number, or position.
     - Use plain text in generated field values.
     - Output exactly one JSON object whose top-level key is "questions".
     - When referring to the A* search algorithm, write "A-star search".
