@@ -38,6 +38,13 @@ def test_positive_token_budget():
     )
 
 
+def test_every_case_supplies_reference_material():
+    assert all(
+        case.request.reference_material
+        for case in BASELINE_CASES
+    )
+
+
 def test_topic_learning_objective_not_empty():
     assert all (
         case.request.topic.strip()

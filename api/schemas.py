@@ -42,4 +42,5 @@ class QuizGenerationRequest(BaseModel):
     difficulty: difficulty_level
     learning_objective: str = Field(min_length=1)
     question_count: int = Field(ge=1, le=10)
+    reference_material: list[str] = Field(default_factory=list)
 

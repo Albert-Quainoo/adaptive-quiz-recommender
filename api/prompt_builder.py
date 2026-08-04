@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Literal
 import json
 
-PROMPT_VERSION = "v2.1"
+PROMPT_VERSION = "v3"
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -32,6 +32,7 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     - Do not use "-star" as an answer-option label.
 
     CONTENT ACCURACY:
+    - When reference material is supplied, treat it as the authoritative source and prefer it over your own recall.
     - Use the standard academic meaning of established terms, formulas, and acronyms.
     - Do not invent or redefine concepts, formulas, or acronym expansions.
     - Ensure every question, correct answer, and explanation is factually correct and mutually consistent.
@@ -81,6 +82,10 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
         f"- Learning Objective: {request.learning_objective}\n"
         f"- Number of Questions: {request.question_count}"
     )
+
+    if request.reference_material:
+        facts = "\n".join(f"- {fact}" for fact in request.reference_material)
+        user_text += f"\n\nReference material:\n{facts}"
 
     turns = [
         ChatTurn(role="system", content=system_text),

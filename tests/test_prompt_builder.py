@@ -114,6 +114,37 @@ def test_system_message_requires_teaching_explanations(system_content):
     assert "Explain why the correct answer is correct" in system_content
     assert "Do not merely repeat the correct answer" in system_content
 
+def test_user_message_includes_reference_material():
+    request = QuizGenerationRequest(
+        topic="PEAS and environment types",
+        difficulty="intermediate",
+        learning_objective="Identify PEAS components.",
+        question_count=3,
+        reference_material=[
+            "PEAS stands for Performance measure, Environment, Actuators, Sensors.",
+        ],
+    )
+
+    user_content = build_quiz_messages(request)[1]["content"]
+
+    assert "Reference material:" in user_content
+    assert "- PEAS stands for Performance measure, Environment, Actuators, Sensors." in user_content
+
+
+def test_user_message_omits_reference_material_when_absent():
+    request = QuizGenerationRequest(
+        topic="Stacks",
+        difficulty="introductory",
+        learning_objective="Stack operations",
+        question_count=2,
+    )
+
+    assert "Reference material:" not in build_quiz_messages(request)[1]["content"]
+
+
+def test_system_message_prefers_reference_material_over_recall(system_content):
+    assert "treat it as the authoritative source" in system_content
+
 def test_system_message_limits_explanation_length(system_content):
     assert "Limit each explanation to one or two sentences" in system_content
 
