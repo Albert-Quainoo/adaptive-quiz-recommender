@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Literal
 import json
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v2.1"
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -65,19 +65,8 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     EXPLANATIONS:
     - Explain why the correct answer is correct.
     - Do not merely repeat the correct answer.
-    - Keep the explanation concise, factual, and educational.
-
-    FINAL CHECK:
-    Before producing the JSON, silently verify that:
-    - the requested question count is exact;
-    - every question has four distinct options;
-    - every correct_answer exactly matches one option;
-    - each question is factually correct and directly aligned;
-    - the questions do not duplicate one another;
-    - the requested difficulty is respected;
-    - the response is one valid JSON object.
-
-    Do not output this verification.
+    - Limit each explanation to one or two sentences.
+    - Keep the explanation factual and educational.
 
     The schema is an instruction only. Do not repeat or reproduce it.
     Your response must follow this JSON schema:

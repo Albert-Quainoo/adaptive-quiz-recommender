@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from api.model_loader import get_model_id, load_model, load_tokenizer
-from api.quiz_generator import generate_raw_quiz
+from api.quiz_generator import generate_raw_quiz, token_budget
 from api.response_parser import parse_quiz_messages
 from evaluation.baseline_cases import BASELINE_CASES
 from api.prompt_builder import PROMPT_VERSION
@@ -25,6 +25,8 @@ def create_output_path() -> Path:
 
 def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
 
+    max_new_tokens = case.max_new_tokens or token_budget(case.request.question_count)
+
     result_metadata = {
     "case_id": case.case_id,
     "model_id": model_id,
@@ -37,7 +39,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     try:
         raw_response = generate_raw_quiz(
             case.request,
-            max_new_tokens=case.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
     except Exception as error:  # noqa: BLE001 - record the failure and keep evaluating later cases
         return EvaluationResult(
@@ -46,7 +48,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
             latency_seconds=time.perf_counter() - start_time,
             error_type=type(error).__name__,
             error_message=str(error),
-            max_new_tokens=case.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
 
     try:
@@ -60,7 +62,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
             raw_response=raw_response,
             error_type=type(error).__name__,
             error_message=str(error),
-            max_new_tokens=case.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
     except ValidationError as error:
         return EvaluationResult(
@@ -72,7 +74,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
             raw_response=raw_response,
             error_type=type(error).__name__,
             error_message=str(error),
-            max_new_tokens=case.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
 
     generated_count = len(quiz.questions)
@@ -92,7 +94,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
 
     return EvaluationResult(
         **result_metadata,
-        max_new_tokens=case.max_new_tokens,
+        max_new_tokens=max_new_tokens,
         status=status,
         latency_seconds=time.perf_counter() - start_time,
         json_valid=True,

@@ -114,6 +114,12 @@ def test_system_message_requires_teaching_explanations(system_content):
     assert "Explain why the correct answer is correct" in system_content
     assert "Do not merely repeat the correct answer" in system_content
 
+def test_system_message_limits_explanation_length(system_content):
+    assert "Limit each explanation to one or two sentences" in system_content
+
+def test_system_message_does_not_restate_rules_as_a_final_check(system_content):
+    assert "FINAL CHECK" not in system_content
+
 def test_system_message_does_not_use_broad_a_star_replacement(system_content):
     assert 'Write "A-star" instead of "A*"' not in system_content
     assert 'Do not use "-star" as an answer-option label' in system_content

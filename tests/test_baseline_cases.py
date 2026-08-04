@@ -1,3 +1,4 @@
+from api.quiz_generator import token_budget
 from evaluation.baseline_cases import BASELINE_CASES
 
 
@@ -32,7 +33,7 @@ def test_include_question_count():
 
 def test_positive_token_budget():
     assert all(
-        case.max_new_tokens  == 1200
+        (case.max_new_tokens or token_budget(case.request.question_count)) > 0
         for case in BASELINE_CASES
     )
 

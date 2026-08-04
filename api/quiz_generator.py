@@ -5,7 +5,14 @@ from api.model_loader import load_model, load_tokenizer
 from api.prompt_builder import build_quiz_messages
 from api.response_parser import parse_quiz_messages
 
-def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200) -> str:
+def token_budget(question_count: int) -> int:
+    return 200 + 400 * question_count
+
+
+def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int | None = None) -> str:
+    if max_new_tokens is None:
+        max_new_tokens = token_budget(request.question_count)
+
     tokenizer = load_tokenizer()
     model = load_model()
 
@@ -36,7 +43,7 @@ def generate_raw_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200
     return response
 
 
-def generate_quiz(request: QuizGenerationRequest, max_new_tokens: int = 1200,) -> QuizResponse:
+def generate_quiz(request: QuizGenerationRequest, max_new_tokens: int | None = None,) -> QuizResponse:
     raw_response = generate_raw_quiz(request, max_new_tokens)
 
     quiz = parse_quiz_messages(raw_response)

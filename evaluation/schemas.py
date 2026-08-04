@@ -13,7 +13,7 @@ EvaluationStatus = Literal[
 class EvaluationCase(BaseModel):
     case_id: str
     request: QuizGenerationRequest
-    max_new_tokens: int = Field(default=1200,gt=0)
+    max_new_tokens: int | None = Field(default=None,gt=0)
 
 class EvaluationResult(BaseModel):
     case_id: str
