@@ -2,8 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Literal
 from api.schemas import QuizGenerationRequest, QuizResponse
 
-EvaluationStatus = Literal[
-    "success",
+PipelineStatus = Literal[
+    "valid",
     "json_error",
     "schema_error",
     "count_error",
@@ -14,6 +14,26 @@ objective_type = Literal[
     "conceptual",
     "calculation",
 ]
+
+QualityStatus = Literal[
+    "not_reviewed",
+    "approved",
+    "rejected",
+]
+
+class HumanReview(BaseModel):
+    quality_status: QualityStatus = "not_reviewed"
+    factually_correct: bool | None = None
+    objective_aligned: bool | None = None
+    difficulty_appropriate: bool | None = None
+    requires_target_operation: bool | None = None
+    avoids_reference_regurgitation: bool | None = None
+    reviewer_notes: str | None = None
+
+class HumanReviewRecord(BaseModel):
+    run_id: str
+    case_id: str
+    review: HumanReview
 
 class EvaluationCase(BaseModel):
     case_id: str
@@ -27,7 +47,7 @@ class EvaluationResult(BaseModel):
     prompt_version: str
     request: QuizGenerationRequest
     objective_type: objective_type
-    status: EvaluationStatus
+    pipeline_status: PipelineStatus
     latency_seconds: float = Field(ge=0)
     json_valid: bool | None = None
     schema_valid: bool | None = None
@@ -38,3 +58,4 @@ class EvaluationResult(BaseModel):
     error_type: str | None = None
     error_message: str | None = None
     max_new_tokens: int
+    human_review: HumanReview | None = None

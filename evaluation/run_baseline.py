@@ -45,7 +45,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     except Exception as error:  # noqa: BLE001 - record the failure and keep evaluating later cases
         return EvaluationResult(
             **result_metadata,
-            status="generation_error",
+            pipeline_status="generation_error",
             latency_seconds=time.perf_counter() - start_time,
             error_type=type(error).__name__,
             error_message=str(error),
@@ -57,7 +57,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     except json.JSONDecodeError as error:
         return EvaluationResult(
             **result_metadata,
-            status="json_error",
+            pipeline_status="json_error",
             latency_seconds=time.perf_counter() - start_time,
             json_valid=False,
             raw_response=raw_response,
@@ -68,7 +68,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     except ValidationError as error:
         return EvaluationResult(
             **result_metadata,
-            status="schema_error",
+            pipeline_status="schema_error",
             latency_seconds=time.perf_counter() - start_time,
             json_valid=True,
             schema_valid=False,
@@ -82,11 +82,11 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     count_valid = generated_count == case.request.question_count
 
     if count_valid: 
-        status = "success"
+        pipeline_status = "valid"
         error_type = None
         error_message = None
     else:
-        status = "count_error"
+        pipeline_status = "count_error"
         error_type = "QuestionCountMismatch"
         error_message = (
         f"Requested {case.request.question_count} questions, "
@@ -96,7 +96,7 @@ def evaluate_case(case: EvaluationCase, model_id: str) -> EvaluationResult:
     return EvaluationResult(
         **result_metadata,
         max_new_tokens=max_new_tokens,
-        status=status,
+        pipeline_status=pipeline_status,
         latency_seconds=time.perf_counter() - start_time,
         json_valid=True,
         schema_valid=True,
@@ -128,14 +128,13 @@ def main() -> None:
 
             print(
                 f"[{index}/{len(cases)}] {case.case_id}: "
-                f"{result.status} - {result.latency_seconds:.2f} seconds"
+                f"{result.pipeline_status} - {result.latency_seconds:.2f} seconds"
             )
 
     print()
     for objective in ("conceptual", "calculation"):
         matching = [result for result in results if result.objective_type == objective]
-        succeeded = sum(result.status == "success" for result in matching)
-
+        succeeded = sum(result.pipeline_status == "valid" for result in matching)
         print(f"{objective}: {succeeded}/{len(matching)} succeeded")
 
     print(f"\nResults written to {output_path}")
