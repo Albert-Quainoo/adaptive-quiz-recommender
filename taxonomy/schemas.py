@@ -139,7 +139,7 @@ def find_prerequisite_cycle(prerequisites: dict[str, list[str]]) -> list[str] | 
 
 
 class SkillCatalogue(BaseModel):
-    skills: list[SkillDefinition]
+    skills: list[SkillDefinition] = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_prerequisite_graph(self) -> "SkillCatalogue":
@@ -172,3 +172,11 @@ class SkillCatalogue(BaseModel):
             raise ValueError(f"Prerequisite cycle: {' -> '.join(cycle)}")
 
         return self
+
+
+def find_skills_missing_reference_material(catalogue: SkillCatalogue) -> list[str]:
+    return [
+        skill.skill_id
+        for skill in catalogue.skills
+        if skill.generation_strategy == "generated" and not skill.reference_material
+    ]

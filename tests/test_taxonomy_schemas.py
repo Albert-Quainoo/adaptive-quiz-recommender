@@ -1,19 +1,46 @@
 import pytest
 from pydantic import ValidationError
 
-from taxonomy.schemas import SkillCatalogue, SkillDefinition
+from taxonomy.schemas import (
+    SkillCatalogue,
+    SkillDefinition,
+    find_skills_missing_reference_material,
+)
+
+SKILLS = {
+    "AI-SRC-07": (
+        "Uninformed search",
+        "DLS and IDDFS",
+        "Explain how iterative deepening combines the strengths of DFS and BFS.",
+    ),
+    "AI-SRC-08": (
+        "Informed search",
+        "Heuristic function",
+        "Explain how a heuristic estimates the remaining cost from a state to the goal.",
+    ),
+    "AI-SRC-09": (
+        "Informed search",
+        "Greedy Best-First Search",
+        "Describe how greedy best-first search expands the lowest heuristic node.",
+    ),
+    "AI-SRC-10": (
+        "Informed search",
+        "A-star Search",
+        "Trace A-star search using f(n) = g(n) + h(n).",
+    ),
+}
 
 
 def valid_skill(**overrides) -> SkillDefinition:
+    skill_id = str(overrides.get("skill_id", "AI-SRC-08")).strip().upper()
+    subtopic, name, learning_objective = SKILLS.get(skill_id, SKILLS["AI-SRC-08"])
+
     fields = {
         "skill_id": "AI-SRC-08",
         "topic": "Search and Problem Solving",
-        "subtopic": "Informed search",
-        "name": "Heuristic function",
-        "learning_objective": (
-            "Explain how a heuristic estimates the remaining "
-            "cost from a state to the goal."
-        ),
+        "subtopic": subtopic,
+        "name": name,
+        "learning_objective": learning_objective,
         "cognitive_process": "understand",
         "generation_strategy": "generated",
     }
@@ -119,9 +146,9 @@ def test_malformed_prerequisite_skill_id_is_rejected(prerequisite_id):
 
 
 def test_prerequisite_skill_ids_are_normalised():
-    skill = valid_skill(prerequisite_skill_ids=[" ai-src-07 ", "AI-SRC-06"])
+    skill = valid_skill(prerequisite_skill_ids=[" ai-src-07 ", "AI-SRC-09"])
 
-    assert skill.prerequisite_skill_ids == ["AI-SRC-07", "AI-SRC-06"]
+    assert skill.prerequisite_skill_ids == ["AI-SRC-07", "AI-SRC-09"]
 
 
 def test_duplicate_prerequisites_within_a_skill_are_rejected():
@@ -132,13 +159,18 @@ def test_duplicate_prerequisites_within_a_skill_are_rejected():
 def test_catalogue_accepts_a_resolvable_graph():
     catalogue = SkillCatalogue(
         skills=[
-            valid_skill(skill_id="AI-SRC-06"),
-            valid_skill(skill_id="AI-SRC-07", prerequisite_skill_ids=["AI-SRC-06"]),
-            valid_skill(skill_id="AI-SRC-08", prerequisite_skill_ids=["AI-SRC-07"]),
+            valid_skill(skill_id="AI-SRC-08"),
+            valid_skill(skill_id="AI-SRC-09", prerequisite_skill_ids=["AI-SRC-08"]),
+            valid_skill(skill_id="AI-SRC-10", prerequisite_skill_ids=["AI-SRC-09"]),
         ]
     )
 
     assert len(catalogue.skills) == 3
+
+
+def test_catalogue_rejects_an_empty_skill_list():
+    with pytest.raises(ValidationError, match="skills"):
+        SkillCatalogue(skills=[])
 
 
 def test_catalogue_rejects_duplicate_skill_ids():
@@ -169,17 +201,32 @@ def test_catalogue_rejects_a_prerequisite_cycle():
 def test_catalogue_accepts_a_diamond_dependency():
     catalogue = SkillCatalogue(
         skills=[
-            valid_skill(skill_id="AI-SRC-06"),
-            valid_skill(skill_id="AI-SRC-07", prerequisite_skill_ids=["AI-SRC-06"]),
-            valid_skill(skill_id="AI-SRC-08", prerequisite_skill_ids=["AI-SRC-06"]),
+            valid_skill(skill_id="AI-SRC-07"),
+            valid_skill(skill_id="AI-SRC-08", prerequisite_skill_ids=["AI-SRC-07"]),
+            valid_skill(skill_id="AI-SRC-09", prerequisite_skill_ids=["AI-SRC-07"]),
             valid_skill(
-                skill_id="AI-SRC-09",
-                prerequisite_skill_ids=["AI-SRC-07", "AI-SRC-08"],
+                skill_id="AI-SRC-10",
+                prerequisite_skill_ids=["AI-SRC-08", "AI-SRC-09"],
             ),
         ]
     )
 
     assert len(catalogue.skills) == 4
+
+
+def test_generated_skills_without_reference_material_are_flagged():
+    catalogue = SkillCatalogue(
+        skills=[
+            valid_skill(
+                skill_id="AI-SRC-08",
+                reference_material=["A heuristic estimates the remaining cost."],
+            ),
+            valid_skill(skill_id="AI-SRC-09"),
+            valid_skill(skill_id="AI-SRC-10", generation_strategy="hand_authored"),
+        ]
+    )
+
+    assert find_skills_missing_reference_material(catalogue) == ["AI-SRC-09"]
 
 
 def test_list_defaults_are_not_shared_between_skills():
