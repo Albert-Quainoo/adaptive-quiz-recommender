@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -25,6 +26,48 @@ GenerationStrategy = Literal[
     "templated",
     "hand_authored",
 ]
+
+
+class ReferenceProvenance(BaseModel):
+    """The reviewed source record behind one canonical reference passage."""
+
+    reference_id: str = Field(min_length=1)
+    skill_id: SkillId
+    reference_material: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source_url: str = Field(min_length=1)
+    source_domain: str = Field(min_length=1)
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    retrieved_at: datetime
+    reviewer_id: str = Field(min_length=1)
+    reviewed_at: datetime
+    review_note: str | None = None
+
+    @field_validator(
+        "reference_id",
+        "reference_material",
+        "title",
+        "source_url",
+        "source_domain",
+        "reviewer_id",
+        mode="before",
+    )
+    @classmethod
+    def strip_provenance_text(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("skill_id", mode="before")
+    @classmethod
+    def normalise_reference_skill_id(cls, value: str) -> str:
+        return value.strip().upper() if isinstance(value, str) else value
+
+    @field_validator("review_note", mode="before")
+    @classmethod
+    def normalise_review_note(cls, value: str | None) -> str | None:
+        if not isinstance(value, str):
+            return value
+
+        return value.strip() or None
 
 class SkillDefinition(BaseModel):
     skill_id: SkillId

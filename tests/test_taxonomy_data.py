@@ -1,6 +1,11 @@
 from collections import Counter
 
-from taxonomy.loader import course_paths, load_skills
+from taxonomy.loader import (
+    course_paths,
+    course_provenance_path,
+    load_reference_provenance,
+    load_skills,
+)
 from taxonomy.schemas import (
     find_prerequisite_cycle,
     find_skills_missing_reference_material,
@@ -37,7 +42,7 @@ SKILLS_PER_TOPIC = {
 AWAITING_REFERENCE_MATERIAL = [
     "AI-FND-01", "AI-FND-02", "AI-FND-03", "AI-FND-04",
     "AI-AGT-01", "AI-AGT-02", "AI-AGT-03", "AI-AGT-04", "AI-AGT-05",
-    "AI-SRC-01", "AI-SRC-02", "AI-SRC-03", "AI-SRC-07", "AI-SRC-08", "AI-SRC-11",
+    "AI-SRC-03", "AI-SRC-07", "AI-SRC-11",
     "AI-ML-01", "AI-ML-02", "AI-ML-03", "AI-ML-04", "AI-ML-05",
     "AI-ML-06", "AI-ML-07", "AI-ML-08", "AI-ML-09",
     "AI-NN-01", "AI-NN-02", "AI-NN-03", "AI-NN-04",
@@ -55,6 +60,16 @@ IMPLEMENTED_TEMPLATES = [
 ]
 
 DECLARED_BUT_UNIMPLEMENTED_TEMPLATES = []
+
+PILOT_REFERENCE_IDS = {
+    "AI-SRC-01-4024dce75930",
+    "AI-SRC-01-8ef4e1416152",
+    "AI-SRC-01-9ba6548d4450",
+    "AI-SRC-02-a506d362b314",
+    "AI-SRC-02-aa97b7fb3bd9",
+    "AI-SRC-08-a366da363e17",
+    "AI-SRC-08-cbd77b22bcb9",
+}
 
 
 def catalogue():
@@ -121,6 +136,37 @@ def test_only_generated_skills_can_be_missing_references():
     assert all(
         strategies[skill_id] == "generated"
         for skill_id in AWAITING_REFERENCE_MATERIAL
+    )
+
+
+def test_the_approved_pilot_skills_are_generation_ready():
+    by_id = {skill.skill_id: skill for skill in catalogue().skills}
+
+    assert {
+        skill_id: len(by_id[skill_id].reference_material)
+        for skill_id in ("AI-SRC-01", "AI-SRC-02", "AI-SRC-08")
+    } == {
+        "AI-SRC-01": 3,
+        "AI-SRC-02": 2,
+        "AI-SRC-08": 2,
+    }
+
+
+def test_canonical_passages_and_provenance_stay_in_sync():
+    loaded = catalogue()
+    records = load_reference_provenance(
+        course_provenance_path("ai"),
+        {skill.skill_id for skill in loaded.skills},
+    )
+    passages = {
+        (skill.skill_id, passage)
+        for skill in loaded.skills
+        for passage in skill.reference_material
+    }
+
+    assert {record.reference_id for record in records} == PILOT_REFERENCE_IDS
+    assert {(record.skill_id, record.reference_material) for record in records} == (
+        passages
     )
 
 

@@ -31,3 +31,26 @@ The project is initially developed using a Kaggle GPU environment accessed throu
 
 ```bash
 python -m pip install -r requirements.txt
+```
+
+## Grounded pilot batch
+
+The grounded batch command writes pending questions, a manifest, an attempt
+audit, and a summary into the output directory. It does not add questions to
+the approved learner-facing bank. `MODEL_REPOSITORY` must equal `--model-id`,
+and `HF_TOKEN` must be configured before running the live model. The command
+also requires a clean, committed worktree so its recorded git commit identifies
+the exact generation code and canonical references.
+
+```bash
+python -m scripts.generate_grounded_batch \
+  --batch-id grounded-pilot-20260806 \
+  --skill-id AI-SRC-01 \
+  --skill-id AI-SRC-02 \
+  --skill-id AI-SRC-08 \
+  --questions-per-skill 10 \
+  --base-seed 20260806 \
+  --output outputs/grounded-pilot-20260806 \
+  --model-id "$MODEL_REPOSITORY" \
+  --prompt-version v3.2
+```

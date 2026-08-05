@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from taxonomy.schemas import SkillCatalogue, SkillDefinition
+from taxonomy.schemas import ReferenceProvenance, SkillCatalogue, SkillDefinition
 
 SKILL_COLUMNS = (
     "skill_id",
@@ -22,6 +22,20 @@ REFERENCE_COLUMNS = (
     "reference_material",
 )
 
+REFERENCE_PROVENANCE_COLUMNS = (
+    "reference_id",
+    "skill_id",
+    "reference_material",
+    "title",
+    "source_url",
+    "source_domain",
+    "content_hash",
+    "retrieved_at",
+    "reviewer_id",
+    "reviewed_at",
+    "review_note",
+)
+
 LIST_SEPARATOR = ";"
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -31,6 +45,10 @@ def course_paths(course: str) -> tuple[Path, Path]:
     directory = DATA_DIR / course.lower()
 
     return directory / "skills.csv", directory / "references.csv"
+
+
+def course_provenance_path(course: str) -> Path:
+    return DATA_DIR / course.lower() / "reference_provenance.csv"
 
 
 class TaxonomyError(ValueError):
@@ -172,3 +190,42 @@ def load_skills(skills_path: Path, references_path: Path) -> SkillCatalogue:
         return SkillCatalogue(skills=skills)
     except ValidationError as error:
         raise TaxonomyError(f"{skills_path.name}: {error}") from error
+
+
+def load_reference_provenance(
+    path: Path, known_skill_ids: set[str] | None = None
+) -> list[ReferenceProvenance]:
+    """Load auditable reference records without changing generation's API."""
+    rows, errors = read_rows(path, REFERENCE_PROVENANCE_COLUMNS)
+    records: list[ReferenceProvenance] = []
+    reference_ids: set[str] = set()
+    content_keys: set[tuple[str, str]] = set()
+
+    for label, fields in rows:
+        try:
+            record = ReferenceProvenance(**fields)
+        except ValidationError as error:
+            errors.extend(describe_row_errors(label, error))
+            continue
+
+        if known_skill_ids is not None and record.skill_id not in known_skill_ids:
+            errors.append(f"{label}: reference for unknown skill id {record.skill_id}")
+
+        if record.reference_id in reference_ids:
+            errors.append(f"{label}: duplicate reference id {record.reference_id}")
+
+        content_key = (record.skill_id, record.content_hash)
+        if content_key in content_keys:
+            errors.append(
+                f"{label}: duplicate content hash for {record.skill_id}: "
+                f"{record.content_hash}"
+            )
+
+        reference_ids.add(record.reference_id)
+        content_keys.add(content_key)
+        records.append(record)
+
+    if errors:
+        raise TaxonomyError("the reference provenance has problems:\n" + "\n".join(errors))
+
+    return records

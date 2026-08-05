@@ -688,23 +688,27 @@ def test_the_pilot_plans_queries_for_its_three_skills():
     assert all(len(queries) == 3 for queries in plan.values())
 
 
-def test_the_pilot_skills_still_carry_no_references():
-    assert all(
-        not skill_definition.reference_material
+def test_the_pilot_skills_carry_the_approved_canonical_references():
+    assert {
+        skill_definition.skill_id: len(skill_definition.reference_material)
         for skill_definition in pilot_skills(load_pilot_catalogue())
-    )
+    } == {
+        "AI-SRC-01": 3,
+        "AI-SRC-02": 2,
+        "AI-SRC-08": 2,
+    }
 
 
 def test_the_pilot_run_produces_pending_candidates_only():
-    url = "https://aima.cs.berkeley.edu/heuristics.html"
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html"
     provider = FakeSearchProvider([hit(url)])
-    fetcher = FakePageFetcher({url: PASSAGE})
+    fetcher = FakePageFetcher({url: f"{SEARCH_PROSE} {PASSAGE}"})
 
     candidates = run_pilot(
         load_pilot_catalogue(),
         provider,
         fetcher,
-        allowed_domains=ALLOWED,
+        allowed_domains=("inst.eecs.berkeley.edu",),
         clock=fixed_clock,
     )
 
@@ -881,6 +885,25 @@ def test_the_passage_is_cut_around_the_query_not_the_top_of_the_page():
 
     assert answer in passage
     assert not passage.startswith("Home Editions")
+
+
+def test_passage_selection_targets_the_learning_objective_not_the_search_angle():
+    url = "https://aima.cs.berkeley.edu/heuristics.html"
+    search_angle = (
+        "This heuristic function appears in an artificial intelligence search "
+        "and problem solving course, where students discuss informed search. "
+    )
+    objective_answer = (
+        "A heuristic estimates the remaining cost from a state to the goal, "
+        "which lets the algorithm prioritize promising states."
+    )
+    page = search_angle * 20 + objective_answer
+
+    passage = run(
+        FakeSearchProvider([hit(url)]), FakePageFetcher({url: page}), limit=1
+    )[0].passage
+
+    assert objective_answer in passage
 
 
 # Page shape: source files and code pages are not reference prose
@@ -1165,25 +1188,37 @@ def test_a_duplicate_is_replaced_rather_than_counted_as_a_candidate():
     candidates = run(provider, fetcher, limit=2, diagnostics=diagnostics)
 
     assert [candidate.source_url for candidate in candidates] == [first, second]
-    assert diagnostics.duplicate_url == 1
+    assert diagnostics.duplicate_url == 1 + 4 * (len(build_search_queries(skill())) - 1)
     assert diagnostics.duplicate_passage == 1
 
 
-# Stopping: the target, then the budgets
+# Ranking within the budgets
 
 
-def test_the_search_stops_the_moment_the_target_is_reached():
+def test_the_search_ranks_every_eligible_candidate_found_within_budget():
     domain = "aima.cs.berkeley.edu"
     urls = [page_url(domain, f"page{index}.html") for index in range(6)]
-    provider = FakeSearchProvider([hit(url) for url in urls])
+    results = [
+        SearchResult(
+            title="Heuristics",
+            url=url,
+            snippet=(
+                "An admissible heuristic estimates the remaining path cost."
+                if index >= 3
+                else "A heuristic estimates cost."
+            ),
+        )
+        for index, url in enumerate(urls)
+    ]
+    provider = FakeSearchProvider(results)
     fetcher = usable(*urls)
     diagnostics = RetrievalDiagnostics()
 
     candidates = run(provider, fetcher, limit=3, diagnostics=diagnostics)
 
-    assert len(candidates) == 3
-    assert provider.yielded == 3  # nothing was read past the third
-    assert provider.queries == build_search_queries(skill())[:1]  # one query sufficed
+    assert [candidate.source_url for candidate in candidates] == urls[3:]
+    assert provider.yielded == len(urls) * len(build_search_queries(skill()))
+    assert provider.queries == build_search_queries(skill())
     assert diagnostics.targets_reached == 1
     assert diagnostics.searches_exhausted == 0
 
@@ -1260,7 +1295,7 @@ def test_backfilling_keeps_the_domain_spread_the_provider_offered():
         provider, usable(*urls), allowed_domains=THREE_DOMAINS, limit=3
     )
 
-    assert [candidate.source_domain for candidate in candidates] == list(THREE_DOMAINS)
+    assert {candidate.source_domain for candidate in candidates} == set(THREE_DOMAINS)
 
 
 def test_a_dead_first_domain_does_not_stop_the_others_supplying():
@@ -1348,7 +1383,7 @@ def pilot_run(provider, fetcher, limit=SEARCH_LIMIT):
         load_pilot_catalogue(),
         provider,
         fetcher,
-        allowed_domains=ALLOWED,
+        allowed_domains=PILOT_ALLOWED_DOMAINS,
         limit=limit,
         clock=fixed_clock,
         diagnostics=diagnostics,
@@ -1359,16 +1394,18 @@ def pilot_run(provider, fetcher, limit=SEARCH_LIMIT):
 
 
 def test_the_pilot_keeps_a_record_for_each_skill_in_order():
-    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
-    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html"
+    fetcher = FakePageFetcher({url: f"{SEARCH_PROSE} {PASSAGE}"})
+    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), fetcher)
 
     assert list(by_skill) == list(PILOT_SKILL_IDS)
     assert all(record.candidates_created == 1 for record in by_skill.values())
 
 
 def test_the_run_total_is_the_sum_of_the_skills():
-    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
-    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html"
+    fetcher = FakePageFetcher({url: f"{SEARCH_PROSE} {PASSAGE}"})
+    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), fetcher)
 
     for _, attribute in COUNTS:
         assert getattr(diagnostics, attribute) == sum(
@@ -1378,8 +1415,11 @@ def test_the_run_total_is_the_sum_of_the_skills():
 
 def test_a_skill_that_found_nothing_is_visible_behind_a_healthy_total():
     """The complaint a run total cannot make: which skill came back empty."""
-    domain = "aima.cs.berkeley.edu"
-    good = [page_url(domain, f"page{index}.html") for index in range(2)]
+    domain = "inst.eecs.berkeley.edu"
+    good = [
+        f"https://{domain}/~cs188/textbook/search/page{index}.html"
+        for index in range(2)
+    ]
     empty_handed, *rest = PILOT_SKILL_IDS
     provider = ProviderByQuery(
         {
@@ -1388,17 +1428,27 @@ def test_a_skill_that_found_nothing_is_visible_behind_a_healthy_total():
         }
     )
 
-    _, diagnostics, by_skill = pilot_run(provider, usable(*good))
+    fetcher = FakePageFetcher(
+        {
+            url: f"{SEARCH_PROSE} {PASSAGE} Example number {index}."
+            for index, url in enumerate(good)
+        }
+    )
+    _, diagnostics, by_skill = pilot_run(provider, fetcher)
 
     assert diagnostics.candidates_created == 4  # the total looks fine
     assert by_skill[empty_handed].candidates_created == 0
-    assert by_skill[empty_handed].unsupported_document_skipped == 3
+    assert (
+        by_skill[empty_handed].unsupported_document_skipped
+        == MAX_SEARCH_REQUESTS_PER_SKILL
+    )
     assert all(by_skill[skill_id].candidates_created == 2 for skill_id in rest)
 
 
 def test_each_skills_summary_names_the_skill_it_is_about():
-    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
-    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html"
+    fetcher = FakePageFetcher({url: f"{SEARCH_PROSE} {PASSAGE}"})
+    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), fetcher)
 
     assert summary(by_skill["AI-SRC-01"], "AI-SRC-01").startswith(
         "Retrieval diagnostics: AI-SRC-01"
@@ -1408,8 +1458,9 @@ def test_each_skills_summary_names_the_skill_it_is_about():
 
 def test_a_skill_record_carries_no_url_query_or_passage():
     """The rule the run total already keeps, kept per skill as well."""
-    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
-    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html"
+    fetcher = FakePageFetcher({url: f"{SEARCH_PROSE} {PASSAGE}"})
+    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), fetcher)
     rendered = summary(by_skill["AI-SRC-08"], "AI-SRC-08")
 
     assert url not in rendered
@@ -1552,8 +1603,8 @@ def test_the_pilot_reaches_every_angle_on_the_domains_chosen_for_the_skill():
         assert len({step.query for step in schedule}) == 3
 
 
-def test_the_target_still_stops_the_schedule_early():
-    """Nine planned requests are a ceiling, not a promise to spend them."""
+def test_the_target_does_not_stop_ranking_before_the_schedule_is_spent():
+    """The target caps retained candidates, not candidates considered."""
     domain = "aima.cs.berkeley.edu"
     urls = [page_url(domain, f"page{index}.html") for index in range(6)]
     provider = FakeSearchProvider([hit(url) for url in urls])
@@ -1562,7 +1613,7 @@ def test_the_target_still_stops_the_schedule_early():
     candidates = run(provider, usable(*urls), limit=5, diagnostics=diagnostics)
 
     assert len(candidates) == 5
-    assert diagnostics.search_requests_made == 1  # the first step sufficed
+    assert diagnostics.search_requests_made == len(build_search_queries(skill()))
     assert diagnostics.targets_reached == 1
 
 
@@ -1698,7 +1749,7 @@ def test_a_skill_already_at_its_target_asks_for_nothing():
     assert diagnostics.targets_reached == 1
 
 
-def test_a_partly_filled_skill_looks_only_for_the_shortfall():
+def test_a_partly_filled_skill_retains_only_the_shortfall():
     domain = "aima.cs.berkeley.edu"
     held = [
         stored(page_url(domain, f"old{index}.html"), prose(f"old {index}"))
@@ -1718,7 +1769,7 @@ def test_a_partly_filled_skill_looks_only_for_the_shortfall():
 
     assert len(candidates) == 2  # three held plus two found makes five
     assert diagnostics.targets_reached == 1
-    assert diagnostics.search_requests_made == 1
+    assert diagnostics.search_requests_made == len(build_search_queries(skill()))
 
 
 def test_the_summary_explains_a_run_that_had_nothing_to_do():
@@ -1854,13 +1905,8 @@ def test_the_scopes_name_the_paths_the_pilot_was_pointed_at():
     }
 
 
-def test_a_scope_is_a_preference_and_not_a_second_allowlist():
-    """An off-scope page that is genuinely about the skill is still kept.
-
-    cs50.harvard.edu/extension/ai/ is outside the scope the pilot names and
-    was one of the few pages the live run got right. A scope that dropped it
-    would be an allowlist wearing another name.
-    """
+def test_a_configured_source_scope_is_a_relevance_prerequisite():
+    """An allowed page outside the reviewed course path is not eligible."""
     url = "https://cs50.harvard.edu/extension/ai/2023/spring/notes/3/"
     provider = FakeSearchProvider([hit(url, "Lecture 3 - CSCI E-80")])
     fetcher = FakePageFetcher({url: SEARCH_PROSE})
@@ -1874,8 +1920,7 @@ def test_a_scope_is_a_preference_and_not_a_second_allowlist():
         scopes=scopes_for("AI-SRC-02"),
     )
 
-    assert len(candidates) == 1
-    assert candidates[0].source_url == url
+    assert candidates == []
 
 
 def test_a_scope_never_widens_what_may_be_fetched():
@@ -1972,6 +2017,245 @@ def test_a_page_about_the_subject_but_not_the_skill_is_still_short():
     )
 
     assert scored.context == ("artificial intelligence",)
+    assert not scored.is_relevant()
+
+
+def test_scope_and_context_cannot_compensate_for_zero_objective_coverage():
+    """The off-objective MIT 6.034 overview from the latest live pilot."""
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        (
+            "https://ocw.mit.edu/courses/6-034-artificial-intelligence-"
+            "fall-2010/pages/instructor-insights/"
+        ),
+        "Instructor Insights | Artificial Intelligence | MIT OpenCourseWare",
+        "Assessment informed by a student-centered ethic.",
+        (
+            "This artificial intelligence course is not centered on programming, "
+            "but the homework requires students to understand small programs."
+        ),
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
+    assert scored.scope
+    assert scored.context
+    assert scored.objective == ()
+    assert not scored.is_relevant()
+
+
+def test_one_generic_objective_word_is_not_objective_coverage():
+    """The latest live pilot kept this course overview for AI-SRC-02."""
+    scored = score_relevance(
+        pilot_skill("AI-SRC-02"),
+        (
+            "https://ocw.mit.edu/courses/6-034-artificial-intelligence-"
+            "spring-2005/"
+        ),
+        "Artificial Intelligence | MIT OpenCourseWare",
+        "The course explores heuristic search and constrained search.",
+        (
+            "This course introduces representations, techniques, and architectures "
+            "used to build applied systems and account for intelligence."
+        ),
+        scopes=scopes_for("AI-SRC-02"),
+    )
+
+    assert scored.concept
+    assert scored.objective == ()
+    assert scored.context
+    assert scored.scope
+    assert not scored.is_relevant()
+
+
+def test_concept_objective_context_and_scope_all_have_to_pass():
+    relevant = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+        "Heuristic function",
+        "Artificial intelligence informed search",
+        PASSAGE,
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
+    assert relevant.concept
+    assert len(relevant.objective) >= 2
+    assert relevant.context
+    assert relevant.scope
+    assert relevant.is_relevant()
+
+
+@pytest.mark.parametrize(
+    ("url", "passage"),
+    [
+        (
+            "https://inst.eecs.berkeley.edu/~cs188/textbook/search/uninformed.html",
+            (
+                "The standard protocol for finding a plan from the start state "
+                "to a goal state maintains a frontier derived from a search tree."
+            ),
+        ),
+        (
+            "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+            (
+                "A search problem has a state space, actions, a transition model, "
+                "an action cost, a start state, and a goal state."
+            ),
+        ),
+        (
+            "https://www.redblobgames.com/pathfinding/a-star/implementation.html",
+            (
+                "The cost can be an integer or double and should be part of the "
+                "graph. Larger data structures can be passed by reference."
+            ),
+        ),
+        (
+            "https://inst.eecs.berkeley.edu/~cs188/textbook/search/summary.html",
+            (
+                "A search problem has a state space, actions, a transition "
+                "function, an action cost, a start state, and a goal state."
+            ),
+        ),
+    ],
+)
+def test_latest_live_off_objective_passages_fail_the_passage_gate(url, passage):
+    """Strong result metadata cannot compensate for the passage shown."""
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        url,
+        "Heuristic function for informed artificial intelligence search",
+        "A heuristic estimates the remaining cost from a state to the goal.",
+        passage,
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
+    assert "estimate" not in scored.objective
+    assert "heuristic" not in scored.objective
+    assert not scored.passage_coverage_passed
+    assert not scored.is_relevant()
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        (
+            "Constructing an MDP is similar to constructing a state-space graph. "
+            "Each state is represented by a node and actions by edges."
+        ),
+        (
+            "A search problem has a state space, actions, a transition function, "
+            "an action cost, a start state, and a goal state."
+        ),
+        (
+            "A local-search objective function assigns a value to each state in "
+            "the state space and moves toward states with higher values."
+        ),
+    ],
+    ids=("mdp-state-space-graph", "search-summary", "local-search"),
+)
+def test_ai_src_02_rejects_a_passage_without_a_search_tree(passage):
+    scored = score_relevance(
+        pilot_skill("AI-SRC-02"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+        "State Spaces and Search Trees",
+        "A state-space graph differs from a search tree.",
+        passage,
+        scopes=scopes_for("AI-SRC-02"),
+    )
+
+    assert "tree" not in scored.objective
+    assert not scored.is_relevant()
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        (
+            "If cycles exist in the state space graph, the corresponding search "
+            "tree is infinite in depth, so DFS may follow one branch forever."
+        ),
+        (
+            "Unlike state space graphs, search trees may contain the same state "
+            "more than once because each tree node records an entire path."
+        ),
+    ],
+    ids=("dfs", "direct-cs188-comparison"),
+)
+def test_ai_src_02_retains_passages_with_both_required_concepts(passage):
+    scored = score_relevance(
+        pilot_skill("AI-SRC-02"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+        "Introduction to Artificial Intelligence",
+        "",
+        passage,
+        scopes=scopes_for("AI-SRC-02"),
+    )
+
+    assert scored.is_relevant()
+
+
+def test_ai_src_01_requires_multiple_components_in_the_passage():
+    metadata_only = score_relevance(
+        pilot_skill("AI-SRC-01"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+        "Initial state, actions, transition model, goal test and path cost",
+        "Artificial intelligence search problem components.",
+        "A search algorithm expands nodes from its frontier until it stops.",
+        scopes=scopes_for("AI-SRC-01"),
+    )
+    passage_coverage = score_relevance(
+        pilot_skill("AI-SRC-01"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+        "Search",
+        "",
+        (
+            "An artificial intelligence search problem begins at an initial "
+            "state. Its actions use a transition model to produce new states."
+        ),
+        scopes=scopes_for("AI-SRC-01"),
+    )
+
+    assert not metadata_only.is_relevant()
+    assert passage_coverage.is_relevant()
+
+
+@pytest.mark.parametrize("verb", ("estimate", "estimated", "estimates"))
+def test_ai_src_08_requires_the_complete_relationship_in_the_passage(verb):
+    passage = (
+        f"A heuristic {verb} the remaining distance from a state to the goal, "
+        "allowing informed search to prioritize its frontier."
+    )
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/informed.html",
+        "Informed Search",
+        "",
+        passage,
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
+    assert scored.is_relevant()
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        "An estimate of the remaining cost reaches the goal.",
+        "A heuristic assigns a cost to each state.",
+        "A heuristic estimates which state is closest.",
+        "A heuristic estimates the remaining distance from a state.",
+    ],
+    ids=("no-heuristic", "no-estimate", "no-goal", "no-goal-connection"),
+)
+def test_ai_src_08_rejects_a_passage_missing_any_required_part(passage):
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/search/informed.html",
+        "A heuristic estimates remaining cost to a goal",
+        "Artificial intelligence informed search",
+        passage,
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
     assert not scored.is_relevant()
 
 

@@ -72,12 +72,10 @@ PILOT_ALLOWED_DOMAINS = (
 # any use. cs50.harvard.edu is one domain and two courses, and the live run
 # collected the introductory programming one.
 #
-# So the priority order is per skill and per path. These are preferences and
-# not restrictions in either direction: domains_for appends the rest of the
-# allowlist behind them so a skill whose scopes come up thin can still reach
-# the others, and a page outside every scope is still read and still judged on
-# its own score. The allowlist remains the only thing that decides what may be
-# fetched.
+# So the priority order is per skill and per path. The allowlist remains the
+# only thing that decides what may be fetched, while these reviewed paths are
+# a separate relevance prerequisite: being inside one permits a page to be
+# scored, but does not prove that it covers the concept or objective.
 CS188_TEXTBOOK = SourceScope("inst.eecs.berkeley.edu", "/~cs188/textbook/")
 CS50_AI = SourceScope("cs50.harvard.edu", "/ai/")
 MIT_6034 = SourceScope("ocw.mit.edu", "/courses/6-034-artificial-intelligence-")
@@ -117,7 +115,7 @@ def domains_for(skill_id: str) -> tuple[str, ...]:
 
     The scopes name paths and the search index is asked by domain, so what
     comes out of them here is the domains they sit on, in their order. The
-    paths still do their work in the scoring, where a result is judged
+    paths still do their work in the relevance gate, where a result is judged
     against the URL it actually came back with.
 
     The allowlist stays the boundary - this only decides what gets asked

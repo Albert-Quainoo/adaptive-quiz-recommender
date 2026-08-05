@@ -51,10 +51,11 @@ from authoring.retrieval.safety import (
 )
 from taxonomy.schemas import SkillDefinition
 
-# The number of usable candidates a skill is aiming for - reached after the
-# rejects have been replaced, not before. It is not a cap on how many search
-# results may be read to get there: a limit on raw results is what let one
-# PDF cost a slot outright.
+# The number of candidates a skill retains after every eligible page found
+# within the budget has been ranked. It is not a cap on how many search
+# results may be read: a limit on raw results is what let one PDF cost a slot
+# outright, and stopping at the fifth eligible result would preserve search
+# order instead of selecting the best five.
 SEARCH_LIMIT = 5
 
 # What one skill may spend reaching that target. Backfilling means every
@@ -332,11 +333,12 @@ def retrieve_candidates(
     counted, though - a run that quietly discards everything and reports zero
     is indistinguishable from a run that searched nothing.
 
-    A skip also does not cost a slot. limit is the number of usable candidates
-    wanted, so the search keeps going until it has that many, until the search
-    runs out, or until the budget does - whichever comes first. Reading limit
-    as "how many results to look at" is what left the first runs holding two
-    candidates and three PDFs.
+    A skip also does not cost a slot. limit is the number of candidates kept,
+    not the number of eligible candidates considered. The search runs until
+    its schedule or budget is exhausted, ranks every eligible candidate it
+    found, and retains the best remaining slots. Reading limit as "how many
+    results to look at" is what left the first runs holding two candidates and
+    three PDFs.
 
     What a previous run already found counts towards that target and is
     skipped on the way past, so running again looks for the shortfall rather
@@ -347,11 +349,10 @@ def retrieve_candidates(
     checked against the whole allowed_domains list. The schedule narrows what
     is discovered; only these checks decide what is read.
 
-    scopes are the paths on those domains that hold this skill's material.
-    They are a relevance preference and not a boundary - a page outside every
-    scope is still read and can still be kept if it scores well enough on its
-    own - and they never widen anything: allowed_domains alone says what may
-    be fetched.
+    scopes are the reviewed paths on those domains that hold this skill's
+    material. When supplied they are a relevance prerequisite after fetch;
+    allowed_domains remains the network boundary that alone says what may be
+    fetched.
     """
     if not [domain for domain in allowed_domains if domain.strip()]:
         raise RetrievalError(
@@ -362,9 +363,8 @@ def retrieve_candidates(
     budget = budget if budget is not None else RetrievalBudget()
     known = known if known is not None else KnownCandidates()
 
-    candidates: list[ReferenceCandidate] = []
+    eligible: dict[str, ReferenceCandidate] = {}
     seen_urls: set[str] = set(known.urls)
-    seen_hashes: set[str] = set(known.hashes)
 
     held = known.toward_target
     diagnostics.candidates_already_held += held
@@ -462,8 +462,9 @@ def retrieve_candidates(
             diagnostics.rejected_as_non_prose += 1
             continue
 
-        # Quoted around the angle that found the page, not from its top.
-        passage = select_passage(page.text, step.query)
+        # Quote the part that can support the learning objective. The search
+        # angle discovers the page; it does not decide what the reviewer sees.
+        passage = select_passage(page.text, skill.learning_objective)
 
         # Nothing came back at all: the page holds no prose to quote, only
         # menus and headings. Counted with the source files rather than with
@@ -505,16 +506,35 @@ def retrieve_candidates(
             matched_terms=relevance.matched_terms,
         )
 
-        if candidate.content_hash in seen_hashes:
+        if candidate.content_hash in known.hashes:
             diagnostics.duplicate_passage += 1
             continue
 
-        seen_hashes.add(candidate.content_hash)
-        candidates.append(candidate)
-        diagnostics.candidates_created += 1
+        existing = eligible.get(candidate.content_hash)
 
-        if held + len(candidates) >= limit:
-            break
+        if existing is not None:
+            diagnostics.duplicate_passage += 1
+
+            if (-candidate.relevance_score, candidate.source_url) < (
+                -existing.relevance_score,
+                existing.source_url,
+            ):
+                eligible[candidate.content_hash] = candidate
+
+            continue
+
+        eligible[candidate.content_hash] = candidate
+
+    slots = max(limit - held, 0)
+    candidates = sorted(
+        eligible.values(),
+        key=lambda candidate: (
+            -candidate.relevance_score,
+            candidate.source_url,
+            candidate.candidate_id,
+        ),
+    )[:slots]
+    diagnostics.candidates_created += len(candidates)
 
     record_outcome(diagnostics, budget, reached=held + len(candidates) >= limit)
 

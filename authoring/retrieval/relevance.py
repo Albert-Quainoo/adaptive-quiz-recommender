@@ -96,8 +96,9 @@ BLOOM_VERBS = frozenset(
 # What the skill is named after weighs most: it is the one phrase chosen to
 # describe this skill and nothing else. The objective adds the detail a
 # reference has to be able to support. Context says the page is about this
-# subject at all, and a preferred scope is a path Albert has already looked at
-# and vouched for.
+# subject at all, and scope says it came from the reviewed part of the source.
+# These weights rank eligible pages; the gates in RelevanceScore decide
+# eligibility before any of the weights matter.
 CONCEPT_WEIGHT = 3
 OBJECTIVE_WEIGHT = 2
 CONTEXT_WEIGHT = 2
@@ -112,6 +113,26 @@ SCOPE_WEIGHT = 3
 # theory at 9 - got there without a single context phrase, which is what the
 # second condition in is_relevant is for. Eight sits in the gap.
 MIN_RELEVANCE_SCORE = 8
+
+# A passage has to cover most of the objective's scorable vocabulary, not just
+# mention two generic words such as "state" and "goal". Two thirds keeps the
+# gate tolerant of wording variants ("estimated" versus "estimates") while
+# requiring three of the four terms in "state space and search tree" and four
+# of the six terms in the heuristic objective.
+OBJECTIVE_COVERAGE_NUMERATOR = 2
+OBJECTIVE_COVERAGE_DENOMINATOR = 3
+
+# Passage-only semantic gates for the three pilot objectives. These encode the
+# relationships the objective asks a reference to explain; plain bag-of-words
+# coverage cannot tell a state-space graph from a passage that compares it to
+# a search tree, or a list of costs from an explanation of a heuristic.
+AI_SRC_01_COMPONENTS = (
+    ("initial state", "start state"),
+    ("action",),
+    ("transition model", "transition function"),
+    ("goal test",),
+    ("path cost", "action cost"),
+)
 
 
 @dataclass(frozen=True)
@@ -192,14 +213,13 @@ def concept_terms(skill: SkillDefinition) -> set[str]:
 
 
 def objective_terms(skill: SkillDefinition) -> set[str]:
-    """The objective's own words, less the ones the concept already scores.
+    """The objective's own words, including words shared with the concept.
 
-    Subtracted so that a word carried by both fields earns its points once:
-    "search" is in AI-SRC-02's name and in its objective, and counting it
-    twice would let a page about any kind of search halfway to the threshold
-    on one word.
+    Coverage is judged independently, so an objective such as "distinguish
+    between a state space and a search tree" must remain scorable even though
+    its nouns also make up the skill name.
     """
-    return terms_of(skill.learning_objective) - concept_terms(skill)
+    return terms_of(skill.learning_objective)
 
 
 @dataclass(frozen=True)
@@ -216,6 +236,10 @@ class RelevanceScore:
     objective: tuple[str, ...] = ()
     context: tuple[str, ...] = ()
     scope: str = ""
+    source_scope_passed: bool = True
+    objective_terms_required: int = 1
+    passage_context: tuple[str, ...] = ()
+    passage_coverage_passed: bool = False
 
     @property
     def matched_terms(self) -> list[str]:
@@ -229,16 +253,56 @@ class RelevanceScore:
         return labelled + ([f"scope:{self.scope}"] if self.scope else [])
 
     def is_relevant(self, minimum: int = MIN_RELEVANCE_SCORE) -> bool:
-        """Two conditions, because one of them cannot be traded away.
+        """Apply independent gates before the additive score can rank a page.
 
-        The score alone is not enough. A page can climb on the taxonomy's
-        generic words - "problem", "search", "state", "test" - and MIT's
-        course pages did: electromagnetic field theory scored 9 for AI-SRC-01
-        on "component", "problem" and "search" without containing one
-        sentence about AI. So a result also has to show that it is about this
-        subject at all, and no amount of overlap substitutes for that.
+        Scope establishes where the page came from, concept establishes what
+        it is about, the objective establishes what it can teach, and context
+        places it in this course. A bonus in one dimension cannot replace a
+        missing dimension.
         """
-        return bool(self.context) and self.score >= minimum
+        return (
+            self.source_scope_passed
+            and self.passage_coverage_passed
+            and bool(self.passage_context)
+            and self.score >= minimum
+        )
+
+
+def passage_covers_skill(
+    skill: SkillDefinition,
+    passage_hay: str,
+    concept: Sequence[str],
+    objective: Sequence[str],
+    objective_terms_required: int,
+) -> bool:
+    """Whether the selected passage itself covers the pilot objective."""
+    if skill.skill_id == "AI-SRC-01":
+        components = sum(
+            any(matches(term, passage_hay) for term in alternatives)
+            for alternatives in AI_SRC_01_COMPONENTS
+        )
+
+        return bool(concept) and components >= 2
+
+    if skill.skill_id == "AI-SRC-02":
+        return matches("state space", passage_hay) and matches(
+            "search tree", passage_hay
+        )
+
+    if skill.skill_id == "AI-SRC-08":
+        return all(
+            (
+                matches("heuristic", passage_hay),
+                any(
+                    matches(term, passage_hay)
+                    for term in ("estimate", "estimated", "estimates")
+                ),
+                any(matches(term, passage_hay) for term in ("cost", "distance")),
+                matches("goal", passage_hay),
+            )
+        )
+
+    return bool(concept) and len(objective) >= objective_terms_required
 
 
 def score_relevance(
@@ -251,18 +315,26 @@ def score_relevance(
 ) -> RelevanceScore:
     """Score one result against the skill that searched for it.
 
-    All three texts are read together: the title says what the page calls
-    itself, the provider's snippet says what the index thought matched, and
-    the passage is what a reviewer would actually be shown. A page that only
-    matches in its title is a page whose body went somewhere else.
+    Concept and objective terms come only from the final passage a reviewer
+    would see. The title and provider snippet can add course-context points
+    for ranking after that passage passes its semantic gate, but cannot make
+    an otherwise ineligible passage eligible.
     """
     hay = haystack(title, snippet, passage)
+    passage_hay = haystack(passage)
 
-    concept = tuple(sorted(term for term in concept_terms(skill) if matches(term, hay)))
+    concept_vocabulary = concept_terms(skill)
+    concept = tuple(
+        sorted(term for term in concept_vocabulary if matches(term, passage_hay))
+    )
+    objective_vocabulary = objective_terms(skill)
     objective = tuple(
-        sorted(term for term in objective_terms(skill) if matches(term, hay))
+        sorted(term for term in objective_vocabulary if matches(term, passage_hay))
     )
     context = tuple(sorted(term for term in CONTEXT_TERMS if matches(term, hay)))
+    passage_context = tuple(
+        sorted(term for term in CONTEXT_TERMS if matches(term, passage_hay))
+    )
     scope = next((str(item) for item in scopes if item.covers(url)), "")
 
     score = (
@@ -272,4 +344,30 @@ def score_relevance(
         + SCOPE_WEIGHT * bool(scope)
     )
 
-    return RelevanceScore(score, concept, objective, context, scope)
+    objective_terms_required = max(
+        1,
+        (
+            OBJECTIVE_COVERAGE_NUMERATOR * len(objective_vocabulary)
+            + OBJECTIVE_COVERAGE_DENOMINATOR
+            - 1
+        )
+        // OBJECTIVE_COVERAGE_DENOMINATOR,
+    )
+
+    return RelevanceScore(
+        score=score,
+        concept=concept,
+        objective=objective,
+        context=context,
+        scope=scope,
+        source_scope_passed=not scopes or bool(scope),
+        objective_terms_required=objective_terms_required,
+        passage_context=passage_context,
+        passage_coverage_passed=passage_covers_skill(
+            skill,
+            passage_hay,
+            concept,
+            objective,
+            objective_terms_required,
+        ),
+    )
