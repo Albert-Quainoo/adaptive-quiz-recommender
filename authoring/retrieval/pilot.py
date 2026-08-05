@@ -9,17 +9,19 @@ have been read and approved, and which domains are trustworthy for a course is
 a review decision, not one retrieval gets to make for itself.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from pathlib import Path
 
 from authoring.retrieval.diagnostics import RetrievalDiagnostics
 from authoring.retrieval.models import ReferenceCandidate, utc_now
+from authoring.retrieval.relevance import SourceScope
 from authoring.retrieval.search import (
     SEARCH_LIMIT,
     PageFetcher,
     SearchProvider,
     build_search_queries,
+    known_for,
     retrieve_candidates,
 )
 from taxonomy.loader import course_paths, load_skills
@@ -42,7 +44,7 @@ PILOT_ALLOWED_DOMAINS = (
     # Explanatory prose about search, which is what the pilot skills need
     "redblobgames.com",  # reviewed by Albert: a personal site, but the
     # clearest pathfinding and heuristics writing available
-    "ai.berkeley.edu",  # Berkeley CS188, Introduction to AI
+    "inst.eecs.berkeley.edu",  # Berkeley CS188, the HTML textbook
     "ocw.mit.edu",  # MIT OpenCourseWare
     "cs50.harvard.edu",  # Harvard CS50 AI with Python
     # Scholarly reference
@@ -55,24 +57,39 @@ PILOT_ALLOWED_DOMAINS = (
     "aima.cs.berkeley.edu",  # Russell & Norvig, companion site
     "scikit-learn.org",
     "pytorch.org",
+    # Still reviewed, still allowed, no longer preferred: the CS188 material
+    # here has moved and the live pilot spent six fetches on 404s finding
+    # that out. inst.eecs.berkeley.edu carries the textbook now.
+    "ai.berkeley.edu",
 )
 
-# One allowlist cannot be ordered well for every skill. Red Blob Games is the
-# best source in the list for how a heuristic guides a search, and one of the
-# worst for what a transition model is - it teaches grid pathfinding, not
-# problem formulation. The first ordered run showed exactly that: twenty-one
-# candidates, two of them usable, all for the heuristics skill.
+# Where on those domains this skill's material actually is.
 #
-# So the priority order is per skill. These are preferences, not restrictions:
-# domains_for appends the rest of the allowlist behind them, so a skill whose
-# preferred sites come up thin can still reach the others.
-PILOT_SKILL_DOMAINS: dict[str, tuple[str, ...]] = {
+# A domain is too coarse a unit to say that with. ocw.mit.edu is one domain
+# and two thousand courses, and searching it whole returned electromagnetic
+# field theory for "problem formulation" and functional analysis for
+# "heuristic search" - both real pages, both on an approved domain, neither of
+# any use. cs50.harvard.edu is one domain and two courses, and the live run
+# collected the introductory programming one.
+#
+# So the priority order is per skill and per path. These are preferences and
+# not restrictions in either direction: domains_for appends the rest of the
+# allowlist behind them so a skill whose scopes come up thin can still reach
+# the others, and a page outside every scope is still read and still judged on
+# its own score. The allowlist remains the only thing that decides what may be
+# fetched.
+CS188_TEXTBOOK = SourceScope("inst.eecs.berkeley.edu", "/~cs188/textbook/")
+CS50_AI = SourceScope("cs50.harvard.edu", "/ai/")
+MIT_6034 = SourceScope("ocw.mit.edu", "/courses/6-034-artificial-intelligence-")
+REDBLOB_PATHFINDING = SourceScope("redblobgames.com", "/pathfinding/")
+
+PILOT_SOURCE_SCOPES: dict[str, tuple[SourceScope, ...]] = {
     # Problem formulation and search representation are textbook definitions,
-    # so course notes first.
-    "AI-SRC-01": ("ai.berkeley.edu", "ocw.mit.edu", "cs50.harvard.edu"),
-    "AI-SRC-02": ("ai.berkeley.edu", "ocw.mit.edu", "cs50.harvard.edu"),
+    # so the two course textbooks first.
+    "AI-SRC-01": (CS188_TEXTBOOK, CS50_AI, MIT_6034),
+    "AI-SRC-02": (CS188_TEXTBOOK, CS50_AI, MIT_6034),
     # Heuristics are where Red Blob Games explains better than the textbooks.
-    "AI-SRC-08": ("redblobgames.com", "ai.berkeley.edu", "ocw.mit.edu"),
+    "AI-SRC-08": (REDBLOB_PATHFINDING, CS188_TEXTBOOK, MIT_6034),
 }
 
 # Retrieved text is third-party material under review, so it defaults to an
@@ -91,13 +108,22 @@ def pilot_skills(catalogue: SkillCatalogue) -> list[SkillDefinition]:
     return [by_id[skill_id] for skill_id in PILOT_SKILL_IDS]
 
 
+def scopes_for(skill_id: str) -> tuple[SourceScope, ...]:
+    return PILOT_SOURCE_SCOPES.get(skill_id, ())
+
+
 def domains_for(skill_id: str) -> tuple[str, ...]:
-    """This skill's preferred domains first, then the rest of the allowlist.
+    """This skill's scoped domains first, then the rest of the allowlist.
+
+    The scopes name paths and the search index is asked by domain, so what
+    comes out of them here is the domains they sit on, in their order. The
+    paths still do their work in the scoring, where a result is judged
+    against the URL it actually came back with.
 
     The allowlist stays the boundary - this only decides what gets asked
-    first, and every preference has to be on it.
+    first, and every scope has to be on it.
     """
-    preferred = PILOT_SKILL_DOMAINS.get(skill_id, ())
+    preferred = tuple(dict.fromkeys(scope.domain for scope in scopes_for(skill_id)))
 
     return preferred + tuple(
         domain for domain in PILOT_ALLOWED_DOMAINS if domain not in preferred
@@ -120,25 +146,46 @@ def run_pilot(
     limit: int = SEARCH_LIMIT,
     clock: Callable[[], datetime] = utc_now,
     diagnostics: RetrievalDiagnostics | None = None,
+    by_skill: dict[str, RetrievalDiagnostics] | None = None,
+    known: Iterable[ReferenceCandidate] = (),
 ) -> list[ReferenceCandidate]:
     """Collect pending candidates for the pilot skills. Nothing is written.
 
     Each skill searches its own priority order unless one list is given for
-    the whole run. One diagnostics record covers the run either way, so the
-    counts describe the pilot rather than whichever skill was searched last.
+    the whole run, and each keeps its own diagnostics record, which by_skill
+    collects in pilot order. The run total is the sum of them: a pilot where
+    two skills fill up and one finds nothing reads as an average otherwise,
+    and the average is the one number that describes no skill in the run.
+
+    Each skill also gets its own budget, so a skill that spends everything
+    looking cannot leave the next one unsearched.
+
+    known is whatever the store already holds - pass the store's contents to
+    run against it a second time without paying for the first run's pages
+    again. Nothing here reads or writes the store itself.
     """
     diagnostics = diagnostics if diagnostics is not None else RetrievalDiagnostics()
+    by_skill = by_skill if by_skill is not None else {}
+    known = list(known)
 
-    return [
-        candidate
-        for skill in pilot_skills(catalogue)
-        for candidate in retrieve_candidates(
+    candidates: list[ReferenceCandidate] = []
+
+    for skill in pilot_skills(catalogue):
+        for_skill = RetrievalDiagnostics()
+        by_skill[skill.skill_id] = for_skill
+
+        candidates += retrieve_candidates(
             skill,
             provider,
             fetcher,
             allowed_domains or domains_for(skill.skill_id),
             limit=limit,
             clock=clock,
-            diagnostics=diagnostics,
+            diagnostics=for_skill,
+            known=known_for(skill.skill_id, known),
+            scopes=scopes_for(skill.skill_id),
         )
-    ]
+
+        diagnostics.absorb(for_skill)
+
+    return candidates

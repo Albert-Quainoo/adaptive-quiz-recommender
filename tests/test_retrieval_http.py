@@ -5,26 +5,40 @@ content-type limits, and the shape of one provider's JSON. Everything above
 them is tested against fakes, and nothing here opens a socket.
 """
 
+from collections import Counter
+from itertools import islice
+
 import httpx
 import pytest
 
 from authoring.retrieval.brave import (
     API_KEY_VARIABLE,
+    DOCUMENT_EXCLUSIONS,
+    ENDPOINT,
+    FIRST_RETRY_WAIT,
+    MAX_PAGES_PER_STEP,
+    MAX_RETRY_WAIT,
+    RATE_LIMIT_RETRIES,
+    RESULTS_PER_REQUEST,
     BraveSearchProvider,
     MissingCredentials,
 )
 from authoring.retrieval.diagnostics import (
+    SEARCH_RATE_LIMITED,
     SEARCH_REQUEST_FAILED,
     SEARCH_RESPONSE_UNUSABLE,
     RetrievalDiagnostics,
+    explain,
 )
 from authoring.retrieval.fetcher import HttpPageFetcher, visible_text
 from authoring.retrieval.safety import (
+    UNSUPPORTED_DOCUMENT_SUFFIXES,
     OversizedResponse,
     UnreadableSource,
     UnsafeSource,
     UnsupportedContentType,
 )
+from authoring.retrieval.search import RetrievalBudget, SearchStep
 
 ALLOWED = ("aima.cs.berkeley.edu",)
 
@@ -79,31 +93,76 @@ def test_the_key_is_read_from_the_environment():
     assert provider.api_key == "test-key"
 
 
-def results_for(count: int, domain: str = "aima.cs.berkeley.edu") -> httpx.Response:
+def results_for(
+    count: int, domain: str = "aima.cs.berkeley.edu", more: bool = False, page: int = 0
+) -> httpx.Response:
     return httpx.Response(
         200,
         json={
+            "query": {"more_results_available": more},
             "web": {
                 "results": [
                     {
                         "title": f"Heuristics {index}",
-                        "url": f"https://{domain}/page{index}.html",
+                        "url": f"https://{domain}/page{page}-{index}.html",
                         "description": "A heuristic estimates cost.",
                     }
                     for index in range(count)
                 ]
-            }
+            },
         },
     )
 
 
-def search_with(handler, domains=ALLOWED, limit=5, query="heuristics"):
+def domain_asked(request: httpx.Request) -> str:
+    """The domain a request was constrained to, read back off its query."""
+    return request.url.params["q"].split()[0][len("site:") :]
+
+
+def site_asked(request: httpx.Request) -> str:
+    """The whole site: operator a request carried, path and all."""
+    return request.url.params["q"].split()[0]
+
+
+def search_with(
+    handler,
+    domains=ALLOWED,
+    take=None,
+    query="heuristics",
+    budget=None,
+    waits=None,
+    schedule=None,
+) -> tuple[list, RetrievalDiagnostics]:
+    """Drain the provider's stream, or take only the first `take` results.
+
+    Taking a few and walking away is what the retrieval loop does once its
+    target is full, so it is also how these tests check that nothing further
+    was requested.
+
+    Waiting is recorded rather than done: a test that sleeps for a real
+    second to prove it waited is a test nobody will keep running.
+
+    The schedule defaults to one query angle across the given domains, which
+    is the shape these tests were written against; pass one to say otherwise.
+    build_search_schedule is what decides the real one, and is tested where it
+    lives.
+    """
     diagnostics = RetrievalDiagnostics()
-    results = BraveSearchProvider("test-key", client=client_for(handler)).search(
-        query, limit, domains, diagnostics
+    budget = budget if budget is not None else RetrievalBudget()
+    provider = BraveSearchProvider(
+        "test-key",
+        client=client_for(handler),
+        sleep=(waits if waits is not None else []).append,
     )
 
-    return results, diagnostics
+    if schedule is None:
+        schedule = [SearchStep(query, domain) for domain in domains]
+
+    stream = provider.search(schedule, diagnostics, budget)
+
+    found = list(islice(stream, take)) if take is not None else list(stream)
+
+    return [result for _, result in found], diagnostics
 
 
 def test_the_search_carries_the_key_and_the_query():
@@ -113,104 +172,321 @@ def test_the_search_carries_the_key_and_the_query():
         seen["token"] = request.headers["x-subscription-token"]
         seen["query"] = request.url.params["q"]
         seen["count"] = request.url.params["count"]
+        seen["offset"] = request.url.params["offset"]
 
         return httpx.Response(200, json={"web": {"results": []}})
 
-    search_with(handler, limit=3)
+    search_with(handler)
 
     assert seen == {
         "token": "test-key",
-        "query": "site:aima.cs.berkeley.edu heuristics",
-        "count": "2",  # the per-domain cap, not the whole limit
+        "query": f"site:aima.cs.berkeley.edu heuristics {DOCUMENT_EXCLUSIONS}",
+        "count": str(RESULTS_PER_REQUEST),  # over-fetched, so rejects have replacements
+        "offset": "0",
     }
 
 
-def test_the_allowed_domains_constrain_the_query():
+def test_the_query_asks_the_index_to_leave_out_unreadable_documents():
+    for suffix in UNSUPPORTED_DOCUMENT_SUFFIXES:
+        assert f"-filetype:{suffix.lstrip('.')}" in DOCUMENT_EXCLUSIONS
+
+
+def test_the_scheduled_domains_constrain_the_query():
     queries: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        queries.append(request.url.params["q"])
+        queries.append(domain_asked(request))
 
         return httpx.Response(200, json={"web": {"results": []}})
 
     search_with(handler, domains=THREE_DOMAINS)
 
-    assert queries == [
-        "site:aima.cs.berkeley.edu heuristics",
-        "site:ai.berkeley.edu heuristics",
-        "site:ocw.mit.edu heuristics",
-    ]
+    assert queries == list(THREE_DOMAINS)
 
 
-def test_domains_are_tried_in_the_order_given():
+def test_steps_are_worked_in_the_order_the_schedule_sets():
     queries: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        queries.append(request.url.params["q"])
+        queries.append(domain_asked(request))
 
         return httpx.Response(200, json={"web": {"results": []}})
 
     search_with(handler, domains=tuple(reversed(THREE_DOMAINS)))
 
-    assert queries == [
-        "site:ocw.mit.edu heuristics",
-        "site:ai.berkeley.edu heuristics",
-        "site:aima.cs.berkeley.edu heuristics",
-    ]
+    assert queries == list(reversed(THREE_DOMAINS))
 
 
-def test_the_search_stops_once_the_limit_is_filled():
+def test_nothing_further_is_requested_once_the_caller_stops_taking():
+    """The caller stops when its target is full; the provider stops with it."""
     queries: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        queries.append(request.url.params["q"])
+        queries.append(domain_asked(request))
 
-        return results_for(5, request.url.params["q"].split()[0][5:])
+        return results_for(10, domain_asked(request), more=True)
 
-    results, diagnostics = search_with(handler, domains=THREE_DOMAINS, limit=4)
+    results, diagnostics = search_with(handler, domains=THREE_DOMAINS, take=4)
 
     assert len(results) == 4
-    assert len(queries) == 2  # two domains at two each; the third is untouched
-    assert diagnostics.domains_queried == list(THREE_DOMAINS[:2])
+    assert queries == list(THREE_DOMAINS[:2])  # two domains at two each
+    assert diagnostics.search_requests_made == 2
 
 
-def test_no_single_domain_supplies_the_whole_limit():
+def test_no_single_domain_supplies_every_result_while_others_are_untried():
     """One rich site took all twenty-one candidates of the first ordered run."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return results_for(5, request.url.params["q"].split()[0][5:])
+        return results_for(10, domain_asked(request))
 
-    results, _ = search_with(handler, domains=THREE_DOMAINS, limit=5)
+    results, _ = search_with(handler, domains=THREE_DOMAINS, take=6)
+    domains = [result.url.split("/")[2] for result in results]
+
+    # Two each, in priority order, before any of them is asked for a third.
+    assert domains == [domain for domain in THREE_DOMAINS for _ in range(2)]
+
+
+def test_a_domain_may_supply_everything_once_the_others_are_exhausted():
+    def handler(request: httpx.Request) -> httpx.Response:
+        domain = domain_asked(request)
+
+        if domain == "aima.cs.berkeley.edu":
+            return results_for(10, domain)
+
+        return results_for(0, domain)
+
+    results, diagnostics = search_with(handler, domains=THREE_DOMAINS, take=6)
     domains = {result.url.split("/")[2] for result in results}
 
-    assert len(results) == 5
-    assert domains == set(THREE_DOMAINS)
+    assert len(results) == 6
+    assert domains == {"aima.cs.berkeley.edu"}
+    assert diagnostics.domains_queried == list(THREE_DOMAINS)  # all three were asked
 
 
 def test_a_thin_domain_falls_through_to_the_next():
-    counts = iter([1, 1, 3])
+    counts = {"aima.cs.berkeley.edu": 1, "ai.berkeley.edu": 1, "ocw.mit.edu": 3}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return results_for(next(counts), request.url.params["q"].split()[0][5:])
+        return results_for(counts[domain_asked(request)], domain_asked(request))
 
-    results, diagnostics = search_with(handler, domains=THREE_DOMAINS, limit=5)
+    results, diagnostics = search_with(handler, domains=THREE_DOMAINS)
 
-    assert len(results) == 4  # 1 + 1 + the two the cap allows
+    assert len(results) == 5  # 1 + 1 + 3, over as many turns as it takes
     assert diagnostics.search_requests_made == 3
     assert diagnostics.domains_queried == list(THREE_DOMAINS)
 
 
-def test_only_the_shortfall_is_asked_for():
-    counts: list[str] = []
+def test_a_page_is_bought_once_and_handed_out_over_several_turns():
+    """Over-fetching is the point: a reject is replaced without a new request."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        counts.append(request.url.params["count"])
+        return results_for(10, domain_asked(request))
 
-        return results_for(2, request.url.params["q"].split()[0][5:])
+    results, diagnostics = search_with(handler, domains=ALLOWED)
 
-    search_with(handler, domains=THREE_DOMAINS, limit=5)
+    assert len(results) == 10
+    assert diagnostics.search_requests_made == 1
 
-    assert counts == ["2", "2", "1"]  # the cap, then the shortfall
+
+# Narrowing the request to a scope
+
+
+CS50_AI_STEP = SearchStep("state space", "cs50.harvard.edu", "/ai/")
+
+
+def sites_asked(handler_results):
+    """Run one schedule and report the site: operator of every request made."""
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(site_asked(request))
+
+        return handler_results(site_asked(request))
+
+    return asked, handler
+
+
+def test_a_scoped_step_asks_the_index_for_the_path():
+    """One domain and two courses; only one of them is being asked about."""
+    asked, handler = sites_asked(lambda site: results_for(2, "cs50.harvard.edu"))
+
+    search_with(handler, schedule=[CS50_AI_STEP])
+
+    assert asked[0] == "site:cs50.harvard.edu/ai/"
+
+
+def test_an_unscoped_step_still_asks_for_the_whole_domain():
+    asked, handler = sites_asked(lambda site: results_for(2))
+
+    search_with(handler, schedule=[SearchStep("heuristics", "aima.cs.berkeley.edu")])
+
+    assert asked == ["site:aima.cs.berkeley.edu"]
+
+
+def test_a_scope_the_index_will_not_honour_is_asked_again_whole():
+    """A path in site: is advisory, and a run that trusted it could find nothing.
+
+    Nothing here can tell an unhonoured operator from a genuinely empty
+    course, and it does not need to: both answers are the same request.
+    """
+    def answer(site: str) -> httpx.Response:
+        if "/ai/" in site:
+            return httpx.Response(200, json={"web": {"results": []}})
+
+        return results_for(2, "cs50.harvard.edu")
+
+    asked, handler = sites_asked(answer)
+    results, _ = search_with(handler, schedule=[CS50_AI_STEP])
+
+    assert asked == ["site:cs50.harvard.edu/ai/", "site:cs50.harvard.edu"]
+    assert len(results) == 2
+
+
+def test_a_scope_that_works_is_never_widened():
+    asked, handler = sites_asked(lambda site: results_for(2, "cs50.harvard.edu"))
+
+    search_with(handler, schedule=[CS50_AI_STEP])
+
+    assert asked == ["site:cs50.harvard.edu/ai/"]
+
+
+def test_one_domain_costs_one_wasted_request_however_often_it_is_asked():
+    """Which is what keeps the ceiling a ceiling.
+
+    Three angles on a scope the index ignores would be three wasted requests
+    out of ten if each step found out for itself. The first one to find out
+    tells the others.
+    """
+    def answer(site: str) -> httpx.Response:
+        if "/ai/" in site:
+            return httpx.Response(200, json={"web": {"results": []}})
+
+        return results_for(1, "cs50.harvard.edu")
+
+    schedule = [
+        SearchStep(angle, "cs50.harvard.edu", "/ai/")
+        for angle in ("state space", "search tree", "problem formulation")
+    ]
+    asked, handler = sites_asked(answer)
+
+    search_with(handler, schedule=schedule)
+
+    assert asked.count("site:cs50.harvard.edu/ai/") == 1
+    assert asked.count("site:cs50.harvard.edu") == 3
+
+
+def test_a_widened_step_that_finds_nothing_either_is_not_asked_again():
+    """The fallback is one step down, not a loop."""
+    asked, handler = sites_asked(
+        lambda site: httpx.Response(200, json={"web": {"results": []}})
+    )
+
+    results, diagnostics = search_with(handler, schedule=[CS50_AI_STEP])
+
+    assert results == []
+    assert asked == ["site:cs50.harvard.edu/ai/", "site:cs50.harvard.edu"]
+    assert diagnostics.search_requests_made == 2
+
+
+def test_widening_cannot_outspend_the_request_budget():
+    asked, handler = sites_asked(
+        lambda site: httpx.Response(200, json={"web": {"results": []}})
+    )
+    schedule = [
+        SearchStep("angle", f"domain{index}.edu", "/scope/") for index in range(6)
+    ]
+    budget = RetrievalBudget(max_requests=4)
+
+    search_with(handler, schedule=schedule, budget=budget)
+
+    assert len(asked) == 4
+    assert budget.requests_made == 4
+
+
+# Pagination
+
+
+def test_a_second_page_is_asked_for_only_when_the_first_runs_out():
+    offsets: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offsets.append(request.url.params["offset"])
+
+        return results_for(
+            2, domain_asked(request), more=True, page=int(request.url.params["offset"])
+        )
+
+    results, diagnostics = search_with(handler, domains=ALLOWED, take=5)
+
+    assert offsets == ["0", "1", "2"]
+    assert len(results) == 5
+    assert diagnostics.paginated_requests == 2
+
+
+def test_pagination_stops_when_no_more_results_are_available():
+    offsets: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offsets.append(request.url.params["offset"])
+
+        return results_for(2, domain_asked(request), more=False)
+
+    results, diagnostics = search_with(handler, domains=ALLOWED, take=10)
+
+    assert offsets == ["0"]  # the flag said there was nothing behind it
+    assert len(results) == 2
+    assert diagnostics.paginated_requests == 0
+
+
+def test_a_page_that_promises_more_but_delivers_nothing_ends_the_domain():
+    offsets: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offsets.append(request.url.params["offset"])
+
+        return results_for(0, domain_asked(request), more=True)
+
+    results, _ = search_with(handler, domains=ALLOWED, take=10)
+
+    assert results == []
+    assert offsets == ["0"]
+
+
+def test_pagination_stops_at_the_page_limit():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return results_for(
+            1, domain_asked(request), more=True, page=int(request.url.params["offset"])
+        )
+
+    results, diagnostics = search_with(handler, domains=ALLOWED, take=99)
+
+    assert diagnostics.search_requests_made == MAX_PAGES_PER_STEP
+    assert len(results) == MAX_PAGES_PER_STEP
+
+
+def test_the_request_budget_stops_the_search():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return results_for(
+            1, domain_asked(request), more=True, page=int(request.url.params["offset"])
+        )
+
+    budget = RetrievalBudget(max_requests=2)
+    _, diagnostics = search_with(
+        handler, domains=THREE_DOMAINS, take=99, budget=budget
+    )
+
+    assert diagnostics.search_requests_made == 2
+    assert budget.requests_made == 2
+    assert not budget.may_request()
+
+
+def test_the_same_url_is_never_yielded_twice():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return results_for(2, "aima.cs.berkeley.edu")  # every domain answers alike
+
+    results, _ = search_with(handler, domains=THREE_DOMAINS)
+
+    assert len({result.url for result in results}) == len(results) == 2
 
 
 def test_provider_results_become_search_results_without_markup():
@@ -237,7 +513,7 @@ def test_provider_results_become_search_results_without_markup():
 
 def test_a_failed_search_is_counted_rather_than_raised():
     results, diagnostics = search_with(
-        lambda request: httpx.Response(429), domains=THREE_DOMAINS
+        lambda request: httpx.Response(500), domains=THREE_DOMAINS
     )
 
     assert results == []
@@ -252,7 +528,7 @@ def test_one_failing_domain_does_not_lose_the_others():
 
         return results_for(2, "ai.berkeley.edu")
 
-    results, diagnostics = search_with(handler, domains=THREE_DOMAINS, limit=5)
+    results, diagnostics = search_with(handler, domains=THREE_DOMAINS)
 
     assert len(results) == 2
     assert diagnostics.errors[SEARCH_REQUEST_FAILED] == 1
@@ -274,6 +550,113 @@ def test_a_search_failure_records_no_message_from_the_server():
 
     assert list(diagnostics.errors) == [SEARCH_REQUEST_FAILED]
     assert "secret" not in str(diagnostics.errors)
+
+
+# Being told to slow down
+
+
+def throttling(times: int, retry_after: str | None = None):
+    """A handler that returns 429 the first `times` times, then answers."""
+    seen = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["count"] += 1
+
+        if seen["count"] > times:
+            return results_for(2, domain_asked(request))
+
+        headers = {"retry-after": retry_after} if retry_after else {}
+
+        return httpx.Response(429, headers=headers)
+
+    return handler
+
+
+def test_a_throttled_request_is_waited_out_and_retried():
+    waits: list[float] = []
+    results, diagnostics = search_with(throttling(1), waits=waits)
+
+    assert len(results) == 2  # the retry got the page
+    assert waits == [FIRST_RETRY_WAIT]
+    assert diagnostics.rate_limit_retries == 1
+    assert diagnostics.errors == Counter()
+
+
+def test_the_wait_backs_off_between_retries():
+    waits: list[float] = []
+    search_with(throttling(2), waits=waits)
+
+    assert waits == [FIRST_RETRY_WAIT, FIRST_RETRY_WAIT * 2]
+
+
+def test_retry_after_is_respected_when_the_server_sends_one():
+    waits: list[float] = []
+    results, _ = search_with(throttling(1, retry_after="3"), waits=waits)
+
+    assert waits == [3.0]
+    assert len(results) == 2
+
+
+def test_a_retry_after_a_server_could_hang_the_run_with_is_capped():
+    waits: list[float] = []
+    search_with(throttling(1, retry_after="86400"), waits=waits)
+
+    assert waits == [MAX_RETRY_WAIT]
+
+
+def test_an_unreadable_retry_after_falls_back_to_the_backoff():
+    waits: list[float] = []
+    search_with(throttling(1, retry_after="Wed, 05 Aug 2026 12:00:00 GMT"), waits=waits)
+
+    assert waits == [FIRST_RETRY_WAIT]
+
+
+def test_a_request_throttled_past_its_retries_is_given_up_on():
+    waits: list[float] = []
+    results, diagnostics = search_with(throttling(99), waits=waits)
+
+    assert results == []
+    assert len(waits) == RATE_LIMIT_RETRIES  # tried, then stopped trying
+    assert diagnostics.errors[SEARCH_RATE_LIMITED] == 1
+    assert diagnostics.errors[SEARCH_REQUEST_FAILED] == 0
+
+
+def test_retries_do_not_spend_the_request_budget_twice():
+    """The retries are what one request cost, not requests of their own."""
+    budget = RetrievalBudget(max_requests=2)
+    _, diagnostics = search_with(
+        throttling(1), domains=THREE_DOMAINS, budget=budget
+    )
+
+    assert budget.requests_made == 2
+    assert diagnostics.search_requests_made == 2
+
+
+def test_a_throttled_run_says_so_rather_than_blaming_the_key():
+    _, diagnostics = search_with(throttling(99), domains=THREE_DOMAINS)
+
+    assert "rate limited" in explain(diagnostics)
+    assert "API key" not in explain(diagnostics)
+
+
+def test_no_test_can_reach_the_live_search_api():
+    """The conftest guard, checked rather than taken on trust.
+
+    Every other test here drives a mock transport, which is a promise about
+    how the tests are written. This one is the promise that a test written
+    the other way would fail loudly instead of quietly spending quota.
+    """
+    provider = BraveSearchProvider("test-key")  # a real client, no mock transport
+    diagnostics = RetrievalDiagnostics()
+
+    assert provider.endpoint == ENDPOINT
+    assert ENDPOINT.startswith("https://api.search.brave.com/")
+
+    with pytest.raises(RuntimeError, match="over the network"):
+        provider.request("site:aima.cs.berkeley.edu heuristics", diagnostics)
+
+    with pytest.raises(RuntimeError, match="over the network"):
+        HttpPageFetcher(ALLOWED).fetch(PAGE)
 
 
 # The page fetcher

@@ -33,12 +33,20 @@ from authoring.retrieval.store import CandidateStore, StoreError
 
 
 def describe(candidate: ReferenceCandidate) -> str:
+    """One candidate as a reviewer reads it, reasons included.
+
+    The score and the terms behind it are shown because relevance filtering
+    is the reason this candidate is here rather than one of the others, and a
+    filter whose workings a reviewer cannot see is one they cannot correct.
+    """
     reviewer = f" by {candidate.reviewer_id}" if candidate.reviewer_id else ""
+    matched = ", ".join(candidate.matched_terms)
 
     return (
         f"{candidate.candidate_id}  {candidate.skill_id}  "
         f"[{candidate.review_status}{reviewer}]  {candidate.source_domain}\n"
         f"    {candidate.title}\n"
+        f"    relevance {candidate.relevance_score}: {matched or 'not scored'}\n"
         f"    {candidate.passage[:160]}"
     )
 
@@ -67,10 +75,21 @@ def retrieve(arguments: argparse.Namespace) -> int:
     fetcher = HttpPageFetcher(PILOT_ALLOWED_DOMAINS)
     store = CandidateStore(arguments.store)
     diagnostics = RetrievalDiagnostics()
+    by_skill: dict[str, RetrievalDiagnostics] = {}
+
+    # Read before the run so this run looks for the shortfall rather than
+    # rediscovering what the last one already put there.
+    held = store.load()
 
     added = store.add(
         run_pilot(
-            catalogue, provider, fetcher, limit=arguments.limit, diagnostics=diagnostics
+            catalogue,
+            provider,
+            fetcher,
+            limit=arguments.limit,
+            diagnostics=diagnostics,
+            by_skill=by_skill,
+            known=held,
         )
     )
 
@@ -79,9 +98,19 @@ def retrieve(arguments: argparse.Namespace) -> int:
     for candidate in added:
         print(describe(candidate))
 
-    print(summary(diagnostics))
+    # Per skill first, then the run: a skill that found nothing is the thing
+    # worth acting on, and the total is where it hides.
+    for skill_id, for_skill in by_skill.items():
+        print(f"\n{summary(for_skill, skill_id)}")
 
-    return 0 if diagnostics.candidates_created else 1
+    print(f"\n{summary(diagnostics, 'whole run')}")
+
+    # A run that added nothing because every skill was already full has done
+    # its job. Only a run that fell short of its targets has failed.
+    if diagnostics.candidates_created or diagnostics.targets_reached == len(by_skill):
+        return 0
+
+    return 1
 
 
 def list_candidates(arguments: argparse.Namespace) -> int:
@@ -159,7 +188,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print the queries only: no network, no store, no references.csv",
     )
-    retrieve_command.add_argument("--limit", type=int, default=SEARCH_LIMIT)
+    retrieve_command.add_argument(
+        "--limit",
+        type=int,
+        default=SEARCH_LIMIT,
+        help=(
+            f"usable candidates wanted per skill, not results read "
+            f"(default: {SEARCH_LIMIT})"
+        ),
+    )
     retrieve_command.set_defaults(handler=retrieve)
 
     list_command = commands.add_parser("list", help="list candidates and their statuses")

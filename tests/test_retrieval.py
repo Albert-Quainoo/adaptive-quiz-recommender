@@ -8,15 +8,19 @@ fetched) are checked rather than assumed.
 
 from collections import Counter
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 import pytest
 from pydantic import ValidationError
 
 from api.prompt_builder import REFERENCE_CLOSE, REFERENCE_OPEN, build_quiz_messages
 from authoring.builder import AuthoringError, build_request
+from authoring.retrieval.brave import PER_STEP_LIMIT
 from authoring.retrieval.diagnostics import (
+    COUNTS,
     FETCH_FAILED,
     INVALID_RESULT_URL,
+    UNSUPPORTED_DOCUMENT,
     RetrievalDiagnostics,
     summary,
 )
@@ -28,29 +32,48 @@ from authoring.retrieval.models import (
     new_candidate,
     reject,
 )
+from authoring.retrieval.passage import query_terms, reads_as_prose
 from authoring.retrieval.pilot import (
     PILOT_ALLOWED_DOMAINS,
-    PILOT_SKILL_DOMAINS,
     PILOT_SKILL_IDS,
+    PILOT_SOURCE_SCOPES,
     domains_for,
     load_pilot_catalogue,
     pilot_skills,
     plan_pilot,
     run_pilot,
+    scopes_for,
+)
+from authoring.retrieval.relevance import (
+    AI_CONTEXT_ANCHOR,
+    MIN_RELEVANCE_SCORE,
+    SourceScope,
+    score_relevance,
 )
 from authoring.retrieval.safety import (
     MAX_PAGE_BYTES,
+    UNSUPPORTED_DOCUMENT_SUFFIXES,
     UnreadableSource,
     UnsafeSource,
     UnsupportedContentType,
     canonical_url,
     check_url,
     domain_is_allowed,
+    is_unsupported_document,
+    titled_as_document,
 )
 from authoring.retrieval.search import (
+    MAX_SEARCH_REQUESTS_PER_SKILL,
+    PREFERRED_DOMAIN_COUNT,
+    SEARCH_LIMIT,
     FetchedPage,
+    KnownCandidates,
+    RetrievalBudget,
     RetrievalError,
+    SearchStep,
     build_search_queries,
+    build_search_schedule,
+    known_for,
     retrieve_candidates,
 )
 from taxonomy.schemas import SkillDefinition
@@ -84,26 +107,87 @@ def skill(**overrides) -> SkillDefinition:
     return SkillDefinition(**fields)
 
 
+def pilot_skill(skill_id: str) -> SkillDefinition:
+    """One of the three real pilot skills, out of the real taxonomy.
+
+    The relevance tests need the taxonomy's own wording rather than this
+    module's fixture: the whole question is whether a page matches the words
+    Albert wrote, and a fixture would let those two drift apart.
+    """
+    return {item.skill_id: item for item in pilot_skills(load_pilot_catalogue())}[
+        skill_id
+    ]
+
+
+# Prose about search that any of the pilot skills would be glad of, written
+# the way the pages that survived the live run were.
+SEARCH_PROSE = (
+    "We have encountered search problems in an earlier lecture. A constraint "
+    "satisfaction problem can be seen as a search problem: the initial state "
+    "is the empty assignment, in which no variable has been given a value, and "
+    "the actions add one variable-value pair to that assignment. The state "
+    "space is every assignment reachable that way, and the search tree is the "
+    "record of how a particular assignment was reached."
+)
+
+# Real technical prose about something else entirely - the shape of what MIT
+# OpenCourseWare kept handing back. Readable, well written, and unable to
+# ground a single question in this taxonomy.
+OFF_TOPIC_PROSE = (
+    "Elastic solids are described by constitutive relations derived from the "
+    "variational calculus. The Rayleigh-Ritz method approximates the minimum "
+    "potential energy of a body, and the finite element method follows from "
+    "the same principle applied to a piecewise polynomial basis. Convergence "
+    "of the approximation is estimated from interpolation theory, and the "
+    "error bounds it gives hold for isoparametric elements as well."
+)
+
+
 class FakeSearchProvider:
     """Returns canned hits and records what it was asked, in place of a service.
 
-    It ignores allowed_domains on purpose: a provider that hands back an
+    It answers every scheduled step with the same results, and pays no
+    attention to which domain the step names: a provider that hands back an
     ineligible URL is exactly the case the retrieval loop's own checks exist
     for, and these tests would not see those checks if the fake enforced the
     allowlist itself.
+
+    One step is walked at a time and its request is only spent when the first
+    of its results is asked for, which is what lets these tests see the
+    retrieval loop stop rather than merely stop counting.
     """
 
     def __init__(self, results: list[SearchResult]):
         self.results = results
-        self.queries: list[str] = []
-        self.domains: list[tuple[str, ...]] = []
+        self.schedules: list[tuple[SearchStep, ...]] = []
+        self.steps: list[SearchStep] = []
+        self.budgets: list[RetrievalBudget] = []
+        self.yielded = 0
 
-    def search(self, query, limit, allowed_domains, diagnostics) -> list[SearchResult]:
-        self.queries.append(query)
-        self.domains.append(tuple(allowed_domains))
-        diagnostics.record_query(next(iter(allowed_domains), ""))
+    @property
+    def queries(self) -> list[str]:
+        return [step.query for step in self.steps]
 
-        return self.results[:limit]
+    @property
+    def domains(self) -> list[str]:
+        return [step.domain for step in self.steps]
+
+    def search(self, schedule, diagnostics, budget):
+        self.schedules.append(tuple(schedule))
+        self.budgets.append(budget)
+
+        for step in schedule:
+            if not budget.may_request():
+                return
+
+            self.steps.append(step)
+            budget.spend_request()
+            diagnostics.record_query(step.domain)
+
+            for result in self.results:
+                self.yielded += 1
+
+                yield step, result
 
 
 class FakePageFetcher:
@@ -152,24 +236,41 @@ def run(
     allowed_domains=ALLOWED,
     skill_definition: SkillDefinition | None = None,
     diagnostics: RetrievalDiagnostics | None = None,
+    limit: int = SEARCH_LIMIT,
+    budget: RetrievalBudget | None = None,
+    known: KnownCandidates | None = None,
 ) -> list[ReferenceCandidate]:
     return retrieve_candidates(
         skill_definition or skill(),
         provider,
         fetcher,
         allowed_domains,
+        limit=limit,
         clock=fixed_clock,
         diagnostics=diagnostics,
+        budget=budget,
+        known=known,
     )
 
 
 def counted(
-    provider: FakeSearchProvider, fetcher: FakePageFetcher, allowed_domains=ALLOWED
+    provider: FakeSearchProvider,
+    fetcher: FakePageFetcher,
+    allowed_domains=ALLOWED,
+    limit: int = SEARCH_LIMIT,
+    budget: RetrievalBudget | None = None,
 ) -> RetrievalDiagnostics:
     """Run once and hand back what the run recorded about itself."""
     diagnostics = RetrievalDiagnostics()
 
-    run(provider, fetcher, allowed_domains, diagnostics=diagnostics)
+    run(
+        provider,
+        fetcher,
+        allowed_domains,
+        diagnostics=diagnostics,
+        limit=limit,
+        budget=budget,
+    )
 
     return diagnostics
 
@@ -195,10 +296,10 @@ def test_queries_are_built_from_the_taxonomy_fields():
     queries = build_search_queries(skill())
 
     assert queries == [
-        "Heuristic function Search and Problem Solving",
-        "Heuristic function Informed search",
-        "Heuristic function Explain how a heuristic estimates the remaining "
-        "cost from a state to the goal.",
+        f"Heuristic function Search and Problem Solving {AI_CONTEXT_ANCHOR}",
+        f"Heuristic function Informed search {AI_CONTEXT_ANCHOR}",
+        f"Heuristic function Explain how a heuristic estimates the remaining "
+        f"cost from a state to the goal. {AI_CONTEXT_ANCHOR}",
     ]
 
 
@@ -626,12 +727,12 @@ def test_a_clean_run_counts_what_it_created():
     assert diagnostics.errors == Counter()
 
 
-def test_the_provider_is_told_which_domains_are_allowed():
+def test_the_provider_is_asked_only_for_domains_on_the_allowlist():
     provider = FakeSearchProvider([])
 
     run(provider, FakePageFetcher({}), allowed_domains=("berkeley.edu", "d2l.ai"))
 
-    assert provider.domains == [("berkeley.edu", "d2l.ai")] * 3
+    assert set(provider.domains) == {"berkeley.edu", "d2l.ai"}
 
 
 def test_an_off_allowlist_result_is_counted_not_lost():
@@ -674,11 +775,13 @@ def test_a_fetch_failure_is_counted():
 
 
 def test_an_unsupported_content_type_is_counted_separately():
-    url = "https://aima.cs.berkeley.edu/notes.pdf"
+    """A URL that names nothing unreadable, behind a server that serves one."""
+    url = "https://aima.cs.berkeley.edu/notes"
     fetcher = FakePageFetcher({url: UnsupportedContentType("application/pdf")})
     diagnostics = counted(FakeSearchProvider([hit(url)]), fetcher)
 
     assert diagnostics.unsupported_content_type == 1
+    assert diagnostics.unsupported_document_skipped == 0  # nothing to see in the url
     assert diagnostics.fetch_failures == 0
 
 
@@ -692,12 +795,30 @@ def test_an_oversized_response_is_counted_separately():
 
 
 def test_a_page_with_too_little_text_is_counted():
+    """Prose, and not enough of it - which is not the same as no prose."""
     url = "https://aima.cs.berkeley.edu/stub.html"
-    diagnostics = counted(
-        FakeSearchProvider([hit(url)]), FakePageFetcher({url: "Heuristics."})
-    )
+    stub = "A heuristic is an estimate of the remaining cost to the goal."
+    diagnostics = counted(FakeSearchProvider([hit(url)]), FakePageFetcher({url: stub}))
 
     assert diagnostics.empty_or_short_passage == 1
+    assert diagnostics.rejected_as_non_prose == 0
+    assert diagnostics.candidates_created == 0
+
+
+def test_a_page_with_nothing_to_read_is_counted_apart_from_a_thin_one():
+    """A menu is not a short passage; it is no passage."""
+    url = "https://aima.cs.berkeley.edu/contents.html"
+    contents = (
+        "Home Editions Errata Exercises Figures Instructors Reviews Chapter 1 "
+        "Introduction Chapter 2 Intelligent Agents Chapter 3 Solving Problems "
+        "by Searching Chapter 4 Search in Complex Environments. "
+    ) * 6
+    diagnostics = counted(
+        FakeSearchProvider([hit(url)]), FakePageFetcher({url: contents})
+    )
+
+    assert diagnostics.rejected_as_non_prose == 1
+    assert diagnostics.empty_or_short_passage == 0
     assert diagnostics.candidates_created == 0
 
 
@@ -800,19 +921,19 @@ def test_a_prose_page_is_not_dropped_as_non_prose():
 def test_the_summary_names_non_prose_as_the_reason():
     url = "https://aima.cs.berkeley.edu/python/search.py"
 
-    assert "source files or code pages" in summary(
+    assert "source files, code pages or navigation" in summary(
         counted(FakeSearchProvider([hit(url)]), FakePageFetcher({}))
     )
 
 
-# Per-skill domain priority
+# Per-skill domain priority, derived from the source scopes
 
 
 def test_each_pilot_skill_leads_with_its_own_domains():
     assert domains_for("AI-SRC-01")[:3] == (
-        "ai.berkeley.edu",
-        "ocw.mit.edu",
+        "inst.eecs.berkeley.edu",
         "cs50.harvard.edu",
+        "ocw.mit.edu",
     )
     assert domains_for("AI-SRC-08")[0] == "redblobgames.com"
 
@@ -823,10 +944,11 @@ def test_a_preference_only_reorders_the_allowlist():
         assert len(domains_for(skill_id)) == len(PILOT_ALLOWED_DOMAINS)
 
 
-def test_every_preference_is_on_the_allowlist():
-    """A preference is an ordering, never a way onto the list."""
-    for preferred in PILOT_SKILL_DOMAINS.values():
-        assert set(preferred) <= set(PILOT_ALLOWED_DOMAINS)
+def test_every_scope_sits_on_an_allowed_domain():
+    """A scope is an ordering and a score, never a way onto the allowlist."""
+    for scopes in PILOT_SOURCE_SCOPES.values():
+        for scope in scopes:
+            assert scope.domain in PILOT_ALLOWED_DOMAINS
 
 
 def test_a_skill_with_no_preference_gets_the_allowlist_as_it_stands():
@@ -838,10 +960,29 @@ def test_the_pilot_run_searches_each_skill_in_its_own_order():
 
     run_pilot(load_pilot_catalogue(), provider, FakePageFetcher({}), clock=fixed_clock)
 
-    leading = [domains[0] for domains in provider.domains]
+    leading = [schedule[0].domain for schedule in provider.schedules]
 
-    assert leading[:3] == ["ai.berkeley.edu"] * 3  # AI-SRC-01
-    assert leading[6:] == ["redblobgames.com"] * 3  # AI-SRC-08
+    assert leading == [
+        "inst.eecs.berkeley.edu",
+        "inst.eecs.berkeley.edu",
+        "redblobgames.com",
+    ]
+
+
+def test_the_dead_berkeley_domain_is_no_longer_preferred_anywhere():
+    """Six 404s in one live run is what a preference is meant to prevent.
+
+    ai.berkeley.edu stays on the allowlist - it is still reviewed material,
+    and the check that would refuse it is a security boundary rather than a
+    quality one - but nothing leads with it now.
+    """
+    assert "ai.berkeley.edu" in PILOT_ALLOWED_DOMAINS
+
+    for skill_id in PILOT_SKILL_IDS:
+        assert "ai.berkeley.edu" not in [
+            scope.domain for scope in scopes_for(skill_id)
+        ]
+        assert domains_for(skill_id).index("ai.berkeley.edu") >= PREFERRED_DOMAIN_COUNT
 
 
 # Which of our own sources is failing
@@ -909,3 +1050,1408 @@ def test_a_clean_run_shows_no_failure_block():
     )
 
     assert "failures by domain" not in rendered
+
+
+# HTML-first backfilling: a rejected result costs a search, never a slot
+
+THREE_DOMAINS = ("aima.cs.berkeley.edu", "ai.berkeley.edu", "ocw.mit.edu")
+
+
+def prose(marker: str) -> str:
+    """Readable page text that no other page here hashes alike.
+
+    The marker is a word rather than the page's URL because select_passage
+    strips links before quoting: two pages distinguished only by a URL in
+    their text read as the same passage, which is a duplicate and not a
+    backfilled candidate.
+    """
+    return f"{PASSAGE} This page works through example {marker} in full detail."
+
+
+def page_url(domain: str, name: str) -> str:
+    return f"https://{domain}/{name}"
+
+
+def usable(*urls: str) -> FakePageFetcher:
+    return FakePageFetcher(
+        {url: prose(f"number {index}") for index, url in enumerate(urls)}
+    )
+
+
+@pytest.mark.parametrize("suffix", UNSUPPORTED_DOCUMENT_SUFFIXES)
+def test_a_document_url_is_recognised_before_anything_is_fetched(suffix):
+    assert is_unsupported_document(f"https://ocw.mit.edu/lecture{suffix}")
+    assert is_unsupported_document(f"https://ocw.mit.edu/LECTURE{suffix.upper()}")
+    assert is_unsupported_document(f"https://ocw.mit.edu/lecture{suffix}?download=1")
+
+
+def test_an_html_page_is_not_mistaken_for_a_document():
+    assert not is_unsupported_document("https://ocw.mit.edu/lecture.html")
+    assert not is_unsupported_document("https://ocw.mit.edu/pdf/notes.html")
+    assert not is_unsupported_document("https://ocw.mit.edu/notes")
+
+
+def test_a_pdf_never_reaches_the_fetcher():
+    pdf = page_url("aima.cs.berkeley.edu", "notes.pdf")
+    fetcher = usable(pdf)
+    diagnostics = counted(FakeSearchProvider([hit(pdf)]), fetcher)
+
+    assert fetcher.requested == []
+    assert diagnostics.unsupported_document_skipped == 3  # once per query
+    assert diagnostics.errors[UNSUPPORTED_DOCUMENT] == 3
+    assert diagnostics.candidates_created == 0
+
+
+def test_documents_do_not_consume_usable_slots():
+    """The complaint this milestone exists for: three PDFs, one candidate."""
+    documents = [
+        page_url("aima.cs.berkeley.edu", name)
+        for name in ("notes.pdf", "lecture.pptx", "handout.docx")
+    ]
+    html = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    provider = FakeSearchProvider([hit(url) for url in (*documents, html)])
+    fetcher = usable(html)
+
+    candidates = run(provider, fetcher, limit=1)
+
+    assert [candidate.source_url for candidate in candidates] == [html]
+    assert fetcher.requested == [html]
+
+
+def test_rejected_results_are_backfilled_up_to_the_target():
+    """Every rejection this run knows how to make, then four good pages."""
+    domain = "aima.cs.berkeley.edu"
+    good = [page_url(domain, f"good{index}.html") for index in range(4)]
+    fetcher = FakePageFetcher(
+        {
+            page_url(domain, "unreadable.html"): UnreadableSource("gone"),
+            page_url(domain, "binary.html"): UnsupportedContentType("pdf"),
+            page_url(domain, "stub.html"): "Heuristics.",
+            page_url(domain, "code.html"): "int a = b[i] * (c / d); " * 40,
+            **{url: prose(f"number {index}") for index, url in enumerate(good)},
+        }
+    )
+    rejected = [
+        page_url(domain, "notes.pdf"),  # unsupported document
+        page_url(domain, "slides.ppt"),  # unsupported document
+        "https://example.com/off.html",  # off the allowlist
+        "http://127.0.0.1/local.html",  # unsafe
+        page_url(domain, "search.py"),  # source file
+        page_url(domain, "unreadable.html"),
+        page_url(domain, "binary.html"),
+        page_url(domain, "stub.html"),
+        page_url(domain, "code.html"),
+    ]
+    provider = FakeSearchProvider([hit(url) for url in (*rejected, *good)])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(provider, fetcher, limit=4, diagnostics=diagnostics)
+
+    assert [candidate.source_url for candidate in candidates] == good
+    assert diagnostics.targets_reached == 1
+
+
+def test_a_duplicate_is_replaced_rather_than_counted_as_a_candidate():
+    domain = "aima.cs.berkeley.edu"
+    first = page_url(domain, "a.html")
+    copy = page_url(domain, "b.html")
+    second = page_url(domain, "c.html")
+    fetcher = FakePageFetcher(
+        {first: prose("one"), copy: prose("one"), second: prose("two")}
+    )
+    provider = FakeSearchProvider([hit(first), hit(copy), hit(first), hit(second)])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(provider, fetcher, limit=2, diagnostics=diagnostics)
+
+    assert [candidate.source_url for candidate in candidates] == [first, second]
+    assert diagnostics.duplicate_url == 1
+    assert diagnostics.duplicate_passage == 1
+
+
+# Stopping: the target, then the budgets
+
+
+def test_the_search_stops_the_moment_the_target_is_reached():
+    domain = "aima.cs.berkeley.edu"
+    urls = [page_url(domain, f"page{index}.html") for index in range(6)]
+    provider = FakeSearchProvider([hit(url) for url in urls])
+    fetcher = usable(*urls)
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(provider, fetcher, limit=3, diagnostics=diagnostics)
+
+    assert len(candidates) == 3
+    assert provider.yielded == 3  # nothing was read past the third
+    assert provider.queries == build_search_queries(skill())[:1]  # one query sufficed
+    assert diagnostics.targets_reached == 1
+    assert diagnostics.searches_exhausted == 0
+
+
+def test_a_run_that_falls_short_says_the_search_was_exhausted():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    diagnostics = counted(FakeSearchProvider([hit(url)]), usable(url), limit=5)
+
+    assert diagnostics.candidates_created == 1
+    assert diagnostics.searches_exhausted == 1
+    assert diagnostics.targets_reached == 0
+    assert "search exhausted" in summary(diagnostics)
+
+
+def test_the_request_budget_ends_the_run_before_the_queries_do():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    provider = FakeSearchProvider([hit(url)])
+    budget = RetrievalBudget(max_requests=2)
+    diagnostics = counted(provider, usable(url), limit=5, budget=budget)
+
+    assert len(provider.queries) == 2  # the third query is never issued
+    assert diagnostics.request_budgets_exhausted == 1
+    assert diagnostics.searches_exhausted == 0
+    assert "request budget spent" in summary(diagnostics)
+
+
+def test_the_fetch_budget_stops_the_reading():
+    domain = "aima.cs.berkeley.edu"
+    urls = [page_url(domain, f"page{index}.html") for index in range(6)]
+    fetcher = usable(*urls)
+    provider = FakeSearchProvider([hit(url) for url in urls])
+    budget = RetrievalBudget(max_fetches=2)
+    diagnostics = counted(provider, fetcher, limit=5, budget=budget)
+
+    assert len(fetcher.requested) == 2
+    assert diagnostics.candidates_created == 2
+    assert diagnostics.fetch_budgets_exhausted == 1
+    assert "fetch budget spent" in summary(diagnostics)
+
+
+def test_rejected_results_do_not_spend_the_fetch_budget():
+    """A budget spent on pages that were never fetched would be no budget."""
+    domain = "aima.cs.berkeley.edu"
+    documents = [page_url(domain, f"notes{index}.pdf") for index in range(5)]
+    html = page_url(domain, "heuristics.html")
+    provider = FakeSearchProvider([hit(url) for url in (*documents, html)])
+    budget = RetrievalBudget(max_fetches=1)
+
+    candidates = run(provider, usable(html), limit=1, budget=budget)
+
+    assert [candidate.source_url for candidate in candidates] == [html]
+    assert budget.fetches_made == 1
+
+
+def test_the_budgets_cover_a_skill_rather_than_each_of_its_queries():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    provider = FakeSearchProvider([hit(url)])
+    budget = RetrievalBudget()
+
+    run(provider, usable(url), limit=5, budget=budget)
+
+    assert budget.requests_made == 3  # one per query, on one allowance
+    assert budget.fetches_made == 1  # the repeats deduplicated
+
+
+# Domain diversity survives the backfilling
+
+
+def test_backfilling_keeps_the_domain_spread_the_provider_offered():
+    urls = [page_url(domain, "notes.html") for domain in THREE_DOMAINS]
+    provider = FakeSearchProvider([hit(url) for url in urls])
+
+    candidates = run(
+        provider, usable(*urls), allowed_domains=THREE_DOMAINS, limit=3
+    )
+
+    assert [candidate.source_domain for candidate in candidates] == list(THREE_DOMAINS)
+
+
+def test_a_dead_first_domain_does_not_stop_the_others_supplying():
+    dead, live = THREE_DOMAINS[0], THREE_DOMAINS[1]
+    documents = [page_url(dead, f"lecture{index}.pdf") for index in range(4)]
+    pages = [page_url(live, f"notes{index}.html") for index in range(2)]
+    provider = FakeSearchProvider([hit(url) for url in (*documents, *pages)])
+
+    candidates = run(
+        provider, usable(*pages), allowed_domains=THREE_DOMAINS, limit=2
+    )
+
+    assert {candidate.source_domain for candidate in candidates} == {live}
+    assert len(candidates) == 2
+
+
+# The document check is an addition to the safety checks, not a way round them
+
+
+def test_an_unsafe_document_url_is_still_counted_as_unsafe():
+    diagnostics = counted(
+        FakeSearchProvider([hit("http://127.0.0.1/lecture.pdf")]), FakePageFetcher({})
+    )
+
+    assert diagnostics.rejected_as_unsafe == 3
+    assert diagnostics.errors[INVALID_RESULT_URL] == 3
+    assert diagnostics.unsupported_document_skipped == 0
+
+
+def test_an_off_allowlist_document_is_counted_as_off_the_allowlist():
+    diagnostics = counted(
+        FakeSearchProvider([hit("https://example.com/lecture.pdf")]), FakePageFetcher({})
+    )
+
+    assert diagnostics.rejected_by_allowlist == 3
+    assert diagnostics.unsupported_document_skipped == 0
+
+
+def test_a_document_behind_a_redirect_is_still_checked_after_the_fetch():
+    """The URL check is a saving, not a substitute for reading the response."""
+    url = page_url("aima.cs.berkeley.edu", "notes.html")
+    fetcher = FakePageFetcher({url: UnsupportedContentType("pdf", "unsupported_pdf")})
+    diagnostics = counted(FakeSearchProvider([hit(url)]), fetcher)
+
+    assert fetcher.requested == [url]
+    assert diagnostics.unsupported_content_type == 1
+    assert diagnostics.errors["unsupported_pdf"] == 1
+
+
+# One record per skill, and one for the run
+
+
+class ProviderByQuery:
+    """Answers each pilot skill differently, matching on what its queries say.
+
+    A pilot where one skill fills up and another finds nothing is the case
+    per-skill diagnostics exist for, and a provider that answers all three
+    alike cannot stage it.
+    """
+
+    def __init__(self, results_by_skill: dict[str, list[SearchResult]]):
+        self.by_name = {
+            definition.name: results_by_skill.get(definition.skill_id, [])
+            for definition in pilot_skills(load_pilot_catalogue())
+        }
+
+    def search(self, schedule, diagnostics, budget):
+        for step in schedule:
+            if not budget.may_request():
+                return
+
+            budget.spend_request()
+            diagnostics.record_query(step.domain)
+
+            for name, results in self.by_name.items():
+                if step.query.startswith(name):
+                    yield from ((step, result) for result in results)
+
+
+def pilot_run(provider, fetcher, limit=SEARCH_LIMIT):
+    diagnostics = RetrievalDiagnostics()
+    by_skill: dict[str, RetrievalDiagnostics] = {}
+
+    candidates = run_pilot(
+        load_pilot_catalogue(),
+        provider,
+        fetcher,
+        allowed_domains=ALLOWED,
+        limit=limit,
+        clock=fixed_clock,
+        diagnostics=diagnostics,
+        by_skill=by_skill,
+    )
+
+    return candidates, diagnostics, by_skill
+
+
+def test_the_pilot_keeps_a_record_for_each_skill_in_order():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+
+    assert list(by_skill) == list(PILOT_SKILL_IDS)
+    assert all(record.candidates_created == 1 for record in by_skill.values())
+
+
+def test_the_run_total_is_the_sum_of_the_skills():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+
+    for _, attribute in COUNTS:
+        assert getattr(diagnostics, attribute) == sum(
+            getattr(record, attribute) for record in by_skill.values()
+        ), attribute
+
+
+def test_a_skill_that_found_nothing_is_visible_behind_a_healthy_total():
+    """The complaint a run total cannot make: which skill came back empty."""
+    domain = "aima.cs.berkeley.edu"
+    good = [page_url(domain, f"page{index}.html") for index in range(2)]
+    empty_handed, *rest = PILOT_SKILL_IDS
+    provider = ProviderByQuery(
+        {
+            empty_handed: [hit(page_url(domain, "lecture.pdf"))],
+            **{skill_id: [hit(url) for url in good] for skill_id in rest},
+        }
+    )
+
+    _, diagnostics, by_skill = pilot_run(provider, usable(*good))
+
+    assert diagnostics.candidates_created == 4  # the total looks fine
+    assert by_skill[empty_handed].candidates_created == 0
+    assert by_skill[empty_handed].unsupported_document_skipped == 3
+    assert all(by_skill[skill_id].candidates_created == 2 for skill_id in rest)
+
+
+def test_each_skills_summary_names_the_skill_it_is_about():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    _, diagnostics, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+
+    assert summary(by_skill["AI-SRC-01"], "AI-SRC-01").startswith(
+        "Retrieval diagnostics: AI-SRC-01"
+    )
+    assert summary(diagnostics).startswith("Retrieval diagnostics\n")
+
+
+def test_a_skill_record_carries_no_url_query_or_passage():
+    """The rule the run total already keeps, kept per skill as well."""
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    _, _, by_skill = pilot_run(FakeSearchProvider([hit(url)]), usable(url))
+    rendered = summary(by_skill["AI-SRC-08"], "AI-SRC-08")
+
+    assert url not in rendered
+    assert "heuristic function estimates" not in rendered.lower()
+
+
+def test_each_skill_searches_on_its_own_budget():
+    """A skill that spends everything must not leave the next one unsearched."""
+    provider = FakeSearchProvider([])
+
+    pilot_run(provider, FakePageFetcher({}))
+
+    assert len({id(budget) for budget in provider.budgets}) == len(PILOT_SKILL_IDS)
+    assert all(
+        budget.max_requests == MAX_SEARCH_REQUESTS_PER_SKILL
+        for budget in provider.budgets
+    )
+
+
+def test_the_request_ceiling_is_what_the_pilot_arithmetic_assumes():
+    """Ten per skill: three angles on three scoped domains, plus one hedge.
+
+    The allowlist is longer than the ceiling now, so the last domain on it is
+    not reached within one skill's budget. That is the point of ordering it:
+    what sits past the ceiling is what was ranked last on purpose - the code
+    companions, and the Berkeley domain whose pages have moved.
+    """
+    assert MAX_SEARCH_REQUESTS_PER_SKILL == PREFERRED_DOMAIN_COUNT * 3 + 1 == 10
+    assert MAX_SEARCH_REQUESTS_PER_SKILL * len(PILOT_SKILL_IDS) == 30
+    assert len(PILOT_ALLOWED_DOMAINS) >= MAX_SEARCH_REQUESTS_PER_SKILL
+
+
+def test_a_merged_total_keeps_the_domains_and_failures_of_both():
+    first, second = RetrievalDiagnostics(), RetrievalDiagnostics()
+    first.record_query("ai.berkeley.edu")
+    first.record_error("fetch_failed_404", "ai.berkeley.edu")
+    second.record_query("ocw.mit.edu")
+    second.record_error("fetch_failed_404", "ai.berkeley.edu")
+    second.record_error(UNSUPPORTED_DOCUMENT, "ocw.mit.edu")
+
+    total = RetrievalDiagnostics()
+    total.absorb(first)
+    total.absorb(second)
+
+    assert total.search_requests_made == 2
+    assert total.domains_queried == ["ai.berkeley.edu", "ocw.mit.edu"]
+    assert dict(total.failures_by_domain["ai.berkeley.edu"]) == {"fetch_failed_404": 2}
+    assert dict(total.failures_by_domain["ocw.mit.edu"]) == {UNSUPPORTED_DOCUMENT: 1}
+    assert first.search_requests_made == 1  # the parts are left as they were
+
+
+# The query-domain schedule
+
+
+QUERIES = ("angle one", "angle two", "angle three")
+TEN_DOMAINS = tuple(f"domain{index}.edu" for index in range(10))
+
+
+def test_the_schedule_asks_every_angle_of_the_preferred_domains_first():
+    schedule = build_search_schedule(QUERIES, TEN_DOMAINS)
+    leading, fallback = schedule[:9], schedule[9:]
+
+    assert {(step.query, step.domain) for step in leading} == {
+        (query, domain) for query in QUERIES for domain in TEN_DOMAINS[:3]
+    }
+    assert [step.domain for step in fallback] == ["domain3.edu"]
+
+
+def test_the_first_three_requests_are_three_different_sources():
+    """One angle asked three ways of one site is not a second opinion."""
+    schedule = build_search_schedule(QUERIES, TEN_DOMAINS)
+
+    assert [step.domain for step in schedule[:3]] == list(TEN_DOMAINS[:3])
+    assert {step.query for step in schedule[:3]} == {QUERIES[0]}
+
+
+def test_the_schedule_is_deterministic():
+    assert build_search_schedule(QUERIES, TEN_DOMAINS) == build_search_schedule(
+        QUERIES, TEN_DOMAINS
+    )
+
+
+def test_the_schedule_never_outruns_the_request_budget():
+    assert len(build_search_schedule(QUERIES, TEN_DOMAINS)) == (
+        MAX_SEARCH_REQUESTS_PER_SKILL
+    )
+
+
+def test_the_tenth_request_reaches_past_the_preferences():
+    schedule = build_search_schedule(QUERIES, TEN_DOMAINS)
+    last = schedule[-1]
+
+    assert last.domain == TEN_DOMAINS[PREFERRED_DOMAIN_COUNT]
+    assert last.query == QUERIES[0]  # the fallback is asked the leading angle
+
+
+def test_a_short_allowlist_still_gets_every_angle():
+    schedule = build_search_schedule(QUERIES, ("only.edu",))
+
+    assert schedule == [SearchStep(query, "only.edu") for query in QUERIES]
+
+
+def test_the_schedule_normalises_the_domains_it_names():
+    schedule = build_search_schedule(("angle",), ("  Ai.Berkeley.EDU. ", "  ", ""))
+
+    assert [step.domain for step in schedule] == ["ai.berkeley.edu"]
+
+
+def test_all_three_query_angles_are_reachable_within_the_request_budget():
+    """The reason the schedule exists: the angle that works may be the third.
+
+    Every result is a PDF, so nothing is ever usable and the run spends its
+    whole allowance - which is the only way to see how far the allowance
+    reaches.
+    """
+    provider = FakeSearchProvider([hit(page_url("aima.cs.berkeley.edu", "notes.pdf"))])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(
+        provider,
+        FakePageFetcher({}),
+        allowed_domains=PILOT_ALLOWED_DOMAINS,
+        diagnostics=diagnostics,
+    )
+
+    assert candidates == []
+    assert set(provider.queries) == set(build_search_queries(skill()))
+    assert diagnostics.search_requests_made == MAX_SEARCH_REQUESTS_PER_SKILL
+    assert diagnostics.request_budgets_exhausted == 1
+
+
+def test_the_pilot_reaches_every_angle_on_the_domains_chosen_for_the_skill():
+    for skill_id in PILOT_SKILL_IDS:
+        schedule = build_search_schedule(
+            build_search_queries(skill()), domains_for(skill_id)
+        )
+        asked = {step.domain for step in schedule[:9]}
+
+        assert asked == {scope.domain for scope in scopes_for(skill_id)}
+        assert len({step.query for step in schedule}) == 3
+
+
+def test_the_target_still_stops_the_schedule_early():
+    """Nine planned requests are a ceiling, not a promise to spend them."""
+    domain = "aima.cs.berkeley.edu"
+    urls = [page_url(domain, f"page{index}.html") for index in range(6)]
+    provider = FakeSearchProvider([hit(url) for url in urls])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(provider, usable(*urls), limit=5, diagnostics=diagnostics)
+
+    assert len(candidates) == 5
+    assert diagnostics.search_requests_made == 1  # the first step sufficed
+    assert diagnostics.targets_reached == 1
+
+
+def test_per_domain_diversity_survives_the_schedule():
+    """Two results per step, so the first site cannot fill the target alone."""
+    schedule = build_search_schedule(QUERIES, TEN_DOMAINS)
+    first_turn = [step.domain for step in schedule[:3]]
+
+    assert len(set(first_turn)) == 3
+    assert PER_STEP_LIMIT * len(first_turn) >= SEARCH_LIMIT
+
+
+# What the store already holds
+
+
+def stored(url: str, passage: str, skill_id: str = "AI-SRC-08", status="pending"):
+    held = candidate(passage, skill_id=skill_id, source_url=url,
+                     source_domain=url.split("/")[2])
+
+    if status == "pending":
+        return held
+
+    decide = approve if status == "approved" else reject
+
+    return decide(held, REVIEWER, reviewed_at=REVIEWED_TIME)
+
+
+def test_a_stored_url_is_never_fetched_again():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    fetcher = usable(url)
+    provider = FakeSearchProvider([hit(url)])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(
+        provider,
+        fetcher,
+        diagnostics=diagnostics,
+        known=known_for("AI-SRC-08", [stored(url, PASSAGE)]),
+    )
+
+    assert candidates == []
+    assert fetcher.requested == []
+    assert diagnostics.duplicate_url == 3  # seen once per scheduled step
+
+
+def test_a_stored_passage_under_a_new_url_is_not_stored_twice():
+    """The same prose republished elsewhere is still the same passage."""
+    old = page_url("aima.cs.berkeley.edu", "a.html")
+    new = page_url("aima.cs.berkeley.edu", "b.html")
+    fetcher = FakePageFetcher({new: prose("one")})
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(
+        FakeSearchProvider([hit(new)]),
+        fetcher,
+        diagnostics=diagnostics,
+        known=known_for("AI-SRC-08", [stored(old, prose("one"))]),
+    )
+
+    assert candidates == []
+    assert fetcher.requested == [new]  # only the hash could tell, so it was read
+    assert diagnostics.duplicate_passage == 1
+
+
+def test_a_rejected_page_is_not_offered_again():
+    url = page_url("aima.cs.berkeley.edu", "lecture-index.html")
+    fetcher = usable(url)
+
+    candidates = run(
+        FakeSearchProvider([hit(url)]),
+        fetcher,
+        known=known_for("AI-SRC-08", [stored(url, PASSAGE, status="rejected")]),
+    )
+
+    assert candidates == []
+    assert fetcher.requested == []
+
+
+def test_a_rejection_does_not_count_towards_the_target():
+    """Five rejections are five decisions, not five references."""
+    rejected = [
+        stored(page_url("aima.cs.berkeley.edu", f"no{index}.html"),
+               prose(f"number {index}"), status="rejected")
+        for index in range(5)
+    ]
+
+    assert known_for("AI-SRC-08", rejected).toward_target == 0
+    assert len(known_for("AI-SRC-08", rejected).urls) == 5
+
+
+def test_pending_and_approved_candidates_both_count():
+    held = [
+        stored(page_url("aima.cs.berkeley.edu", "a.html"), prose("one")),
+        stored(page_url("aima.cs.berkeley.edu", "b.html"), prose("two"),
+               status="approved"),
+        stored(page_url("aima.cs.berkeley.edu", "c.html"), prose("three"),
+               status="rejected"),
+    ]
+
+    assert known_for("AI-SRC-08", held).toward_target == 2
+
+
+def test_exclusions_are_kept_apart_by_skill():
+    """One page can ground two skills, and the store keeps them apart."""
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    held = [stored(url, PASSAGE, skill_id="AI-SRC-01")]
+
+    assert known_for("AI-SRC-01", held).urls == frozenset({canonical_url(url)})
+    assert known_for("AI-SRC-08", held) == KnownCandidates()
+
+
+def test_a_skill_already_at_its_target_asks_for_nothing():
+    held = [
+        stored(page_url("aima.cs.berkeley.edu", f"page{index}.html"),
+               prose(f"number {index}"))
+        for index in range(5)
+    ]
+    provider = FakeSearchProvider([hit(page_url("aima.cs.berkeley.edu", "new.html"))])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(
+        provider,
+        FakePageFetcher({}),
+        limit=5,
+        diagnostics=diagnostics,
+        known=known_for("AI-SRC-08", held),
+    )
+
+    assert candidates == []
+    assert provider.steps == []  # not one request planned
+    assert diagnostics.search_requests_made == 0
+    assert diagnostics.candidates_already_held == 5
+    assert diagnostics.targets_reached == 1
+
+
+def test_a_partly_filled_skill_looks_only_for_the_shortfall():
+    domain = "aima.cs.berkeley.edu"
+    held = [
+        stored(page_url(domain, f"old{index}.html"), prose(f"old {index}"))
+        for index in range(3)
+    ]
+    fresh = [page_url(domain, f"new{index}.html") for index in range(4)]
+    provider = FakeSearchProvider([hit(url) for url in fresh])
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(
+        provider,
+        usable(*fresh),
+        limit=5,
+        diagnostics=diagnostics,
+        known=known_for("AI-SRC-08", held),
+    )
+
+    assert len(candidates) == 2  # three held plus two found makes five
+    assert diagnostics.targets_reached == 1
+    assert diagnostics.search_requests_made == 1
+
+
+def test_the_summary_explains_a_run_that_had_nothing_to_do():
+    held = [
+        stored(page_url("aima.cs.berkeley.edu", f"page{index}.html"),
+               prose(f"number {index}"))
+        for index in range(5)
+    ]
+    diagnostics = RetrievalDiagnostics()
+
+    run(
+        FakeSearchProvider([]),
+        FakePageFetcher({}),
+        limit=5,
+        diagnostics=diagnostics,
+        known=known_for("AI-SRC-08", held),
+    )
+
+    assert "already holds every skill's target" in summary(diagnostics)
+
+
+def test_the_pilot_runs_against_what_the_store_holds():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+    held = [
+        stored(url, PASSAGE, skill_id=skill_id) for skill_id in PILOT_SKILL_IDS
+    ]
+    provider = FakeSearchProvider([hit(url)])
+    diagnostics = RetrievalDiagnostics()
+    by_skill: dict[str, RetrievalDiagnostics] = {}
+
+    candidates = run_pilot(
+        load_pilot_catalogue(),
+        provider,
+        FakePageFetcher({}),
+        allowed_domains=ALLOWED,
+        limit=1,
+        clock=fixed_clock,
+        diagnostics=diagnostics,
+        by_skill=by_skill,
+        known=held,
+    )
+
+    assert candidates == []
+    assert diagnostics.search_requests_made == 0
+    assert all(record.candidates_already_held == 1 for record in by_skill.values())
+
+
+def test_a_first_run_is_unaffected_by_the_new_parameter():
+    """Nothing held means the same run as before."""
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+
+    with_nothing = run(FakeSearchProvider([hit(url)]), usable(url), known=KnownCandidates())
+    without = run(FakeSearchProvider([hit(url)]), usable(url))
+
+    assert with_nothing == without
+    assert len(without) == 1
+
+
+# The AI context anchor: no angle searches on the taxonomy's words alone
+
+
+def test_every_query_carries_the_ai_context_anchor():
+    for skill_id in PILOT_SKILL_IDS:
+        catalogue_skill = pilot_skill(skill_id)
+
+        for query in build_search_queries(catalogue_skill):
+            assert AI_CONTEXT_ANCHOR in query
+
+
+@pytest.mark.parametrize("generic", ["Problem formulation", "State space and search tree"])
+def test_a_generic_taxonomy_phrase_never_searches_alone(generic):
+    """These are the taxonomy's words. They are not AI's.
+
+    "Problem formulation" asked of MIT OpenCourseWare returned a problem-
+    solving approach to electromagnetic field theory, which is a correct
+    answer to the question as it was put.
+    """
+    queries = build_search_queries(skill(subtopic=generic, name=generic))
+
+    assert all(query != generic for query in queries)
+    assert all(query.startswith(f"{generic} ") for query in queries)
+    assert all(query.endswith(AI_CONTEXT_ANCHOR) for query in queries)
+
+
+def test_the_anchor_cannot_steer_which_sentence_is_quoted():
+    """The anchor is for the index, not for the quote.
+
+    Every query carries it, so it separates no page from another - and left
+    scorable it would pull every passage towards whichever sentence
+    introduces the course. passage.STOPWORDS holds the same three words.
+    """
+    assert query_terms(AI_CONTEXT_ANCHOR) == set()
+
+
+# Source scopes: where on an allowed domain this skill's material lives
+
+
+def test_a_scope_matches_the_path_it_names():
+    scope = SourceScope("cs50.harvard.edu", "/ai/")
+
+    assert scope.covers("https://cs50.harvard.edu/ai/notes/0/")
+    assert not scope.covers("https://cs50.harvard.edu/x/2024/weeks/3/")
+
+
+def test_a_scope_matches_with_or_without_the_trailing_slash():
+    scope = SourceScope("inst.eecs.berkeley.edu", "/~cs188/textbook/")
+
+    assert scope.covers("https://inst.eecs.berkeley.edu/~cs188/textbook")
+    assert scope.covers("https://inst.eecs.berkeley.edu/~cs188/textbook/search/")
+
+
+def test_a_scope_reads_a_host_the_way_the_allowlist_does():
+    scope = SourceScope("redblobgames.com", "/pathfinding/")
+
+    assert scope.covers("https://www.redblobgames.com/pathfinding/a-star/")
+    assert not scope.covers("https://redblobgames.com.attacker.example/pathfinding/")
+
+
+def test_a_domain_only_scope_covers_the_whole_domain():
+    assert SourceScope("d2l.ai").covers("https://d2l.ai/chapter_preface/index.html")
+
+
+def test_the_scopes_name_the_paths_the_pilot_was_pointed_at():
+    scoped = {
+        str(scope) for scopes in PILOT_SOURCE_SCOPES.values() for scope in scopes
+    }
+
+    assert scoped == {
+        "inst.eecs.berkeley.edu/~cs188/textbook/",
+        "cs50.harvard.edu/ai/",
+        "ocw.mit.edu/courses/6-034-artificial-intelligence-",
+        "redblobgames.com/pathfinding/",
+    }
+
+
+def test_a_scope_is_a_preference_and_not_a_second_allowlist():
+    """An off-scope page that is genuinely about the skill is still kept.
+
+    cs50.harvard.edu/extension/ai/ is outside the scope the pilot names and
+    was one of the few pages the live run got right. A scope that dropped it
+    would be an allowlist wearing another name.
+    """
+    url = "https://cs50.harvard.edu/extension/ai/2023/spring/notes/3/"
+    provider = FakeSearchProvider([hit(url, "Lecture 3 - CSCI E-80")])
+    fetcher = FakePageFetcher({url: SEARCH_PROSE})
+
+    candidates = retrieve_candidates(
+        pilot_skill("AI-SRC-02"),
+        provider,
+        fetcher,
+        ("cs50.harvard.edu",),
+        clock=fixed_clock,
+        scopes=scopes_for("AI-SRC-02"),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].source_url == url
+
+
+def test_a_scope_never_widens_what_may_be_fetched():
+    """The allowlist is the boundary; a scope outside it reaches nothing."""
+    url = "https://cs50.harvard.edu/ai/notes/0/"
+    fetcher = FakePageFetcher({url: SEARCH_PROSE})
+
+    candidates = retrieve_candidates(
+        pilot_skill("AI-SRC-02"),
+        FakeSearchProvider([hit(url)]),
+        fetcher,
+        ("aima.cs.berkeley.edu",),
+        clock=fixed_clock,
+        scopes=(SourceScope("cs50.harvard.edu", "/ai/"),),
+    )
+
+    assert candidates == []
+    assert fetcher.requested == []
+
+
+# Relevance scoring, and what it records for the reviewer
+
+
+def test_a_kept_candidate_records_its_score_and_the_terms_behind_it():
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+
+    kept = run(FakeSearchProvider([hit(url)]), FakePageFetcher({url: PASSAGE}))[0]
+
+    assert kept.relevance_score >= MIN_RELEVANCE_SCORE
+    assert "concept:heuristic" in kept.matched_terms
+    assert any(term.startswith("context:") for term in kept.matched_terms)
+
+
+def test_a_score_is_not_an_approval():
+    """The highest score in the run is still somebody else's decision."""
+    url = page_url("aima.cs.berkeley.edu", "heuristics.html")
+
+    kept = run(FakeSearchProvider([hit(url)]), FakePageFetcher({url: PASSAGE}))[0]
+
+    assert kept.relevance_score > MIN_RELEVANCE_SCORE
+    assert kept.review_status == "pending"
+    assert export_reference_material([kept]) == {}
+
+
+def test_being_in_scope_is_worth_points_and_not_a_verdict():
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+        "Introduction to the A* Algorithm",
+        "",
+        PASSAGE,
+        scopes=scopes_for("AI-SRC-08"),
+    )
+    unscoped = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+        "Introduction to the A* Algorithm",
+        "",
+        PASSAGE,
+    )
+
+    assert scored.scope == "redblobgames.com/pathfinding/"
+    assert scored.score > unscoped.score
+    assert unscoped.is_relevant()  # it stands up on its own text either way
+
+
+def test_the_score_reads_the_snippet_as_well_as_the_page():
+    """Three texts, because a page can match in only one of them."""
+    thin = "Course materials for the spring term are listed below in order."
+    catalogue_skill = pilot_skill("AI-SRC-08")
+
+    without = score_relevance(catalogue_skill, "https://ocw.mit.edu/x", "Notes", "", thin)
+    with_snippet = score_relevance(
+        catalogue_skill,
+        "https://ocw.mit.edu/x",
+        "Notes",
+        "How an admissible heuristic estimates the remaining cost to the goal.",
+        thin,
+    )
+
+    assert without.context == ()
+    assert "heuristic" in with_snippet.context
+    assert with_snippet.score > without.score
+
+
+def test_a_page_about_the_subject_but_not_the_skill_is_still_short():
+    """Context alone is not enough either; the threshold is the other half."""
+    scored = score_relevance(
+        pilot_skill("AI-SRC-08"),
+        "https://plato.stanford.edu/entries/x/",
+        "Artificial Intelligence",
+        "",
+        "Artificial intelligence has been debated by philosophers for decades.",
+    )
+
+    assert scored.context == ("artificial intelligence",)
+    assert not scored.is_relevant()
+
+
+# The live pilot's false positives, as they came back
+
+
+class LiveResult(NamedTuple):
+    """One result the live run kept that a reviewer would not have."""
+
+    label: str
+    skill_id: str
+    url: str
+    title: str
+    text: str
+
+
+LIVE_FALSE_POSITIVES = (
+    LiveResult(
+        "electromagnetic field theory",
+        "AI-SRC-01",
+        "https://ocw.mit.edu/courses/res-6-002-electromagnetic-field-theory-a-problem-solving-approach-spring-2008/pages/textbook-contents/",
+        (
+            "Textbook contents | Electromagnetic Field Theory: A Problem "
+            "Solving Approach | Electrical Engineering and Computer Science "
+            "| MIT OpenCourseWare"
+        ),
+        (
+            "Textbook contents | Electromagnetic Field Theory: A Problem "
+            "Solving Approach | Electrical Engineering and Computer Science "
+            "| MIT OpenCourseWare Browse Course Material About this book "
+            "Textbook contents Course Info Instructor Markus Zahn "
+            "Departments Electrical Engineering and Computer Science As "
+            "Taught In Spring 2008 Level Undergraduate Topics Engineering "
+            "Electrical Engineering Mathematics Differential Equations "
+            "Science Physics Electromagnetism Learning Resource Types "
+            "assignment_turned_in Problem Set Solutions assignment Problem "
+            "Sets Download Course menu search Give Now About OCW Help & "
+            "Faqs Contact Us search GIVE NOW about ocw help & faqs contact "
+            "us RES.6-002 | Spring 2008 | Undergraduate Electromagnetic "
+            "Field Theory: A Problem Solving Approach Menu More Info About "
+            "this book Textbook contents Textbook contents Electromagnetic "
+            "Field Theory as one file: (PDF 1 of 3 - 3.9MB) (PDF 2 of 3 - "
+            "3.2MB) (PDF 3 of 3 - 3.3MB) Electromagnetic Field Theory "
+            "Textbook Components TEXTBOOK CONTENTS FILES Front-End Matter "
+            "Title page ( PDF ) Dedication ( PDF ) Preface ( PDF ) Note to "
+            "the student and instructor ( PDF ) Table of contents, ix-xix ( "
+            "PDF ) Title page 2 ( PDF ) Solutions to selected problems,"
+        ),
+    ),
+    LiveResult(
+        "computational mechanics",
+        "AI-SRC-01",
+        "https://ocw.mit.edu/courses/16-225-computational-mechanics-of-materials-fall-2003/pages/lecture-notes/",
+        (
+            "Lecture Notes | Computational Mechanics of Materials | "
+            "Aeronautics and Astronautics | MIT OpenCourseWare"
+        ),
+        (
+            "LEC # TOPICS 1 Elastic Solids; Legendre Transformation; "
+            "Isotropy; Equilibrium; Compatibility; Constitutive Relations; "
+            "Variational Calculus; Example of a Functional: String; Extrema "
+            "- Calculus of Variations; Local Form of Stationarity Condition "
+            "( PDF ) 2 Vainberg Theorem; Hu-Washizu Functional ( PDF ) 3 "
+            "Specialized (Simplified) Variational Principles; Hellinger- "
+            "Reissner Principle; Complementary Energy Principle; Minimum "
+            "Potential Energy Theorem; Approximation Theory; Rayleigh - "
+            "Ritz Method ( PDF ) 4 Weighted - Residuals / Galerkin; "
+            "Principle of Virtual Work; Geometrical Interpretation of "
+            "Galerkin's Method; Galerkin Weighting; Best Approximation "
+            "Method; The Finite Element Method ( PDF ) 5 Sobolev Norms; "
+            "Global Shape Function; Computation of K and f ext ; "
+            "Isoparametric Elements ( PDF ) 6 Higher Order Interpolation; "
+            "Isoparametric Triangular Elements; Numerical Integration; "
+            "Gauss Quadrature ( PDF ) 7 Error Estimation, Convergence of "
+            "Finite Element Approximations; Error Estimates From "
+            "Interpolation Theory ( PDF ) 8 Linear Elasticity; Numerical "
+            "Integration Errors; Basic Error Estimates; Conditions for "
+            "Convergence; Patch Test ( PDF ) 9 Incompressible Elasticity; "
+            "Hooke's Law; Governing Equa"
+        ),
+    ),
+    LiveResult(
+        "probabilistic systems",
+        "AI-SRC-02",
+        "https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/resources/mit6_041scf13_rec04/",
+        (
+            "6.041SC Probabilistic Systems Analysis, Recitation 4 | "
+            "Probabilistic Systems Analysis and Applied Probability | "
+            "Electrical Engineering and Computer Science | MIT "
+            "OpenCourseWare"
+        ),
+        (
+            "John Tsitsiklis Departments Electrical Engineering and "
+            "Computer Science As Taught In Fall 2013 Level Undergraduate "
+            "Topics Engineering Systems Engineering Mathematics Discrete "
+            "Mathematics Probability and Statistics Learning Resource Types "
+            "grading Exam Solutions grading Exams theaters Lecture Videos "
+            "assignment_turned_in Problem Set Solutions assignment Problem "
+            "Sets theaters Problem-solving Videos Download Course menu "
+            "search Give Now About OCW Help & Faqs Contact Us search GIVE "
+            "NOW about ocw help & faqs contact us 6.041SC | Fall 2013 | "
+            "Undergraduate Probabilistic Systems Analysis and Applied "
+            "Probability Menu More Info Syllabus Meet The Team Unit I: "
+            "Probability Models And Discrete Random Variables Lecture 1 "
+            "Lecture 2 Lecture 3 Lecture 4 Lecture 5 Lecture 6 Lecture 7 "
+            "Quiz 1 Unit II: General Random Variables Lecture 8 Lecture 9 "
+            "Lecture 10 Lecture 11 Lecture 12 Quiz 2 Unit III: Random "
+            "Processes Lecture 13 Lecture 14 Lecture 15 Lecture 16 Lecture "
+            "17 Lecture 18 Unit IV: Laws Of Large Numbers And Inference "
+            "Lecture 19 Lecture 20 Lecture 21 Lecture 22 Lecture 23 Lecture "
+            "24 Lecture 25 Final Exam Resource Index Lecture 4: Counting "
+            "6.041SC Probabilistic Systems Analysis, Recitation 4 Resource "
+            "Typ"
+        ),
+    ),
+    LiveResult(
+        "convex optimization",
+        "AI-SRC-08",
+        "https://ocw.mit.edu/courses/6-079-introduction-to-convex-optimization-fall-2009/pages/lecture-notes/",
+        (
+            "Lecture Notes | Introduction to Convex Optimization | "
+            "Electrical Engineering and Computer Science | MIT "
+            "OpenCourseWare"
+        ),
+        (
+            "Pablo Parrilo Departments Electrical Engineering and Computer "
+            "Science As Taught In Fall 2009 Level Undergraduate Topics "
+            "Engineering Electrical Engineering Systems Engineering Systems "
+            "Optimization Mathematics Applied Mathematics Learning Resource "
+            "Types grading Exams notes Lecture Notes assignment Programming "
+            "Assignments Download Course menu search Give Now About OCW "
+            "Help & Faqs Contact Us search GIVE NOW about ocw help & faqs "
+            "contact us 6.079 | Fall 2009 | Undergraduate Introduction to "
+            "Convex Optimization Menu More Info Syllabus Readings Lecture "
+            "Notes Assignments Exams Lecture Notes Notes for Lecture 20 are "
+            "not available on MIT OpenCourseWare."
+        ),
+    ),
+    LiveResult(
+        "functional analysis",
+        "AI-SRC-08",
+        "https://ocw.mit.edu/courses/18-102-introduction-to-functional-analysis-spring-2021/pages/lecture-notes-and-readings/",
+        (
+            "Lecture Notes and Readings | Introduction to Functional "
+            "Analysis | Mathematics | MIT OpenCourseWare"
+        ),
+        (
+            "Casey Rodriguez Departments Mathematics As Taught In Spring "
+            "2021 Level Undergraduate Topics Mathematics Linear Algebra "
+            "Mathematical Analysis Learning Resource Types edit_note "
+            "Editable Files grading Exams notes Lecture Notes theaters "
+            "Lecture Videos assignment Problem Sets Download Course menu "
+            "search Give Now About OCW Help & Faqs Contact Us search GIVE "
+            "NOW about ocw help & faqs contact us 18.102 | Spring 2021 | "
+            "Undergraduate Introduction to Functional Analysis Menu More "
+            "Info Syllabus Calendar Lecture Videos Lecture Notes and "
+            "Readings Assignments and Exams Lecture Notes and Readings "
+            "There is no assigned textbook for this course."
+        ),
+    ),
+)
+
+# The sixth. It is here rather than in the list above because nothing about
+# its text is the problem: it is an HTML page, on an allowed domain, and the
+# only thing that gives it away is that it calls itself a PDF.
+FEEDBACK_CONTROL_WRAPPER = LiveResult(
+    "feedback control wrapper",
+    "AI-SRC-02",
+    "https://ocw.mit.edu/courses/16-30-feedback-control-systems-fall-2010/resources/mit16_30f10_lec09/",
+    (
+        "MIT16_30F10_lec09.pdf | Feedback Control Systems | Aeronautics and "
+        "Astronautics | MIT OpenCourseWare"
+    ),
+    (
+        "Emilio Frazzoli Departments Aeronautics and Astronautics As Taught "
+        "In Fall 2010 Level Undergraduate Topics Engineering Aerospace "
+        "Engineering Avionics Guidance and Control Systems Learning "
+        "Resource Types assignment Design Assignments notes Lecture Notes "
+        "assignment Problem Sets Download Course menu search Give Now About "
+        "OCW Help & Faqs Contact Us search GIVE NOW about ocw help & faqs "
+        "contact us 16.30 | Fall 2010 | Undergraduate Feedback Control "
+        "Systems Menu More Info Syllabus Calendar Lecture Notes Recitations "
+        "Assignments Lecture Notes MIT16_30F10_lec09.pdf Description: This "
+        "resource contains information related to state-space model "
+        "features."
+    ),
+)
+
+
+def live_run(result: LiveResult) -> tuple[list, RetrievalDiagnostics, FakePageFetcher]:
+    """Put one live result back through retrieval exactly as the pilot does."""
+    provider = FakeSearchProvider([SearchResult(title=result.title, url=result.url)])
+    fetcher = FakePageFetcher({result.url: result.text})
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = retrieve_candidates(
+        pilot_skill(result.skill_id),
+        provider,
+        fetcher,
+        domains_for(result.skill_id),
+        clock=fixed_clock,
+        diagnostics=diagnostics,
+        scopes=scopes_for(result.skill_id),
+    )
+
+    return candidates, diagnostics, fetcher
+
+
+@pytest.mark.parametrize(
+    "result", LIVE_FALSE_POSITIVES, ids=[item.label for item in LIVE_FALSE_POSITIVES]
+)
+def test_a_live_false_positive_is_no_longer_a_candidate(result: LiveResult):
+    """Every one of these is a real MIT page on a reviewed domain.
+
+    None of them can ground a question about problem formulation, state
+    spaces or heuristics, and the allowlist had no way to say so. This is the
+    requirement, whichever check turns out to catch it.
+    """
+    candidates, diagnostics, _ = live_run(result)
+
+    assert candidates == []
+    assert diagnostics.candidates_created == 0
+
+
+@pytest.mark.parametrize(
+    "result", LIVE_FALSE_POSITIVES, ids=[item.label for item in LIVE_FALSE_POSITIVES]
+)
+def test_a_live_false_positive_never_had_prose_on_it(result: LiveResult):
+    """What these five actually were, once the passage was looked at.
+
+    Each was quoted as a course sidebar - departments, resource types, a
+    donate link - so the check that catches them is the one about whether
+    there was anything to read, not the one about what it was about. They
+    are recorded here because the run they came from could not tell those
+    apart, and reported five relevance failures for what were five pages
+    with no prose on them.
+    """
+    _, diagnostics, _ = live_run(result)
+
+    assert not reads_as_prose(result.text)
+    assert diagnostics.rejected_as_non_prose >= 1
+
+
+@pytest.mark.parametrize(
+    "result", LIVE_FALSE_POSITIVES, ids=[item.label for item in LIVE_FALSE_POSITIVES]
+)
+def test_a_live_false_positive_shows_no_ai_context(result: LiveResult):
+    """The reason, stated: these pages never mention the subject.
+
+    The score is the adjustable half of the filter. This is the half that is
+    not up for negotiation, and it is what each of these failed.
+    """
+    scored = score_relevance(
+        pilot_skill(result.skill_id),
+        result.url,
+        result.title,
+        "",
+        result.text,
+        scopes=scopes_for(result.skill_id),
+    )
+
+    assert scored.context == ()
+    assert not scored.is_relevant()
+
+
+def test_the_pdf_wrapper_is_recognised_before_it_is_fetched():
+    """An HTML response, a clean URL, and a PDF behind both.
+
+    The content type said text/html and the path had no suffix, so both
+    document checks passed it. What the page called itself did not.
+    """
+    candidates, diagnostics, fetcher = live_run(FEEDBACK_CONTROL_WRAPPER)
+
+    assert candidates == []
+    assert fetcher.requested == []
+    assert diagnostics.unsupported_document_skipped >= 1
+    assert diagnostics.errors[UNSUPPORTED_DOCUMENT] >= 1
+
+
+def test_the_wrapper_would_otherwise_have_scored_well_enough():
+    """Which is why the document check runs first.
+
+    "state-space model features" is a true statement about an aircraft, and
+    it is enough to carry the page over the relevance threshold for a skill
+    about state spaces. Relevance was never going to catch this one.
+    """
+    scored = score_relevance(
+        pilot_skill("AI-SRC-02"),
+        FEEDBACK_CONTROL_WRAPPER.url,
+        FEEDBACK_CONTROL_WRAPPER.title,
+        "",
+        FEEDBACK_CONTROL_WRAPPER.text,
+    )
+
+    assert "state space" in scored.context
+    assert titled_as_document(FEEDBACK_CONTROL_WRAPPER.title)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "MIT16_30F10_lec09.pdf | Feedback Control Systems",
+        "lecture-05.PPTX",
+        "week3.zip - CS50",
+        "syllabus.docx | Course Info",
+    ],
+)
+def test_a_title_that_names_a_document_is_recognised(title):
+    assert titled_as_document(title)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Lecture Notes | Computational Mechanics of Materials",  # links to PDFs
+        "Textbook contents ( PDF ) | Electromagnetic Field Theory",
+        "Red Blob Games: Introduction to the A* Algorithm",
+        "Lecture 0 - CS50's Introduction to Artificial Intelligence with Python",
+    ],
+)
+def test_a_page_that_merely_offers_documents_is_not_a_wrapper(title):
+    """MIT's lecture-notes pages list "( PDF )" beside every entry.
+
+    They are readable prose and two of them are genuinely useful. A wrapper
+    names a file; a page that links to files does not.
+    """
+    assert not titled_as_document(title)
+
+
+# What an irrelevant result costs, and what the run says about it
+
+
+def test_an_irrelevant_result_does_not_consume_a_slot():
+    """The same trade the whole backfilling loop is built on.
+
+    A page that is read and turned down costs a fetch and nothing else, so
+    the target is still five usable candidates rather than five results.
+    """
+    domain = "aima.cs.berkeley.edu"
+    off_topic = [page_url(domain, f"other{index}.html") for index in range(4)]
+    on_topic = [page_url(domain, f"search{index}.html") for index in range(2)]
+
+    provider = FakeSearchProvider([hit(url) for url in off_topic + on_topic])
+    fetcher = FakePageFetcher(
+        {url: OFF_TOPIC_PROSE for url in off_topic}
+        | {url: prose(f"number {index}") for index, url in enumerate(on_topic)}
+    )
+    diagnostics = RetrievalDiagnostics()
+
+    candidates = run(provider, fetcher, limit=2, diagnostics=diagnostics)
+
+    assert len(candidates) == 2
+    assert diagnostics.rejected_as_irrelevant == 4
+    assert diagnostics.targets_reached == 1
+
+
+def test_the_summary_names_irrelevance_as_the_reason():
+    url = page_url("aima.cs.berkeley.edu", "mechanics.html")
+    rendered = summary(
+        counted(FakeSearchProvider([hit(url)]), FakePageFetcher({url: OFF_TOPIC_PROSE}))
+    )
+
+    assert "rejected as irrelevant" in rendered
+    assert "none was about the skill that searched for them" in rendered
+
+
+def test_irrelevance_is_counted_apart_from_every_other_rejection():
+    url = page_url("aima.cs.berkeley.edu", "mechanics.html")
+    diagnostics = counted(
+        FakeSearchProvider([hit(url)]), FakePageFetcher({url: OFF_TOPIC_PROSE})
+    )
+
+    assert diagnostics.rejected_as_irrelevant == 1
+    assert diagnostics.rejected_as_non_prose == 0
+    assert diagnostics.empty_or_short_passage == 0
+    assert diagnostics.rejected_by_allowlist == 0
+
+
+def test_the_new_count_is_merged_into_a_run_total():
+    first, second = RetrievalDiagnostics(), RetrievalDiagnostics()
+    first.rejected_as_irrelevant = 3
+    second.rejected_as_irrelevant = 4
+
+    total = RetrievalDiagnostics()
+    total.absorb(first)
+    total.absorb(second)
+
+    assert total.rejected_as_irrelevant == 7
+    assert ("rejected as irrelevant", "rejected_as_irrelevant") in COUNTS
+
+
+def test_a_diagnostic_record_still_holds_no_url_or_page_text():
+    """Relevance reads the page. It writes down only how many failed."""
+    url = page_url("aima.cs.berkeley.edu", "mechanics.html")
+    rendered = summary(
+        counted(FakeSearchProvider([hit(url)]), FakePageFetcher({url: OFF_TOPIC_PROSE}))
+    )
+
+    assert "mechanics" not in rendered
+    assert "aima.cs.berkeley.edu" in rendered  # a domain we chose, and only that
+    assert "Galerkin" not in rendered
+
+
+def test_a_context_phrase_cannot_be_assembled_across_two_texts():
+    """A title ending in "state" and a snippet opening with "space".
+
+    The three texts are read together, and joining them naively would let a
+    page score for a phrase that appears in none of them.
+    """
+    scored = score_relevance(
+        pilot_skill("AI-SRC-02"),
+        "https://ocw.mit.edu/x",
+        "Equilibrium of an elastic state",
+        "Space frames and their deflection under load.",
+        OFF_TOPIC_PROSE,
+    )
+
+    assert "state space" not in scored.context
+    assert not scored.is_relevant()
+
+
+def test_a_phrase_is_matched_on_whole_words():
+    catalogue_skill = pilot_skill("AI-SRC-01")
+    text = "The pathological cases are listed in the appendix for completeness."
+
+    assert score_relevance(catalogue_skill, "https://d2l.ai/x", "", "", text).context == ()
+
+
+# Narrowing what the index is asked to the scope, not just the domain
+
+
+def test_the_schedule_carries_the_scope_path_for_a_scoped_domain():
+    schedule = build_search_schedule(
+        ("angle",),
+        ("cs50.harvard.edu", "ocw.mit.edu"),
+        scopes=(SourceScope("cs50.harvard.edu", "/ai/"),),
+    )
+    by_domain = {step.domain: step.path for step in schedule}
+
+    assert by_domain["cs50.harvard.edu"] == "/ai/"
+    assert by_domain["ocw.mit.edu"] == ""
+
+
+def test_the_pilot_asks_inside_the_courses_rather_than_across_the_sites():
+    for skill_id in PILOT_SKILL_IDS:
+        schedule = build_search_schedule(
+            build_search_queries(pilot_skill(skill_id)),
+            domains_for(skill_id),
+            scopes=scopes_for(skill_id),
+        )
+        scoped = {step.domain: step.path for step in schedule if step.path}
+
+        assert scoped == {
+            scope.domain: scope.path for scope in scopes_for(skill_id)
+        }
+
+
+def test_the_fallback_domains_are_still_asked_whole():
+    """Past the preferences there is no scope to narrow to, and that is fine."""
+    schedule = build_search_schedule(
+        build_search_queries(pilot_skill("AI-SRC-08")),
+        domains_for("AI-SRC-08"),
+        scopes=scopes_for("AI-SRC-08"),
+    )
+
+    assert all(step.path == "" for step in schedule[PREFERRED_DOMAIN_COUNT * 3 :])
+
+
+def test_a_scope_off_the_allowlist_is_not_even_asked():
+    """A request whose answer could not be read is a request not worth making."""
+    provider = FakeSearchProvider([])
+
+    retrieve_candidates(
+        pilot_skill("AI-SRC-02"),
+        provider,
+        FakePageFetcher({}),
+        ("aima.cs.berkeley.edu",),
+        clock=fixed_clock,
+        scopes=(SourceScope("cs50.harvard.edu", "/ai/"),),
+    )
+
+    assert "cs50.harvard.edu" not in provider.domains
+    assert all(step.path == "" for step in provider.steps)

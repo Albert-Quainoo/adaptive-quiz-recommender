@@ -272,10 +272,15 @@ class StubProvider:
 
         return Bound
 
-    def search(self, query, limit, allowed_domains, diagnostics):
-        diagnostics.record_query(allowed_domains[0])
+    def search(self, schedule, diagnostics, budget):
+        for step in schedule:
+            if not budget.may_request():
+                return
 
-        return [SearchResult(title="Heuristics", url=self.url, snippet="")]
+            budget.spend_request()
+            diagnostics.record_query(step.domain)
+
+            yield step, SearchResult(title="Heuristics", url=self.url, snippet="")
 
 
 class StubFetcher:
@@ -286,12 +291,14 @@ class StubFetcher:
         return FetchedPage(url=url, text=PAGE_TEXT)
 
 
-def run_retrieve(monkeypatch, tmp_path, url: str) -> int:
+def run_retrieve(monkeypatch, tmp_path, url: str, limit: str = "5") -> int:
     monkeypatch.setattr("authoring.retrieval.cli.BraveSearchProvider",
                         StubProvider.bound_to(url))
     monkeypatch.setattr("authoring.retrieval.cli.HttpPageFetcher", StubFetcher)
 
-    return main(["--store", str(tmp_path / "candidates.json"), "retrieve"])
+    return main([
+        "--store", str(tmp_path / "candidates.json"), "retrieve", "--limit", limit
+    ])
 
 
 def test_a_run_that_creates_nothing_says_where_the_results_went(
@@ -317,6 +324,16 @@ def test_a_working_run_reports_its_counts_and_succeeds(monkeypatch, tmp_path, ca
     assert "Every result" not in printed
 
 
+def test_the_run_reports_each_skill_as_well_as_the_whole(monkeypatch, tmp_path, capsys):
+    run_retrieve(monkeypatch, tmp_path, "https://aima.cs.berkeley.edu/heuristics.html")
+    printed = capsys.readouterr().out
+
+    for skill_id in ("AI-SRC-01", "AI-SRC-02", "AI-SRC-08"):
+        assert f"Retrieval diagnostics: {skill_id}" in printed
+
+    assert "Retrieval diagnostics: whole run" in printed
+
+
 def test_the_summary_never_prints_the_key_or_a_whole_passage(
     monkeypatch, tmp_path, capsys
 ):
@@ -327,3 +344,128 @@ def test_the_summary_never_prints_the_key_or_a_whole_passage(
 
     assert "sk-live-secret" not in printed
     assert PAGE_TEXT not in printed
+
+
+# Running again against a store that already holds candidates
+
+
+def test_a_second_run_costs_nothing_once_the_targets_are_held(
+    monkeypatch, tmp_path, capsys
+):
+    """The quota is spent on what is missing, not on what is already there."""
+    url = "https://aima.cs.berkeley.edu/heuristics.html"
+
+    assert run_retrieve(monkeypatch, tmp_path, url, limit="1") == 0
+    capsys.readouterr()
+
+    assert run_retrieve(monkeypatch, tmp_path, url, limit="1") == 0
+    printed = " ".join(capsys.readouterr().out.split())
+
+    assert "Retrieved 0 new candidate(s)" in printed
+    assert "search requests made 0" in printed
+    assert "already held 3" in printed  # one per pilot skill
+    assert "already holds every skill's target" in printed
+
+
+def test_a_second_run_leaves_the_store_as_it_was(monkeypatch, tmp_path):
+    url = "https://aima.cs.berkeley.edu/heuristics.html"
+    store = CandidateStore(tmp_path / "candidates.json")
+
+    run_retrieve(monkeypatch, tmp_path, url, limit="1")
+    before = store.path.read_bytes()
+
+    run_retrieve(monkeypatch, tmp_path, url, limit="1")
+
+    assert store.path.read_bytes() == before
+
+
+def test_a_rejected_candidate_is_not_retrieved_again(monkeypatch, tmp_path, capsys):
+    """A page a reviewer turned down is the last page worth fetching again."""
+    url = "https://aima.cs.berkeley.edu/heuristics.html"
+    store = CandidateStore(tmp_path / "candidates.json")
+
+    run_retrieve(monkeypatch, tmp_path, url, limit="1")
+
+    for held in store.load():
+        store.replace(reject(held, REVIEWER))
+
+    capsys.readouterr()
+    run_retrieve(monkeypatch, tmp_path, url, limit="1")
+    printed = " ".join(capsys.readouterr().out.split())
+
+    assert [held.review_status for held in store.load()] == ["rejected"] * 3
+    assert "already held 0" in printed  # a rejection is not a reference
+    assert "duplicate urls" in printed  # it was searched for, and skipped
+
+
+# The relevance record: what the reviewer is shown, and what survives
+
+
+def scored_candidate(score: int = 14, terms=("concept:heuristic", "context:frontier")):
+    return new_candidate(
+        skill_id="AI-SRC-08",
+        title="Heuristics",
+        source_url="https://aima.cs.berkeley.edu/heuristics.html",
+        source_domain="aima.cs.berkeley.edu",
+        passage="A heuristic estimates the remaining cost to a goal state.",
+        retrieved_at=FIXED_TIME,
+        relevance_score=score,
+        matched_terms=terms,
+    )
+
+
+def test_the_score_and_its_terms_survive_a_separate_run(store):
+    """A reviewer reads these later, in another session, from the file."""
+    store.add([scored_candidate()])
+
+    reopened = CandidateStore(store.path).load()[0]
+
+    assert reopened.relevance_score == 14
+    assert reopened.matched_terms == ["concept:heuristic", "context:frontier"]
+
+
+def test_a_decision_leaves_the_relevance_record_intact(store):
+    """Why it was offered stays readable next to what was decided about it."""
+    store.add([scored_candidate()])
+    held = store.load()[0]
+
+    decided = store.replace(approve(held, REVIEWER, reviewed_at=REVIEWED_TIME))
+
+    assert decided.relevance_score == 14
+    assert decided.matched_terms == held.matched_terms
+    assert decided.reviewer_id == REVIEWER
+
+
+def test_a_store_written_before_relevance_filtering_still_loads(store):
+    """Older candidates predate the fields and must not become unreadable."""
+    store.path.parent.mkdir(parents=True, exist_ok=True)
+    record = json.loads(scored_candidate().model_dump_json())
+    del record["relevance_score"]
+    del record["matched_terms"]
+    store.path.write_text(json.dumps([record]), encoding="utf-8")
+
+    loaded = store.load()
+
+    assert len(loaded) == 1
+    assert loaded[0].relevance_score == 0
+    assert loaded[0].matched_terms == []
+
+
+def test_listing_shows_why_a_candidate_was_kept(store, capsys):
+    store.add([scored_candidate()])
+
+    main(["--store", str(store.path), "list"])
+
+    printed = capsys.readouterr().out
+
+    assert "relevance 14" in printed
+    assert "concept:heuristic" in printed
+
+
+def test_an_unscored_candidate_says_so_rather_than_showing_a_zero(store, capsys):
+    """A store from before the filter should not read as a failed score."""
+    store.add([candidate("A heuristic estimates remaining cost.")])
+
+    main(["--store", str(store.path), "list"])
+
+    assert "not scored" in capsys.readouterr().out

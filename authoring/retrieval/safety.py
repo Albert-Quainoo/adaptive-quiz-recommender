@@ -7,6 +7,7 @@ at a loopback or private-network address.
 """
 
 import ipaddress
+import re
 from collections.abc import Sequence
 from urllib.parse import urlsplit, urlunsplit
 
@@ -15,6 +16,25 @@ DEFAULT_PORTS = {"http": 80, "https": 443}
 
 MAX_REDIRECTS = 3
 MAX_PAGE_BYTES = 2_000_000
+
+# Documents this milestone has no extractor for. The fetcher recognises most
+# of them from their content type, but only after a request has been spent on
+# them - and by then the result has already taken a slot that nothing else can
+# refill. The suffix is the cheap half of the same check, made before the
+# fetch rather than after it.
+UNSUPPORTED_DOCUMENT_SUFFIXES = (".pdf", ".ppt", ".pptx", ".doc", ".docx", ".zip")
+
+# A filename with one of those suffixes, named in a page's own title. The dot
+# and the name in front of it are what separate a wrapper from a page that
+# merely links to documents: MIT's lecture-notes pages list "( PDF )" beside
+# every entry and are perfectly readable prose, while a page titled
+# "MIT16_30F10_lec09.pdf" is a download behind an HTML frame.
+DOCUMENT_FILENAME = re.compile(
+    r"[\w.-]+\.(?:"
+    + "|".join(suffix.lstrip(".") for suffix in UNSUPPORTED_DOCUMENT_SUFFIXES)
+    + r")(?!\w)",
+    re.IGNORECASE,
+)
 
 
 class UnsafeSource(ValueError):
@@ -71,6 +91,33 @@ def host_of(url: str) -> str:
             raise UnsafeSource(f"{host} is not a usable hostname.") from error
 
     return host
+
+
+def is_unsupported_document(url: str) -> bool:
+    """A URL naming a document type this pipeline cannot read as text.
+
+    The name is a hint, not a guarantee - a .pdf path can serve HTML and an
+    extensionless path can serve a PDF - so the fetcher still checks what
+    actually came back. This only avoids the fetches that are obviously
+    pointless.
+    """
+    return urlsplit(url).path.lower().endswith(UNSUPPORTED_DOCUMENT_SUFFIXES)
+
+
+def titled_as_document(title: str) -> bool:
+    """A page that names a document as what it is, whatever it served.
+
+    The live pilot collected "MIT16_30F10_lec09.pdf | Feedback Control
+    Systems": an ordinary HTML page around a download link, so the URL suffix
+    said nothing, the content type said text/html, and the passage a reviewer
+    got was the course's navigation menu. What the page calls itself is the
+    only place the document shows through, and it arrives with the search
+    result - so this is checked before the fetch rather than after it.
+
+    The title is the page's own <title>, which is metadata a server chose,
+    and it is only ever read for this yes-or-no answer.
+    """
+    return bool(DOCUMENT_FILENAME.search(title))
 
 
 def check_url(url: str) -> None:

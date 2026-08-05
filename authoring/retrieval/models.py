@@ -43,6 +43,12 @@ class ReferenceCandidate(BaseModel):
     passage: str = Field(min_length=1)
     content_hash: str = Field(min_length=1)
 
+    # Why retrieval thought this was on topic, kept for the person who has to
+    # decide whether it was right. Both default to empty so a store written
+    # before relevance filtering existed still loads.
+    relevance_score: int = 0
+    matched_terms: list[str] = Field(default_factory=list)
+
     review_status: ReviewStatus = "pending"
     reviewed_at: datetime | None = None
     reviewer_id: str | None = None
@@ -105,8 +111,15 @@ def new_candidate(
     source_domain: str,
     passage: str,
     retrieved_at: datetime,
+    relevance_score: int = 0,
+    matched_terms: Iterable[str] = (),
 ) -> ReferenceCandidate:
-    """Build a pending candidate. This is the only way retrieval makes one."""
+    """Build a pending candidate. This is the only way retrieval makes one.
+
+    The relevance figures arrive as plain values rather than as the score
+    object that produced them: scoring reads the taxonomy and this module is
+    read by everything, and the record is what the reviewer needs either way.
+    """
     body = normalise_passage(passage)
     digest = content_hash(body)
 
@@ -119,6 +132,8 @@ def new_candidate(
         retrieved_at=retrieved_at,
         passage=body,
         content_hash=digest,
+        relevance_score=relevance_score,
+        matched_terms=list(matched_terms),
         review_status="pending",
     )
 

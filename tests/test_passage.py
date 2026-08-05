@@ -9,9 +9,12 @@ import pytest
 
 from authoring.retrieval.models import MAX_PASSAGE_CHARS
 from authoring.retrieval.passage import (
+    PROSE_RATIO,
     is_code_dense,
     looks_like_source,
+    prose_ratio,
     query_terms,
+    reads_as_prose,
     select_passage,
     strip_links,
 )
@@ -91,10 +94,24 @@ def test_a_short_page_is_quoted_whole():
     assert select_passage(f"  {ANSWER}\n\n", QUERY) == ANSWER
 
 
-def test_a_page_with_no_overlap_falls_back_to_its_head():
-    page = FILLER * 30
+def test_a_page_with_no_overlap_falls_back_to_its_first_prose():
+    """Not to its head, which on every course page is the menu."""
+    page = FILLER * 12 + ANSWER + " " + FILLER * 12
 
-    assert select_passage(page, "photosynthesis chlorophyll") == page[:MAX_PASSAGE_CHARS]
+    passage = select_passage(page, "photosynthesis chlorophyll")
+
+    assert passage.startswith(ANSWER[:40])
+
+
+def test_a_page_of_nothing_but_navigation_has_nothing_to_quote():
+    """FILLER is a table of contents, and a table of contents explains nothing.
+
+    Returning it was how a reviewer ended up looking at MIT's course sidebar
+    under the heading of a passage about heuristics. An empty answer here is
+    what the caller turns into a rejection.
+    """
+    assert select_passage(FILLER * 30, QUERY) == ""
+    assert select_passage(FILLER * 30, "photosynthesis chlorophyll") == ""
 
 
 def test_selection_is_deterministic():
@@ -118,7 +135,7 @@ def test_the_quote_never_exceeds_the_limit():
 
 
 def test_one_long_sentence_is_cut_to_the_limit():
-    page = "A heuristic " + "estimates remaining cost " * 200
+    page = "A heuristic estimates the remaining cost to the goal, and " * 40
 
     assert len(select_passage(page, QUERY, max_chars=300)) == 300
 
@@ -202,3 +219,82 @@ def test_an_org_mode_header_is_recognised_as_markup():
 def test_a_page_of_links_is_not_mistaken_for_code():
     """URL punctuation put two prose pages over the threshold before."""
     assert not is_code_dense(ANSWER + " " + FOOTER)
+
+
+# Navigation is not writing: the two shapes the second live run quoted
+
+
+# One window, because nothing in it ends a sentence until the very end -
+# which is how MIT's course sidebar reaches select_passage. It names three of
+# the query's terms in passing, so under the old rule it outscored every real
+# sentence on the page simply by being ten times longer than one.
+SIDEBAR = (
+    "Browse Course Material Syllabus Calendar Instructor Insights Teaching "
+    "Heuristic Search Experiencing the Large Lecture as Theater Assessment "
+    "Informed by a Student-Centered Ethic Managing an Online Forum Challenges "
+    "Teaching Assistants Face Readings Lecture Videos Mega-Recitation Videos "
+    "Tutorials Assignments Exams Demonstrations Course Info Estimates of Cost "
+    "Evaluation Function Departments Electrical Engineering and Computer "
+    "Science Learning Resource Types Lecture Notes Problem Sets Exams "
+    "Download Course menu search Give Now About OCW Help Faqs Contact Us."
+)
+
+CONTENTS = (
+    "1. Search 1.1 Agents 1.2 State Spaces and Search Problems 1.3 Uninformed "
+    "Search 1.4 Informed Search 1.5 Local Search 1.6 Summary 2."
+)
+
+
+def test_a_long_unpunctuated_sidebar_does_not_win_on_term_count():
+    """MIT's lecture pages run their whole sidebar together as one window.
+
+    It collected more distinct query terms than any real sentence, because it
+    is two hundred words long and a sentence is twenty. Length is not
+    relevance.
+    """
+    page = f"{SIDEBAR} {ANSWER} {SIDEBAR}"
+
+    passage = select_passage(page, QUERY, max_chars=300)
+
+    assert passage.startswith(ANSWER[:40])
+    assert "Browse Course Material" not in passage
+
+
+def test_a_table_of_contents_does_not_win_a_tie_by_being_first():
+    """Ten CS188 windows tied on two terms and the earliest took it.
+
+    A table of contents is always the earliest thing on a page, so breaking
+    ties by position handed it every tie it entered.
+    """
+    page = f"{CONTENTS} {FILLER * 4} {ANSWER}"
+
+    passage = select_passage(page, "Search problem components Problem formulation")
+
+    assert passage.startswith(ANSWER[:40])
+
+
+def test_prose_is_told_from_navigation_by_the_words_holding_it_together():
+    assert reads_as_prose(ANSWER)
+    assert not reads_as_prose(CONTENTS)
+    assert not reads_as_prose(SIDEBAR)
+    assert not reads_as_prose(FILLER)
+
+
+def test_a_fragment_too_short_to_judge_is_not_prose():
+    """"of the search" is two thirds function words and says nothing."""
+    assert not reads_as_prose("of the search")
+    assert not reads_as_prose("")
+
+
+def test_the_measured_gap_is_where_the_threshold_sits():
+    """The live run's own passages, either side of it."""
+    assert prose_ratio(SIDEBAR) < PROSE_RATIO < prose_ratio(ANSWER)
+
+
+def test_growth_stops_at_the_edge_of_the_prose():
+    """A short quote is padded to the minimum, but never with a menu."""
+    page = f"{FILLER * 6} {ANSWER} {FILLER * 6}"
+
+    passage = select_passage(page, QUERY, min_chars=600)
+
+    assert "Instructors Pseudocode" not in passage
