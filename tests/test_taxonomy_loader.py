@@ -9,6 +9,7 @@ SKILL_HEADER = (
 
 REFERENCE_HEADER = "skill_id,reference_material"
 
+# Transcribed from TAXONOMY.docx, Topic 3: Search and Problem Solving.
 HEURISTIC_ROW = (
     "AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,"
     "Explain how a heuristic estimates the remaining cost from a state to the goal.,"
@@ -17,14 +18,14 @@ HEURISTIC_ROW = (
 
 GREEDY_ROW = (
     "AI-SRC-09,Search and Problem Solving,Informed search,Greedy Best-First Search,"
-    "Describe how greedy best-first search expands the lowest heuristic node.,"
-    "understand,generated,AI-SRC-08"
+    "Trace Greedy Best-First Search using (f(n)=h(n)).,"
+    "apply,templated,AI-SRC-08"
 )
 
 A_STAR_ROW = (
-    "AI-SRC-10,Search and Problem Solving,Informed search,A-star Search,"
-    "Trace A-star search using f(n) = g(n) + h(n).,"
-    "apply,generated,"
+    "AI-SRC-10,Search and Problem Solving,Informed search,A* Search,"
+    "Trace A* Search using (f(n)=g(n)+h(n)).,"
+    "apply,templated,"
     '"AI-SRC-08; ai-src-09 "'
 )
 
@@ -108,15 +109,16 @@ def test_prerequisite_cells_are_split_on_semicolons(tmp_path):
 
 def test_spellings_and_padding_are_normalised_on_load(tmp_path):
     padded_row = (
-        " ai-src-10 ,Search and Problem Solving,  Informed search  ,A-star Search,"
-        "  Analyse the tradeoffs between greedy best-first search and A-star.  ,"
+        " ai-src-11 ,Search and Problem Solving,  Search evaluation  ,"
+        "Completeness and optimality,"
+        "  Compare search algorithms based on completeness and optimality.  ,"
         " Analyze ,Hand authored,"
     )
 
     skill = load_skills(*write_taxonomy(tmp_path, skill_rows=(padded_row,))).skills[0]
 
-    assert skill.skill_id == "AI-SRC-10"
-    assert skill.subtopic == "Informed search"
+    assert skill.skill_id == "AI-SRC-11"
+    assert skill.subtopic == "Search evaluation"
     assert skill.cognitive_process == "analyse"
     assert skill.generation_strategy == "hand_authored"
 
@@ -152,6 +154,13 @@ def test_reference_for_an_unknown_skill_is_reported(tmp_path):
 
     with pytest.raises(TaxonomyError, match="unknown skill id AI-SRC-99"):
         load_skills(*paths)
+
+
+def test_duplicate_reference_rows_are_reported(tmp_path):
+    reference = "AI-SRC-08,A heuristic estimates the remaining cost."
+
+    with pytest.raises(TaxonomyError, match="duplicate reference for AI-SRC-08"):
+        load_skills(*write_taxonomy(tmp_path, reference_rows=(reference, reference)))
 
 
 def test_empty_reference_text_is_reported(tmp_path):
@@ -245,6 +254,15 @@ def test_dangling_prerequisite_is_reported(tmp_path):
 
     with pytest.raises(TaxonomyError, match="AI-SRC-08 -> AI-SRC-99"):
         load_skills(*write_taxonomy(tmp_path, skill_rows=(row,)))
+
+
+def test_skills_from_two_courses_in_one_file_are_reported(tmp_path):
+    other_course_row = HEURISTIC_ROW.replace("AI-SRC-08,", "DB-SQL-01,", 1)
+
+    with pytest.raises(TaxonomyError, match="one file must hold one course, found AI, DB"):
+        load_skills(
+            *write_taxonomy(tmp_path, skill_rows=(HEURISTIC_ROW, other_course_row))
+        )
 
 
 def test_duplicate_skill_ids_are_reported(tmp_path):

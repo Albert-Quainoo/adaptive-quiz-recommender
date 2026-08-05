@@ -1,9 +1,11 @@
 from typing import Annotated, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# <course>-<topic>-<number>, e.g. AI-SRC-08. The course and topic codes are
+# 2-4 letters so the same format covers courses beyond the AI taxonomy.
 SkillId = Annotated[
     str,
-    Field(min_length=1, pattern=r"^AI-[A-Z]{2,4}-\d{2}[A-Z]?$"),
+    Field(min_length=1, pattern=r"^[A-Z]{2,4}-[A-Z]{2,4}-\d{2}[A-Z]?$"),
 ]
 
 CognitiveProcess = Literal[

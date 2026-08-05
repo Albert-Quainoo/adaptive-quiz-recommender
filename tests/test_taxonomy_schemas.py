@@ -7,42 +7,53 @@ from taxonomy.schemas import (
     find_skills_missing_reference_material,
 )
 
+# Transcribed from TAXONOMY.docx, Topic 3: Search and Problem Solving.
 SKILLS = {
     "AI-SRC-07": (
         "Uninformed search",
-        "DLS and IDDFS",
-        "Explain how iterative deepening combines the strengths of DFS and BFS.",
+        "Depth-Limited and Iterative Deepening Search",
+        "Explain how depth limits are applied in DLS and IDDFS.",
+        "understand",
+        "generated",
     ),
     "AI-SRC-08": (
         "Informed search",
         "Heuristic function",
         "Explain how a heuristic estimates the remaining cost from a state to the goal.",
+        "understand",
+        "generated",
     ),
     "AI-SRC-09": (
         "Informed search",
         "Greedy Best-First Search",
-        "Describe how greedy best-first search expands the lowest heuristic node.",
+        "Trace Greedy Best-First Search using (f(n)=h(n)).",
+        "apply",
+        "templated",
     ),
     "AI-SRC-10": (
         "Informed search",
-        "A-star Search",
-        "Trace A-star search using f(n) = g(n) + h(n).",
+        "A* Search",
+        "Trace A* Search using (f(n)=g(n)+h(n)).",
+        "apply",
+        "templated",
     ),
 }
 
 
 def valid_skill(**overrides) -> SkillDefinition:
     skill_id = str(overrides.get("skill_id", "AI-SRC-08")).strip().upper()
-    subtopic, name, learning_objective = SKILLS.get(skill_id, SKILLS["AI-SRC-08"])
+    subtopic, name, objective, process, strategy = SKILLS.get(
+        skill_id, SKILLS["AI-SRC-08"]
+    )
 
     fields = {
         "skill_id": "AI-SRC-08",
         "topic": "Search and Problem Solving",
         "subtopic": subtopic,
         "name": name,
-        "learning_objective": learning_objective,
-        "cognitive_process": "understand",
-        "generation_strategy": "generated",
+        "learning_objective": objective,
+        "cognitive_process": process,
+        "generation_strategy": strategy,
     }
     fields.update(overrides)
     return SkillDefinition(**fields)
@@ -62,11 +73,19 @@ def test_valid_skill_is_accepted():
 
 @pytest.mark.parametrize(
     "skill_id",
-    ["SRC-08", "AI-S-08", "AI-SEARCHING-08", "AI-SRC-8", "AI SRC 08", ""],
+    ["SRC-08", "AI-S-08", "AI-SEARCHING-08", "AI-SRC-8", "AI SRC 08", "", "A-SRC-08"],
 )
 def test_malformed_skill_id_is_rejected(skill_id):
     with pytest.raises(ValidationError, match="skill_id"):
         valid_skill(skill_id=skill_id)
+
+
+@pytest.mark.parametrize(
+    "skill_id",
+    ["AI-SRC-08", "AI-ML-09", "AI-ETH-07", "DB-SQL-01", "MATH-STAT-12"],
+)
+def test_skill_ids_from_any_course_are_accepted(skill_id):
+    assert valid_skill(skill_id=skill_id).skill_id == skill_id
 
 
 @pytest.mark.parametrize(
@@ -221,12 +240,12 @@ def test_generated_skills_without_reference_material_are_flagged():
                 skill_id="AI-SRC-08",
                 reference_material=["A heuristic estimates the remaining cost."],
             ),
-            valid_skill(skill_id="AI-SRC-09"),
-            valid_skill(skill_id="AI-SRC-10", generation_strategy="hand_authored"),
+            valid_skill(skill_id="AI-SRC-07"),
+            valid_skill(skill_id="AI-SRC-10", prerequisite_skill_ids=["AI-SRC-08"]),
         ]
     )
 
-    assert find_skills_missing_reference_material(catalogue) == ["AI-SRC-09"]
+    assert find_skills_missing_reference_material(catalogue) == ["AI-SRC-07"]
 
 
 def test_list_defaults_are_not_shared_between_skills():

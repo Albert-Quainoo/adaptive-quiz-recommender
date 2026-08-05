@@ -23,6 +23,14 @@ REFERENCE_COLUMNS = (
 
 LIST_SEPARATOR = ";"
 
+DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def course_paths(course: str) -> tuple[Path, Path]:
+    directory = DATA_DIR / course.lower()
+
+    return directory / "skills.csv", directory / "references.csv"
+
 
 class TaxonomyError(ValueError):
     pass
@@ -120,7 +128,13 @@ def load_skills(skills_path: Path, references_path: Path) -> SkillCatalogue:
             continue
 
         skill_id = fields["skill_id"].upper()
-        references.setdefault(skill_id, []).append(fields["reference_material"])
+        reference = fields["reference_material"]
+
+        if reference in references.get(skill_id, []):
+            errors.append(f"{label}: duplicate reference for {skill_id}")
+            continue
+
+        references.setdefault(skill_id, []).append(reference)
 
     skills: list[SkillDefinition] = []
 
@@ -140,6 +154,14 @@ def load_skills(skills_path: Path, references_path: Path) -> SkillCatalogue:
     for skill_id in sorted(references):
         errors.append(
             f"  {references_path.name}: reference for unknown skill id {skill_id}"
+        )
+
+    courses = sorted({skill.skill_id.split("-")[0] for skill in skills})
+
+    if len(courses) > 1:
+        errors.append(
+            f"  {skills_path.name}: one file must hold one course, "
+            f"found {', '.join(courses)}"
         )
 
     if errors:

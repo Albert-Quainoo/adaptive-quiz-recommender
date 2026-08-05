@@ -67,3 +67,6 @@ kaggle.json
 
 # Misc
 .python-version
+
+# Taxonomy file
+TAXONOMY.docx

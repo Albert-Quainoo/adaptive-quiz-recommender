@@ -1,0 +1,12 @@
+skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,prerequisite_skill_ids
+AI-SRC-01,Search and Problem Solving,Problem formulation,Search problem components,"Identify the initial state, actions, transition model, goal test and path cost of a search problem.",understand,generated,
+AI-SRC-02,Search and Problem Solving,Search representation,State space and search tree,Distinguish between a state space and a search tree.,understand,generated,AI-SRC-01
+AI-SRC-03,Search and Problem Solving,Search process,Frontier and reached states,"Explain the roles of the frontier, reached-state set and node expansion.",understand,generated,AI-SRC-02
+AI-SRC-04,Search and Problem Solving,Uninformed search,Breadth-First Search,"Trace BFS using a first-in, first-out frontier.",apply,templated,AI-SRC-03
+AI-SRC-05,Search and Problem Solving,Uninformed search,Depth-First Search,"Trace DFS using a last-in, first-out frontier.",apply,templated,AI-SRC-03
+AI-SRC-06,Search and Problem Solving,Uninformed search,Uniform-Cost Search,Trace UCS by expanding the node with the lowest path cost.,apply,templated,AI-SRC-03
+AI-SRC-07,Search and Problem Solving,Uninformed search,Depth-Limited and Iterative Deepening Search,Explain how depth limits are applied in DLS and IDDFS.,understand,generated,AI-SRC-05
+AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,Explain how a heuristic estimates the remaining cost from a state to the goal.,understand,generated,AI-SRC-03
+AI-SRC-09,Search and Problem Solving,Informed search,Greedy Best-First Search,Trace Greedy Best-First Search using (f(n)=h(n)).,apply,templated,AI-SRC-08
+AI-SRC-10,Search and Problem Solving,Informed search,A* Search,Trace A* Search using (f(n)=g(n)+h(n)).,apply,templated,AI-SRC-06;AI-SRC-08
+AI-SRC-11,Search and Problem Solving,Search evaluation,Completeness and optimality,Compare search algorithms based on completeness and optimality.,analyse,generated,AI-SRC-04;AI-SRC-05;AI-SRC-06;AI-SRC-07;AI-SRC-09;AI-SRC-10
