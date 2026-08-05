@@ -2,6 +2,7 @@ import pytest
 
 from api.schemas import QuizQuestion
 from taxonomy.schemas import SkillDefinition
+from templates import registry
 from templates.registry import TemplateError, generate_templated_question
 
 
@@ -34,10 +35,14 @@ def test_unknown_template_id_is_rejected():
         )
 
 
-def test_reserved_template_id_reports_that_it_is_unimplemented():
+def test_reserved_template_id_reports_that_it_is_unimplemented(monkeypatch):
+    # Every declared template is implemented today, so reserve one to prove the
+    # router still distinguishes "declared but not built" from "unknown".
+    monkeypatch.setattr(registry, "RESERVED_TEMPLATE_IDS", ("search.idastar_trace",))
+
     with pytest.raises(TemplateError, match="reserved in the taxonomy"):
         generate_templated_question(
-            skill(template_id="search.bfs_trace"), "intermediate", seed=1
+            skill(template_id="search.idastar_trace"), "intermediate", seed=1
         )
 
 

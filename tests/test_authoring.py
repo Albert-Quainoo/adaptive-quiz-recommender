@@ -122,14 +122,12 @@ def test_templated_item_never_calls_the_model():
     assert generator.requests == []
 
 
-def test_unimplemented_template_does_not_fall_back_to_the_model():
+def test_unknown_template_does_not_fall_back_to_the_model():
     generator = RecordingGenerator()
-    reserved = astar_skill().model_copy(
-        update={"skill_id": "AI-NN-05", "template_id": "nn.forward_trace"}
-    )
+    unknown = astar_skill().model_copy(update={"template_id": "search.not_built"})
 
-    with pytest.raises(TemplateError, match="no implementation yet"):
-        build_item(reserved, "intermediate", seed=7, generator=generator)
+    with pytest.raises(TemplateError, match="not a registered template"):
+        build_item(unknown, "intermediate", seed=7, generator=generator)
 
     assert generator.requests == []
 

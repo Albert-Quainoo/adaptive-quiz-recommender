@@ -8,13 +8,7 @@ Template = Callable[[SkillDefinition, difficulty_level, int | None], QuizQuestio
 # Template ids that the taxonomy already names but no template implements yet.
 # They are listed here so the router can say "not built yet" instead of
 # "unknown", and never so that generation can quietly fall back to the model.
-RESERVED_TEMPLATE_IDS = (
-    "search.bfs_trace",
-    "search.dfs_trace",
-    "search.ucs_trace",
-    "search.greedy_trace",
-    "nn.forward_trace",
-)
+RESERVED_TEMPLATE_IDS: tuple[str, ...] = ()
 
 TEMPLATES: dict[str, Template] = {}
 

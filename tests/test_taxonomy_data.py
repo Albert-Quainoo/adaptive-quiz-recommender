@@ -45,15 +45,16 @@ AWAITING_REFERENCE_MATERIAL = [
     "AI-ETH-02", "AI-ETH-03", "AI-ETH-04", "AI-ETH-05", "AI-ETH-06",
 ]
 
-IMPLEMENTED_TEMPLATES = ["search.astar_trace"]
-
-DECLARED_BUT_UNIMPLEMENTED_TEMPLATES = [
+IMPLEMENTED_TEMPLATES = [
     "nn.forward_trace",
+    "search.astar_trace",
     "search.bfs_trace",
     "search.dfs_trace",
     "search.greedy_trace",
     "search.ucs_trace",
 ]
+
+DECLARED_BUT_UNIMPLEMENTED_TEMPLATES = []
 
 
 def catalogue():
