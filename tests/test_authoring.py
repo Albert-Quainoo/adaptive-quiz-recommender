@@ -111,7 +111,7 @@ def test_templated_item_comes_from_the_template():
 
     assert item.provenance == "templated"
     assert item.skill_id == "AI-SRC-10"
-    assert item.question.correct_answer == "S -> A -> C -> B -> D -> G"
+    assert item.question.correct_answer == "S -> B -> D -> F -> G"
 
 
 def test_templated_item_never_calls_the_model():

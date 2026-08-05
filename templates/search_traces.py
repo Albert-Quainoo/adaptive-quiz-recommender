@@ -21,6 +21,7 @@ from templates.graphs import (
     format_heuristics,
     format_order,
     generate_instance,
+    shuffled_options,
     solve,
     swap_middle,
     uninformed_order,
@@ -150,17 +151,17 @@ def build_trace_question(
     skill: SkillDefinition,
     difficulty: difficulty_level,
     instance: GraphInstance,
+    rng: random.Random,
 ) -> QuizQuestion:
     order, working = spec.trace(instance)
     correct = format_order(order)
 
-    options = [correct] + [
-        format_order(distractor) for distractor in spec.distractors(instance)
-    ]
-    options.append(format_order(swap_middle(order)))
-
-    if len(set(options)) != len(options):
-        raise UnusableInstance("two answer options are identical.")
+    options = shuffled_options(
+        [correct]
+        + [format_order(distractor) for distractor in spec.distractors(instance)]
+        + [format_order(swap_middle(order))],
+        rng,
+    )
 
     heuristics = (
         f"The heuristic values are: {format_heuristics(instance)}. "
@@ -199,7 +200,7 @@ def generate_trace(
         try:
             instance = generate_instance(difficulty, rng)
 
-            return build_trace_question(spec, skill, difficulty, instance)
+            return build_trace_question(spec, skill, difficulty, instance, rng)
         except UnusableInstance:
             continue
 

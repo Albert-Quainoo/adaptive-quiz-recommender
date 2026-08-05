@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from api.schemas import QuizQuestion, difficulty_level
 from taxonomy.schemas import SkillDefinition
+from templates.graphs import UnusableInstance, shuffled_options
 from templates.registry import TemplateError, register
 
 TEMPLATE_ID = "nn.forward_trace"
@@ -137,21 +138,22 @@ def build_forward_question(
     skill: SkillDefinition,
     difficulty: difficulty_level,
     pass_: ForwardPass,
+    rng: random.Random,
 ) -> QuizQuestion:
     network = pass_.network
 
     if all(value >= 0 for value in pass_.pre_activations):
         raise UnusableNetwork("no hidden unit is clipped, so ReLU does not matter.")
 
-    options = [
-        str(pass_.output),
-        str(output_without_relu(pass_)),
-        str(output_without_biases(network)),
-        str(pass_.output - network.output_bias),
-    ]
-
-    if len(set(options)) != len(options):
-        raise UnusableNetwork("two answer options are identical.")
+    options = shuffled_options(
+        [
+            str(pass_.output),
+            str(output_without_relu(pass_)),
+            str(output_without_biases(network)),
+            str(pass_.output - network.output_bias),
+        ],
+        rng,
+    )
 
     working = ". ".join(
         f"Hidden unit {index + 1}: {pre} before ReLU, {activation} after"
@@ -191,8 +193,8 @@ def generate(
         try:
             network = generate_network(difficulty, rng)
 
-            return build_forward_question(skill, difficulty, forward(network))
-        except UnusableNetwork:
+            return build_forward_question(skill, difficulty, forward(network), rng)
+        except (UnusableNetwork, UnusableInstance):
             continue
 
     raise TemplateError(

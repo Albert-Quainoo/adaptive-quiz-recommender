@@ -125,15 +125,16 @@ def test_different_seeds_produce_different_questions():
 
 
 def test_a_fixed_seed_produces_the_expected_answer():
-    # Seed 7 settles on S-A=4, S-B=7, A-C=7, B-C=8, B-D=2, C-G=3, D-G=8 with
-    # h = S:8, A:7, B:6, C:1, D:4, G:0. Worked by hand, the frontier expands
-    # S(f=8), A(f=11), C(f=12), B(f=13), D(f=13), G(f=14), reaching the goal
-    # by S -> A -> C -> G at a cost of 14.
+    # Seed 7 settles on S-A=8, S-B=2, A-C=3, A-D=8, B-D=7, B-E=9, C-F=5,
+    # D-F=3, E-F=7, E-G=9, F-G=5 with h = S:14, A:10, B:12, C:9, D:7, E:8,
+    # F:4, G:0. Worked by hand, the frontier expands S(f=14), B(f=14),
+    # D(f=16), F(f=16), G(f=17), reaching the goal by S -> B -> D -> F -> G
+    # at a cost of 17.
     question = generate(astar_skill(), "intermediate", seed=7)
 
-    assert question.correct_answer == "S -> A -> C -> B -> D -> G"
-    assert "S-A = 4" in question.question
-    assert "h(B) = 6" in question.question
+    assert question.correct_answer == "S -> B -> D -> F -> G"
+    assert "S-A = 8" in question.question
+    assert "h(B) = 12" in question.question
 
 
 @pytest.mark.parametrize("seed", range(15))
@@ -168,18 +169,26 @@ def test_a_missing_seed_still_produces_a_valid_question():
 def test_the_explanation_reports_the_solver_values():
     question = generate(astar_skill(), "intermediate", seed=7)
 
-    assert "S (g=0, h=8, f=8)" in question.explanation
-    assert "C (g=11, h=1, f=12)" in question.explanation
-    assert "S -> A -> C -> G at a path cost of 14" in question.explanation
+    assert "S (g=0, h=14, f=14)" in question.explanation
+    assert "D (g=9, h=7, f=16)" in question.explanation
+    assert "S -> B -> D -> F -> G at a path cost of 17" in question.explanation
 
 
-def test_both_topologies_are_used():
+@pytest.mark.parametrize(
+    "difficulty, expected_shapes",
+    [
+        ("introductory", {5, 6}),
+        ("intermediate", {7, 8}),
+        ("advanced", {9, 10}),
+    ],
+)
+def test_graphs_grow_with_difficulty(difficulty, expected_shapes):
     shapes = {
-        len(generate_astar_instance("intermediate", random.Random(seed)).nodes)
+        len(generate_astar_instance(difficulty, random.Random(seed)).nodes)
         for seed in range(20)
     }
 
-    assert shapes == {6, 7}
+    assert shapes == expected_shapes
 
 
 @pytest.mark.parametrize("seed", range(15))

@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 from api.schemas import QuizQuestion
@@ -162,7 +164,9 @@ def test_only_greedy_shows_the_heuristic():
     ids=lambda value: getattr(value, "template_id", ""),
 )
 def test_each_template_answers_with_its_hand_checked_order(spec, expected):
-    question = build_trace_question(spec, skill_for(spec), "intermediate", FIXTURE)
+    question = build_trace_question(
+        spec, skill_for(spec), "intermediate", FIXTURE, random.Random(0)
+    )
 
     assert question.correct_answer == expected
     assert len(set(question.options)) == 4
@@ -170,7 +174,9 @@ def test_each_template_answers_with_its_hand_checked_order(spec, expected):
 
 def test_each_template_answers_differently_on_the_same_graph():
     answers = {
-        build_trace_question(spec, skill_for(spec), "intermediate", FIXTURE)
+        build_trace_question(
+        spec, skill_for(spec), "intermediate", FIXTURE, random.Random(0)
+    )
         .correct_answer
         for spec in SPECS
     }

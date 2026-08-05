@@ -75,11 +75,15 @@ def test_a_network_that_never_clips_is_rejected():
     )
 
     with pytest.raises(UnusableNetwork, match="ReLU does not matter"):
-        build_forward_question(nn_skill(), "intermediate", forward(positive))
+        build_forward_question(
+            nn_skill(), "intermediate", forward(positive), random.Random(0)
+        )
 
 
 def test_question_reports_the_hand_checked_values():
-    question = build_forward_question(nn_skill(), "intermediate", forward(FIXTURE))
+    question = build_forward_question(
+        nn_skill(), "intermediate", forward(FIXTURE), random.Random(0)
+    )
 
     assert question.correct_answer == "-11"
     assert set(question.options) == {"-11", "-5", "-14", "-13"}

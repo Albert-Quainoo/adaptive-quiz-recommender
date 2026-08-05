@@ -15,32 +15,92 @@ from api.schemas import difficulty_level
 START = "S"
 GOAL = "G"
 
-# A small family of topologies, so a learner meeting several of these questions
-# does not see the same graph shape every time. In each one every node reaches
-# the goal, and the start is never adjacent to it, so an instance always has a
-# solution worth tracing. Costs and heuristic values vary within a topology.
-TOPOLOGIES = (
-    (
-        ("S", "A"),
-        ("S", "B"),
-        ("A", "C"),
-        ("B", "C"),
-        ("B", "D"),
-        ("C", "G"),
-        ("D", "G"),
+# Topologies grow with difficulty, because that is the only lever BFS and DFS
+# respond to - they never look at edge costs, so widening the cost range leaves
+# their questions exactly as hard. Two shapes per tier keep a learner from
+# seeing the same graph every time. In each one every node reaches the goal and
+# the start is never adjacent to it, so an instance always has a trace worth
+# following.
+TOPOLOGIES_BY_DIFFICULTY = {
+    "introductory": (
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("B", "C"),
+            ("C", "G"),
+        ),
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("B", "C"),
+            ("B", "D"),
+            ("C", "G"),
+            ("D", "G"),
+        ),
     ),
-    (
-        ("S", "A"),
-        ("S", "B"),
-        ("A", "C"),
-        ("A", "D"),
-        ("B", "D"),
-        ("C", "E"),
-        ("D", "E"),
-        ("D", "G"),
-        ("E", "G"),
+    "intermediate": (
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("A", "D"),
+            ("B", "D"),
+            ("C", "E"),
+            ("D", "E"),
+            ("D", "G"),
+            ("E", "G"),
+        ),
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("A", "D"),
+            ("B", "D"),
+            ("B", "E"),
+            ("C", "F"),
+            ("D", "F"),
+            ("E", "F"),
+            ("E", "G"),
+            ("F", "G"),
+        ),
     ),
-)
+    "advanced": (
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("A", "D"),
+            ("B", "D"),
+            ("B", "E"),
+            ("C", "F"),
+            ("D", "F"),
+            ("D", "H"),
+            ("E", "F"),
+            ("E", "H"),
+            ("F", "G"),
+            ("H", "G"),
+        ),
+        (
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "C"),
+            ("A", "D"),
+            ("B", "D"),
+            ("B", "E"),
+            ("C", "F"),
+            ("D", "F"),
+            ("D", "H"),
+            ("E", "H"),
+            ("E", "J"),
+            ("F", "G"),
+            ("H", "J"),
+            ("H", "G"),
+            ("J", "G"),
+        ),
+    ),
+}
 
 COST_RANGES = {
     "introductory": (1, 5),
@@ -300,9 +360,10 @@ def generate_instance(
     checked and redrawn rather than repaired.
     """
     low, high = COST_RANGES[difficulty]
+    topologies = TOPOLOGIES_BY_DIFFICULTY[difficulty]
 
     for _ in range(MAX_ATTEMPTS):
-        topology = rng.choice(TOPOLOGIES)
+        topology = rng.choice(topologies)
         edge_costs = {pair: rng.randint(low, high) for pair in topology}
         distances = distances_to_goal(edge_costs)
         scale = rng.choice(HEURISTIC_SCALES)
@@ -340,6 +401,24 @@ def format_heuristics(instance: GraphInstance) -> str:
     return ", ".join(
         f"h({node}) = {instance.heuristics[node]}" for node in instance.nodes
     )
+
+
+def shuffled_options(options: list[str], rng: random.Random) -> list[str]:
+    """Place the correct answer at an unpredictable index.
+
+    Templates build the correct answer first, so without this every templated
+    item would be answerable by picking option one - and the response data
+    would teach the knowledge tracer that position, not understanding, predicts
+    correctness. The shuffle uses the instance's own rng, so a seed still
+    reproduces the item exactly.
+    """
+    if len(set(options)) != len(options):
+        raise UnusableInstance("two answer options are identical.")
+
+    shuffled = list(options)
+    rng.shuffle(shuffled)
+
+    return shuffled
 
 
 def swap_middle(order: tuple[str, ...]) -> tuple[str, ...]:

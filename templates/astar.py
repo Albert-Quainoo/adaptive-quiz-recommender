@@ -15,6 +15,7 @@ from templates.graphs import (
     format_heuristics,
     format_order,
     generate_instance,
+    shuffled_options,
     solve,
     swap_middle,
 )
@@ -57,20 +58,21 @@ def build_astar_question(
     skill: SkillDefinition,
     difficulty: difficulty_level,
     solution: AStarSolution,
+    rng: random.Random,
 ) -> QuizQuestion:
     instance = solution.instance
 
     correct = format_order(solution.expansion_order)
 
-    options = [
-        correct,
-        format_order(expansion_order(instance, "heuristic")),
-        format_order(expansion_order(instance, "cost")),
-        format_order(swap_middle(solution.expansion_order)),
-    ]
-
-    if len(set(options)) != len(options):
-        raise UnusableInstance("two answer options are identical.")
+    options = shuffled_options(
+        [
+            correct,
+            format_order(expansion_order(instance, "heuristic")),
+            format_order(expansion_order(instance, "cost")),
+            format_order(swap_middle(solution.expansion_order)),
+        ],
+        rng,
+    )
 
     trace = ", ".join(
         f"{expansion.node} (g={expansion.g}, h={expansion.h}, f={expansion.f})"
@@ -112,7 +114,9 @@ def generate(
         try:
             instance = generate_astar_instance(difficulty, rng)
 
-            return build_astar_question(skill, difficulty, solve_astar(instance))
+            return build_astar_question(
+                skill, difficulty, solve_astar(instance), rng
+            )
         except UnusableInstance:
             continue
 
