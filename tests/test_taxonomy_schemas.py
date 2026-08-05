@@ -15,6 +15,7 @@ SKILLS = {
         "Explain how depth limits are applied in DLS and IDDFS.",
         "understand",
         "generated",
+        None,
     ),
     "AI-SRC-08": (
         "Informed search",
@@ -22,6 +23,7 @@ SKILLS = {
         "Explain how a heuristic estimates the remaining cost from a state to the goal.",
         "understand",
         "generated",
+        None,
     ),
     "AI-SRC-09": (
         "Informed search",
@@ -29,20 +31,22 @@ SKILLS = {
         "Trace Greedy Best-First Search using (f(n)=h(n)).",
         "apply",
         "templated",
+        "search.greedy_trace",
     ),
     "AI-SRC-10": (
         "Informed search",
-        "A* Search",
-        "Trace A* Search using (f(n)=g(n)+h(n)).",
+        "A-star Search",
+        "Trace A-star Search using (f(n)=g(n)+h(n)).",
         "apply",
         "templated",
+        "search.astar_trace",
     ),
 }
 
 
 def valid_skill(**overrides) -> SkillDefinition:
     skill_id = str(overrides.get("skill_id", "AI-SRC-08")).strip().upper()
-    subtopic, name, objective, process, strategy = SKILLS.get(
+    subtopic, name, objective, process, strategy, template_id = SKILLS.get(
         skill_id, SKILLS["AI-SRC-08"]
     )
 
@@ -54,6 +58,7 @@ def valid_skill(**overrides) -> SkillDefinition:
         "learning_objective": objective,
         "cognitive_process": process,
         "generation_strategy": strategy,
+        "template_id": template_id,
     }
     fields.update(overrides)
     return SkillDefinition(**fields)
@@ -118,16 +123,46 @@ def test_unsupported_generation_strategy_is_rejected():
 
 
 @pytest.mark.parametrize(
-    "value, expected",
+    "value, expected, template_id",
     [
-        (" Generated ", "generated"),
-        ("TEMPLATED", "templated"),
-        ("Hand authored", "hand_authored"),
-        ("hand-authored", "hand_authored"),
+        (" Generated ", "generated", None),
+        ("TEMPLATED", "templated", "search.astar_trace"),
+        ("Hand authored", "hand_authored", None),
+        ("hand-authored", "hand_authored", None),
     ],
 )
-def test_generation_strategy_is_normalised(value, expected):
-    assert valid_skill(generation_strategy=value).generation_strategy == expected
+def test_generation_strategy_is_normalised(value, expected, template_id):
+    skill = valid_skill(generation_strategy=value, template_id=template_id)
+
+    assert skill.generation_strategy == expected
+
+
+def test_templated_skill_requires_a_template_id():
+    with pytest.raises(ValidationError, match="templated skill needs a template_id"):
+        valid_skill(skill_id="AI-SRC-10", template_id=None)
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_blank_template_id_is_treated_as_missing(blank):
+    with pytest.raises(ValidationError, match="templated skill needs a template_id"):
+        valid_skill(skill_id="AI-SRC-10", template_id=blank)
+
+
+@pytest.mark.parametrize("strategy", ["generated", "hand_authored"])
+def test_untemplated_skill_cannot_have_a_template_id(strategy):
+    with pytest.raises(ValidationError, match="cannot have a template_id"):
+        valid_skill(generation_strategy=strategy, template_id="search.astar_trace")
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_blank_template_id_is_allowed_when_not_templated(blank):
+    assert valid_skill(template_id=blank).template_id is None
+
+
+def test_template_id_is_stripped():
+    skill = valid_skill(skill_id="AI-SRC-10", template_id="  search.astar_trace  ")
+
+    assert skill.template_id == "search.astar_trace"
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,7 @@ from taxonomy.loader import TaxonomyError, load_skills
 
 SKILL_HEADER = (
     "skill_id,topic,subtopic,name,learning_objective,"
-    "cognitive_process,generation_strategy,prerequisite_skill_ids"
+    "cognitive_process,generation_strategy,template_id,prerequisite_skill_ids"
 )
 
 REFERENCE_HEADER = "skill_id,reference_material"
@@ -13,19 +13,19 @@ REFERENCE_HEADER = "skill_id,reference_material"
 HEURISTIC_ROW = (
     "AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,"
     "Explain how a heuristic estimates the remaining cost from a state to the goal.,"
-    "understand,generated,"
+    "understand,generated,,"
 )
 
 GREEDY_ROW = (
     "AI-SRC-09,Search and Problem Solving,Informed search,Greedy Best-First Search,"
     "Trace Greedy Best-First Search using (f(n)=h(n)).,"
-    "apply,templated,AI-SRC-08"
+    "apply,templated,search.greedy_trace,AI-SRC-08"
 )
 
 A_STAR_ROW = (
-    "AI-SRC-10,Search and Problem Solving,Informed search,A* Search,"
-    "Trace A* Search using (f(n)=g(n)+h(n)).,"
-    "apply,templated,"
+    "AI-SRC-10,Search and Problem Solving,Informed search,A-star Search,"
+    "Trace A-star Search using (f(n)=g(n)+h(n)).,"
+    "apply,templated,search.astar_trace,"
     '"AI-SRC-08; ai-src-09 "'
 )
 
@@ -96,6 +96,29 @@ def test_reference_punctuation_survives_the_load(tmp_path):
     assert load_skills(*paths).skills[0].reference_material == [reference]
 
 
+def test_template_id_is_loaded_for_templated_skills(tmp_path):
+    catalogue = load_skills(
+        *write_taxonomy(tmp_path, skill_rows=(HEURISTIC_ROW, GREEDY_ROW))
+    )
+
+    assert catalogue.skills[0].template_id is None
+    assert catalogue.skills[1].template_id == "search.greedy_trace"
+
+
+def test_templated_row_without_a_template_id_is_rejected(tmp_path):
+    row = GREEDY_ROW.replace(",search.greedy_trace,", ",,")
+
+    with pytest.raises(TaxonomyError, match="templated skill needs a template_id"):
+        load_skills(*write_taxonomy(tmp_path, skill_rows=(HEURISTIC_ROW, row)))
+
+
+def test_generated_row_with_a_template_id_is_rejected(tmp_path):
+    row = HEURISTIC_ROW.replace(",generated,,", ",generated,search.astar_trace,")
+
+    with pytest.raises(TaxonomyError, match="cannot have a template_id"):
+        load_skills(*write_taxonomy(tmp_path, skill_rows=(row,)))
+
+
 def test_prerequisite_cells_are_split_on_semicolons(tmp_path):
     paths = write_taxonomy(
         tmp_path,
@@ -112,7 +135,7 @@ def test_spellings_and_padding_are_normalised_on_load(tmp_path):
         " ai-src-11 ,Search and Problem Solving,  Search evaluation  ,"
         "Completeness and optimality,"
         "  Compare search algorithms based on completeness and optimality.  ,"
-        " Analyze ,Hand authored,"
+        " Analyze ,Hand authored,,"
     )
 
     skill = load_skills(*write_taxonomy(tmp_path, skill_rows=(padded_row,))).skills[0]

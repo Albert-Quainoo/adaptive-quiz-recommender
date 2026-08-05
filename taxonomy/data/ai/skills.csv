@@ -1,12 +1,46 @@
-skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,prerequisite_skill_ids
-AI-SRC-01,Search and Problem Solving,Problem formulation,Search problem components,"Identify the initial state, actions, transition model, goal test and path cost of a search problem.",understand,generated,
-AI-SRC-02,Search and Problem Solving,Search representation,State space and search tree,Distinguish between a state space and a search tree.,understand,generated,AI-SRC-01
-AI-SRC-03,Search and Problem Solving,Search process,Frontier and reached states,"Explain the roles of the frontier, reached-state set and node expansion.",understand,generated,AI-SRC-02
-AI-SRC-04,Search and Problem Solving,Uninformed search,Breadth-First Search,"Trace BFS using a first-in, first-out frontier.",apply,templated,AI-SRC-03
-AI-SRC-05,Search and Problem Solving,Uninformed search,Depth-First Search,"Trace DFS using a last-in, first-out frontier.",apply,templated,AI-SRC-03
-AI-SRC-06,Search and Problem Solving,Uninformed search,Uniform-Cost Search,Trace UCS by expanding the node with the lowest path cost.,apply,templated,AI-SRC-03
-AI-SRC-07,Search and Problem Solving,Uninformed search,Depth-Limited and Iterative Deepening Search,Explain how depth limits are applied in DLS and IDDFS.,understand,generated,AI-SRC-05
-AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,Explain how a heuristic estimates the remaining cost from a state to the goal.,understand,generated,AI-SRC-03
-AI-SRC-09,Search and Problem Solving,Informed search,Greedy Best-First Search,Trace Greedy Best-First Search using (f(n)=h(n)).,apply,templated,AI-SRC-08
-AI-SRC-10,Search and Problem Solving,Informed search,A* Search,Trace A* Search using (f(n)=g(n)+h(n)).,apply,templated,AI-SRC-06;AI-SRC-08
-AI-SRC-11,Search and Problem Solving,Search evaluation,Completeness and optimality,Compare search algorithms based on completeness and optimality.,analyse,generated,AI-SRC-04;AI-SRC-05;AI-SRC-06;AI-SRC-07;AI-SRC-09;AI-SRC-10
+skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids
+AI-FND-01,Foundations of Artificial Intelligence,Definition of AI,Artificial intelligence,Define artificial intelligence and recognise tasks that require intelligent behaviour.,remember,generated,,
+AI-FND-02,Foundations of Artificial Intelligence,Types of AI,Narrow AI and General AI,Distinguish between narrow artificial intelligence and artificial general intelligence.,understand,generated,,AI-FND-01
+AI-FND-03,Foundations of Artificial Intelligence,AI applications,Real-world AI systems,Identify appropriate applications of AI in different fields.,apply,generated,,AI-FND-01
+AI-FND-04,Foundations of Artificial Intelligence,Philosophy of AI,Machine intelligence,Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.,understand,generated,,AI-FND-01
+AI-AGT-01,Intelligent Agents,Agent fundamentals,Agent and environment,Explain how an agent interacts with its environment through sensors and actuators.,understand,generated,,AI-FND-01
+AI-AGT-02,Intelligent Agents,Rationality,Rational agent,Explain how a rational agent selects actions based on its performance measure and available information.,understand,generated,,AI-AGT-01
+AI-AGT-03,Intelligent Agents,Task environments,PEAS framework,Construct a PEAS description for a given intelligent agent.,apply,generated,,AI-AGT-02
+AI-AGT-04,Intelligent Agents,Environment properties,Environment classification,"Classify an environment according to properties such as observability, determinism and whether it is static or dynamic.",apply,generated,,AI-AGT-01
+AI-AGT-05,Intelligent Agents,Agent types,Agent architectures,"Distinguish between reflex, model-based, goal-based, utility-based and learning agents.",analyse,generated,,AI-AGT-02;AI-AGT-04
+AI-SRC-01,Search and Problem Solving,Problem formulation,Search problem components,"Identify the initial state, actions, transition model, goal test and path cost of a search problem.",understand,generated,,AI-AGT-01
+AI-SRC-02,Search and Problem Solving,Search representation,State space and search tree,Distinguish between a state space and a search tree.,understand,generated,,AI-SRC-01
+AI-SRC-03,Search and Problem Solving,Search process,Frontier and reached states,"Explain the roles of the frontier, reached-state set and node expansion.",understand,generated,,AI-SRC-02
+AI-SRC-04,Search and Problem Solving,Uninformed search,Breadth-First Search,"Trace BFS using a first-in, first-out frontier.",apply,templated,search.bfs_trace,AI-SRC-03
+AI-SRC-05,Search and Problem Solving,Uninformed search,Depth-First Search,"Trace DFS using a last-in, first-out frontier.",apply,templated,search.dfs_trace,AI-SRC-03
+AI-SRC-06,Search and Problem Solving,Uninformed search,Uniform-Cost Search,Trace UCS by expanding the node with the lowest path cost.,apply,templated,search.ucs_trace,AI-SRC-03
+AI-SRC-07,Search and Problem Solving,Uninformed search,Depth-Limited and Iterative Deepening Search,Explain how depth limits are applied in DLS and IDDFS.,understand,generated,,AI-SRC-05
+AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,Explain how a heuristic estimates the remaining cost from a state to the goal.,understand,generated,,AI-SRC-03
+AI-SRC-09,Search and Problem Solving,Informed search,Greedy Best-First Search,Trace Greedy Best-First Search using (f(n)=h(n)).,apply,templated,search.greedy_trace,AI-SRC-08
+AI-SRC-10,Search and Problem Solving,Informed search,A-star Search,Trace A-star Search using (f(n)=g(n)+h(n)).,apply,templated,search.astar_trace,AI-SRC-06;AI-SRC-08
+AI-SRC-11,Search and Problem Solving,Search evaluation,Completeness and optimality,Compare search algorithms based on completeness and optimality.,analyse,generated,,AI-SRC-04;AI-SRC-05;AI-SRC-06;AI-SRC-07;AI-SRC-09;AI-SRC-10
+AI-ML-01,Machine Learning,Learning paradigms,Supervised learning,Explain how supervised learning uses labelled examples to make predictions.,understand,generated,,AI-FND-01
+AI-ML-02,Machine Learning,Learning paradigms,Unsupervised learning,Explain how unsupervised learning identifies patterns in unlabelled data.,understand,generated,,AI-FND-01
+AI-ML-03,Machine Learning,Supervised learning,Classification and regression,Distinguish classification problems from regression problems.,understand,generated,,AI-ML-01
+AI-ML-04,Machine Learning,Unsupervised learning,Clustering,Explain how clustering groups similar observations.,understand,generated,,AI-ML-02
+AI-ML-05,Machine Learning,Unsupervised learning,Anomaly detection,Explain how anomaly detection identifies unusual observations.,understand,generated,,AI-ML-02
+AI-ML-06,Machine Learning,Unsupervised learning,Dimensionality reduction,Explain why dimensionality reduction is used and describe the basic purpose of PCA.,understand,generated,,AI-ML-02
+AI-ML-07,Machine Learning,Model development,Features and targets,Distinguish input features from target variables.,understand,generated,,AI-ML-01
+AI-ML-08,Machine Learning,Model evaluation,Training and testing data,Explain why machine-learning models should be evaluated using unseen data.,understand,generated,,AI-ML-01;AI-ML-07
+AI-ML-09,Machine Learning,Model behaviour,Underfitting and overfitting,Distinguish between underfitting and overfitting.,understand,generated,,AI-ML-08
+AI-NN-01,Neural Networks and Deep Learning,Artificial neuron,"Inputs, weights and bias","Explain the roles of inputs, weights and bias in an artificial neuron.",understand,generated,,AI-ML-01
+AI-NN-02,Neural Networks and Deep Learning,Network architecture,Neural-network layers,"Distinguish the functions of the input, hidden and output layers.",understand,generated,,AI-NN-01
+AI-NN-03,Neural Networks and Deep Learning,Activation functions,Non-linearity,Explain why neural networks require non-linear activation functions.,understand,generated,,AI-NN-01
+AI-NN-04,Neural Networks and Deep Learning,Activation functions,"Sigmoid, tanh and ReLU","Compare the basic properties of sigmoid, tanh and ReLU.",analyse,generated,,AI-NN-03
+AI-NN-05,Neural Networks and Deep Learning,Network operation,Forward propagation,Trace how information moves through a feedforward neural network.,apply,templated,nn.forward_trace,AI-NN-02
+AI-NN-06,Neural Networks and Deep Learning,Model training,Loss and gradient descent,Explain how gradient descent updates model parameters to reduce loss.,understand,generated,,AI-NN-05
+AI-NN-07,Neural Networks and Deep Learning,Model training,Learning rate,Explain how the learning rate affects neural-network training.,understand,generated,,AI-NN-06
+AI-NN-08,Neural Networks and Deep Learning,Deep learning,Deep neural networks,Explain why networks containing several hidden layers are described as deep.,understand,generated,,AI-NN-02
+AI-NN-09,Neural Networks and Deep Learning,Neural-network architectures,CNNs and RNNs,Distinguish CNNs for spatial data from RNNs for sequential data.,understand,generated,,AI-NN-08
+AI-ETH-01,Responsible and Ethical AI,Fairness,Algorithmic fairness,Evaluate whether an AI system treats individuals and groups fairly.,evaluate,hand_authored,,AI-FND-01
+AI-ETH-02,Responsible and Ethical AI,Bias,Data and algorithmic bias,Explain how biased data or model design can produce unfair outcomes.,understand,generated,,AI-ETH-01
+AI-ETH-03,Responsible and Ethical AI,Transparency,Explainability,Explain why AI decisions may need to be understandable to users.,understand,generated,,AI-ETH-01
+AI-ETH-04,Responsible and Ethical AI,Privacy,Data privacy,Explain the importance of protecting personal information used by AI systems.,understand,generated,,AI-ETH-01
+AI-ETH-05,Responsible and Ethical AI,Security,Adversarial robustness,Explain how adversarial inputs can affect a model and how robustness can reduce this risk.,understand,generated,,AI-ETH-01
+AI-ETH-06,Responsible and Ethical AI,Human oversight,Human-in-the-loop systems,Explain why human supervision may be necessary for high-impact AI decisions.,understand,generated,,AI-ETH-01
+AI-ETH-07,Responsible and Ethical AI,Responsible deployment,AI safeguards,"Recommend safeguards for the fair, safe and responsible use of an AI system.",evaluate,hand_authored,,AI-ETH-01;AI-ETH-02;AI-ETH-03;AI-ETH-04;AI-ETH-05;AI-ETH-06

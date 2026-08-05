@@ -13,6 +13,7 @@ SKILL_COLUMNS = (
     "learning_objective",
     "cognitive_process",
     "generation_strategy",
+    "template_id",
     "prerequisite_skill_ids",
 )
 

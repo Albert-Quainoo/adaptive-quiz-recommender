@@ -35,6 +35,7 @@ class SkillDefinition(BaseModel):
 
     cognitive_process: CognitiveProcess
     generation_strategy: GenerationStrategy
+    template_id: str | None = None
 
     reference_material: list[str] = Field(default_factory=list)
     prerequisite_skill_ids: list[SkillId] = Field(default_factory=list)
@@ -73,6 +74,14 @@ class SkillDefinition(BaseModel):
 
         return value.strip().lower().replace(" ", "_").replace("-", "_")
 
+    @field_validator("template_id", mode="before")
+    @classmethod
+    def normalise_template_id(cls, value: str | None) -> str | None:
+        if not isinstance(value, str):
+            return value
+
+        return value.strip() or None
+
     @field_validator("prerequisite_skill_ids", mode="before")
     @classmethod
     def normalise_prerequisite_skill_ids(cls, value: list) -> list:
@@ -95,6 +104,18 @@ class SkillDefinition(BaseModel):
             )
 
         return value
+
+    @model_validator(mode="after")
+    def check_template_id_matches_strategy(self) -> "SkillDefinition":
+        if self.generation_strategy == "templated" and not self.template_id:
+            raise ValueError("a templated skill needs a template_id.")
+
+        if self.generation_strategy != "templated" and self.template_id:
+            raise ValueError(
+                f"a {self.generation_strategy} skill cannot have a template_id."
+            )
+
+        return self
 
     @model_validator(mode="after")
     def reject_self_prerequisite(self) -> "SkillDefinition":
