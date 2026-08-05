@@ -47,6 +47,7 @@ def test_the_same_seed_produces_the_same_option_order(skill):
     second = generate_templated_question(skill, "intermediate", seed=5)
 
     assert first.options == second.options
+    assert first == second
 
 
 @pytest.mark.parametrize("skill", TEMPLATED_SKILLS, ids=IDS)

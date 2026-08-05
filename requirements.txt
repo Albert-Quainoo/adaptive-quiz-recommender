@@ -16,6 +16,7 @@ streamlit
 fastapi
 uvicorn
 pydantic
+httpx
 
 pytest
 python-dotenv
