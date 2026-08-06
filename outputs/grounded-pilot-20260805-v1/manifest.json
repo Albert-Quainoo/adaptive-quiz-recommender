@@ -1,0 +1,123 @@
+{
+  "artifacts": {
+    "audit": "audit.jsonl",
+    "questions": "pending_questions.jsonl",
+    "summary": "summary.json"
+  },
+  "base_seed": 20260805,
+  "batch_id": "grounded-pilot-20260805-v1",
+  "difficulty": "intermediate",
+  "error": "could not generate AI-SRC-01 question 8 within 3 attempts",
+  "generated_at": "2026-08-06T00:33:47.484026Z",
+  "generation_parameters": {
+    "do_sample": true,
+    "max_new_tokens": 600,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "git_commit": "49f77d8a281f3f5e2c9a8fcfa969410d410f4ca6",
+  "max_attempts_per_question": 3,
+  "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "prompt_version": "v3.2",
+  "questions_per_skill": 10,
+  "references": [
+    {
+      "content_hash": "4024dce75930381f4fa33a3a18e7941bc7915568213c04f42fcd29c88714be3a",
+      "reference_id": "AI-SRC-01-4024dce75930",
+      "reference_material": "We have encountered search problems in our first lecture. A constraint satisfaction problem can be seen as a search problem: Initial state: empty assignment (all variables don’t have any values assigned to them). Actions: add a { variable = value } to assignment; that is, give some variable a value. Transition model: shows how adding the assignment changes the assignment. There is not much depth to this: the transition model returns the state that includes the assignment following the latest action. Goal test: check if all variables are assigned a value and all constraints are satisfied. Path cost function: all paths have the same cost. As we mentioned earlier, as opposed to typical search problems, optimization problems care about the solution and not the route to the solution. However, going about a constraint satisfaction problem naively, as a regular search problem, is massively inefficient. Instead, we can make use of the structure of a constraint satisfaction problem to solve it more efficiently. Backtracking Search Backtracking search is a type of a search algorithm that takes into account the structure of a constraint satisfaction search problem.",
+      "retrieved_at": "2026-08-05T15:08:05.598189Z",
+      "review_note": "Concrete formulation of search-problem components.",
+      "reviewed_at": "2026-08-05T15:17:13.616726Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/2020/notes/3/",
+      "title": "Lecture 3 - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "8ef4e1416152693e5dee2e9d67042e0cc9e4e35978fd343e6e2616f2cb97e315",
+      "reference_id": "AI-SRC-01-8ef4e1416152",
+      "reference_material": "In this problem, we’re interested in finding the shortest path between any two actors by choosing a sequence of movies that connects them. For example, the shortest path between Jennifer Lawrence and Tom Hanks is 2: Jennifer Lawrence is connected to Kevin Bacon by both starring in “X-Men: First Class,” and Kevin Bacon is connected to Tom Hanks by both starring in “Apollo 13.” We can frame this as a search problem: our states are people. Our actions are movies, which take us from one actor to another (it’s true that a movie could take us to multiple different actors, but that’s okay for this problem). Our initial state and goal state are defined by the two people we’re trying to connect. By using breadth-first search, we can find the shortest path from one actor to another.",
+      "retrieved_at": "2026-08-05T15:08:07.922628Z",
+      "review_note": "Concrete search-problem formulation example.",
+      "reviewed_at": "2026-08-05T15:17:14.198044Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/projects/0/degrees/",
+      "title": "Degrees - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "9ba6548d4450e4a4f77b376b5c1c3e349bc2077eaacf3f73720df4e4b49488a6",
+      "reference_id": "AI-SRC-01-9ba6548d4450",
+      "reference_material": "To do this, we must formally express a search problem - given our agent’s current state (its configuration within its environment), how can we arrive at a new state that satisfies its goals in the best possible way? A search problem consists of the following elements: A state space - The set of all possible states that are possible in your given world A set of actions available in each state A transition model - Outputs the next state when a specific action is taken at current state An action cost - Incurred when moving from one state to another after applying an action A start state - The state in which an agent exists initially A goal test - A function that takes a state as input, and determines whether it is a goal state Fundamentally, a search problem is solved by first considering the start state, then exploring the state space using the action and transition and cost methods, iteratively computing children of various states until we arrive at a goal state, at which point we will have determined a path from the start state to the goal state (typically called a plan ).",
+      "retrieved_at": "2026-08-05T15:07:51.492971Z",
+      "review_note": "Canonical definition of search-problem components.",
+      "reviewed_at": "2026-08-05T15:17:13.040862Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+      "title": "1.2 State Spaces and Search Problems | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "a506d362b314deff7981c0c35b35b02905272bac8b38a1a35c5933f61284968c",
+      "reference_id": "AI-SRC-02-a506d362b314",
+      "reference_material": "If there exist cycles in the state space graph, this inevitably means that the corresponding search tree will be infinite in depth. Hence, there exists the possibility that DFS will faithfully yet tragically get “stuck” searching for the deepest node in an infinite-sized search tree, doomed to never find a solution. Optimality - Depth-first search simply finds the “leftmost” solution in the search tree without regard for path costs, and so is not optimal. Time Complexity - In the worst case, depth first search may end up exploring the entire search tree. Hence, given a tree with maximum depth \\(m\\), the runtime of DFS is \\(O(b^{m})\\). Space Complexity - In the worst case, DFS maintains b nodes at each of \\(m\\) depth levels on the frontier.",
+      "retrieved_at": "2026-08-05T15:08:42.251857Z",
+      "review_note": "Explains the relationship between state spaces and search trees.",
+      "reviewed_at": "2026-08-05T15:17:15.377483Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-02",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/uninformed.html",
+      "title": "1.3 Uninformed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "aa97b7fb3bd9d731d4a78f7b60ee64567d548556e37deab6c9a8864e057dba2d",
+      "reference_id": "AI-SRC-02-aa97b7fb3bd9",
+      "reference_material": "Unlike state space graphs, our next structure of interest, search trees , have no such restriction on the number of times a state can appear. This is because though search trees are also a class of graph with states as nodes and actions as edges between states, each state/node encodes not just the state itself, but the entire path (or plan ) from the start state to the given state in the state space graph. Observe the state space graph and corresponding search tree below: The highlighted path (S → d → e → r → f → G) in the given state space graph is represented in the corresponding search tree by following the path in the tree from the start state S to the highlighted goal state G. Similarly, each and every path from the start node to any other node is represented in the search tree by a path from the root S to some descendant of the root corresponding to the other node. Since there often exist multiple ways to get from one state to another, states tend to show up multiple times in search trees. As a result, search trees are greater than or equal to their corresponding state space graph in size.",
+      "retrieved_at": "2026-08-05T15:08:20.900400Z",
+      "review_note": "Direct comparison of state spaces and search trees.",
+      "reviewed_at": "2026-08-05T15:17:14.805584Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-02",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+      "title": "1.2 State Spaces and Search Problems | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "a366da363e17b53d1203171ad64739b57a962e7eab4da7d5d8920846350dca3b",
+      "reference_id": "AI-SRC-08-a366da363e17",
+      "reference_material": "A* combines the total backward cost (sum of edge weights in the path to the state) used by UCS with the estimated forward cost (heuristic value) used by greedy search by adding these two values, effectively yielding an estimated total cost from start to goal. Given that we want to minimize the total cost from start to goal, this is an excellent choice. Completeness and Optimality - A* search is both complete and optimal, given an appropriate heuristic (which we’ll cover in a minute).",
+      "retrieved_at": "2026-08-05T15:08:57.326741Z",
+      "review_note": "Canonical explanation of heuristic cost estimates.",
+      "reviewed_at": "2026-08-05T15:17:16.526412Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-08",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/informed.html",
+      "title": "1.4 Informed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "cbd77b22bcb9c335fed1cb4198474da0e9df97032b642bc1858d668fd506c9da",
+      "reference_id": "AI-SRC-08-cbd77b22bcb9",
+      "reference_material": "First, we’ll define a heuristic function that tells us how close we are to the goal. This heuristic function will be different for each type of graph, but here’s one that works on square grids with 4-way movement: def heuristic(a: GridLocation, b: GridLocation): # Manhattan distance on a square grid return abs(a.x - b.x) + abs(a.y - b.y) In Dijkstra’s Algorithm we used the actual distance from the start for the priority queue ordering. Here instead, in Greedy Best First Search , we’ll use the estimated distance to the goal for the priority queue ordering. The location closest to the goal will be explored first. The code uses the priority queue from Dijkstra’s Algorithm but without cost_so_far : frontier = PriorityQueue() frontier.put(start, 0) came_from: dict[Location, Location] = dict() came_from[start] = None while not frontier.empty(): current = frontier.get() if current == goal: break for next in graph.neighbors(current): if next not in came_from: priority = heuristic(goal, next) frontier.put(next, priority) came_from[next] = current Let’s see how well it works: Dijkstra’s Algorithm Greedy Best-First Search Wow!!",
+      "retrieved_at": "2026-08-05T15:08:55.283048Z",
+      "review_note": "Explains heuristic-directed search and cost estimates.",
+      "reviewed_at": "2026-08-05T15:17:15.958122Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-08",
+      "source_domain": "www.redblobgames.com",
+      "source_url": "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+      "title": "Red Blob Games: Introduction to the A* Algorithm"
+    }
+  ],
+  "skill_ids": [
+    "AI-SRC-01",
+    "AI-SRC-02",
+    "AI-SRC-08"
+  ],
+  "status": "failed"
+}
