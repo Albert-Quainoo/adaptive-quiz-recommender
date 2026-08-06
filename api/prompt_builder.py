@@ -119,6 +119,7 @@ def build_grounded_quiz_messages(
     request: QuizGenerationRequest,
     *,
     question_intent: BaseModel,
+    grounding_brief: BaseModel,
     avoid_stems: list[str],
     corrective_feedback: str | None = None,
 ) -> list[dict[str, str]]:
@@ -126,6 +127,12 @@ def build_grounded_quiz_messages(
     messages = build_quiz_messages(request)
     intent = question_intent.model_dump(mode="json")
     intent_text = json.dumps(intent, ensure_ascii=False, indent=2, sort_keys=True)
+    brief_text = json.dumps(
+        grounding_brief.model_dump(mode="json"),
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
     avoid_text = (
         "\n".join(f"- {stem}" for stem in avoid_stems)
         if avoid_stems
@@ -137,6 +144,11 @@ ASSIGNED QUESTION INTENT:
 Use exactly this one intent for this generation slot. Preserve its assessment
 focus on every retry and do not broaden the question to another intent.
 {intent_text}
+
+CANONICAL GROUNDING BRIEF:
+Treat this versioned brief as binding terminology and factual guidance for the
+assigned skill. Do not infer scenario facts that are absent from the sources.
+{brief_text}
 
 CANONICAL TERMINOLOGY FOR AI-SRC-01:
 - "initial state" and "start state" are synonyms; never present or count them as separate components.

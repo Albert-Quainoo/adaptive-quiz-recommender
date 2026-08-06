@@ -68,3 +68,34 @@ python -m scripts.generate_grounded_batch \
 If a run is interrupted or a slot is exhausted, the manifest remains
 `incomplete` and accepted questions stay on disk. Use the same command with
 `--resume`; accepted slots and intents are not regenerated.
+
+## Grounded-question review
+
+The generated v2 directory is immutable source evidence. Curation lives in a
+separate review store and never rewrites generated questions, raw responses,
+the manifest, or the audit log. Prepare the preliminary review queue with:
+
+```bash
+python -m scripts.review_grounded_batch \
+  --batch outputs/grounded-pilot-20260805-v2 \
+  --store outputs/grounded-pilot-20260805-v2-curation/review.json \
+  prepare
+```
+
+The same command supports `list`, `inspect QUESTION_ID`, `propose QUESTION_ID`,
+`approve QUESTION_ID REVISION_ID`, `reject QUESTION_ID --reason ...`, and
+`export --output APPROVED_BANK.jsonl`. Run the command with `--help` for the
+editor/reviewer arguments.
+Approval always names a proposed revision, and rejection always requires a
+reason. Export emits only explicitly approved revisions as learner-facing
+`BankItem` JSON lines; review notes, raw prompts, failed attempts, and rejected
+material are not part of that runtime contract.
+
+Automated quality checks identify recognizable structural defects. They do not
+prove factual correctness: human review remains the final factual-quality gate.
+
+Learner-facing code must call `api.presentation.present_bank_item` immediately
+before rendering an item. It deterministically shuffles a copy of the options
+from the item, learner, and attempt identifiers and returns the presentation ID,
+seed, stable option IDs, and displayed order needed for reconstruction. Score
+with `api.presentation.score_response`; never score by option position.

@@ -247,7 +247,7 @@ def test_attempt_and_question_are_persisted_incrementally(tmp_path):
 def test_resume_keeps_accepted_question_and_continues_exhausted_slot(tmp_path):
     output = tmp_path / "batch"
     first_model = DeterministicFakeModel(
-        [lambda seed: raw_question(seed, "Accepted before interruption"), "bad"]
+        [lambda seed: raw_question(seed, "What was accepted before interruption?"), "bad"]
     )
     first = generate_batch(
         config(
@@ -267,7 +267,7 @@ def test_resume_keeps_accepted_question_and_continues_exhausted_slot(tmp_path):
     assert first.status == "incomplete"
 
     resumed_model = DeterministicFakeModel(
-        [lambda seed: raw_question(seed, "Accepted after resume")]
+        [lambda seed: raw_question(seed, "What was accepted after resume?")]
     )
     resumed = generate_batch(
         config(

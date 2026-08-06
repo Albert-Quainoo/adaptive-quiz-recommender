@@ -20,6 +20,8 @@ from authoring.question_intents import (
     intents_by_skill,
     load_pilot_blueprint,
 )
+from authoring.grounding_briefs import grounding_brief
+from authoring.question_quality import generic_quality_issues
 from taxonomy.loader import load_reference_provenance, load_skills
 from taxonomy.schemas import ReferenceProvenance, SkillDefinition
 
@@ -501,6 +503,13 @@ def write_artifacts(
         ],
         "intents": [intent.model_dump(mode="json") for intent in intents],
         "accepted_intent_ids": [question.intent_id for question in questions],
+        "grounding_briefs": {
+            skill_id: {
+                "version": grounding_brief(skill_id).version,
+                "content_hash": grounding_brief(skill_id).content_hash,
+            }
+            for skill_id in config.skill_ids
+        },
         "slot_intent_ids": {
             skill_id: [
                 intents[index % len(intents)].intent_id
@@ -581,6 +590,8 @@ def generate_batch(
         if not manifest_path.exists():
             raise BatchGenerationError("cannot resume: manifest.json does not exist")
         existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing_manifest.get("status") == "complete":
+            raise BatchGenerationError("a completed generated batch is immutable")
         for field, expected in config.model_dump(mode="json").items():
             if existing_manifest.get(field) != expected:
                 raise BatchGenerationError(
@@ -697,6 +708,7 @@ def generate_batch(
                 messages = build_grounded_quiz_messages(
                     request,
                     question_intent=intent,
+                    grounding_brief=grounding_brief(skill_id),
                     avoid_stems=accepted_stems,
                     corrective_feedback=feedback,
                 )
@@ -716,6 +728,14 @@ def generate_batch(
                         component_key = validate_pilot_question(
                             parsed, intent, accepted_component_keys
                         )
+                        quality_issues = generic_quality_issues(
+                            parsed,
+                            intent_id=intent.intent_id,
+                            accepted_intent_ids=accepted_intent_ids,
+                        )
+                        if quality_issues:
+                            issue = quality_issues[0]
+                            raise ValueError(f"quality check {issue.code}: {issue.message}")
                         status = "accepted"
                 except Exception as error:
                     validation_error = f"{type(error).__name__}: {error}"
