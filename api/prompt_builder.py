@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Literal
 import json
 
-PROMPT_VERSION = "v3.2"
+PROMPT_VERSION = "v3.3"
 
 # Retrieved reference text is third-party source data, so it arrives fenced and
 # the system prompt says what the fence means. The fence is only meaningful if
@@ -113,6 +113,51 @@ def build_quiz_messages(request: QuizGenerationRequest,) -> list[dict[str,str]]:
     ]
 
     return [turn.model_dump() for turn in turns]
+
+
+def build_grounded_quiz_messages(
+    request: QuizGenerationRequest,
+    *,
+    question_intent: BaseModel,
+    avoid_stems: list[str],
+    corrective_feedback: str | None = None,
+) -> list[dict[str, str]]:
+    """Build a one-slot prompt constrained by exactly one reviewed intent."""
+    messages = build_quiz_messages(request)
+    intent = question_intent.model_dump(mode="json")
+    intent_text = json.dumps(intent, ensure_ascii=False, indent=2, sort_keys=True)
+    avoid_text = (
+        "\n".join(f"- {stem}" for stem in avoid_stems)
+        if avoid_stems
+        else "- (none; this is the first accepted stem)"
+    )
+    grounded_rules = f"""
+
+ASSIGNED QUESTION INTENT:
+Use exactly this one intent for this generation slot. Preserve its assessment
+focus on every retry and do not broaden the question to another intent.
+{intent_text}
+
+CANONICAL TERMINOLOGY FOR AI-SRC-01:
+- "initial state" and "start state" are synonyms; never present or count them as separate components.
+- An action cost is the cost of one individual action.
+- A path cost is the accumulated cost of a path.
+- For this pilot, the canonical five-part formulation is: initial state, actions, transition model, goal test, and path cost.
+- Do not combine alternative textbook formulations into a contradictory component list.
+
+PREVIOUSLY ACCEPTED STEMS TO AVOID:
+Do not reproduce or closely paraphrase any stem below. Use a materially distinct
+stem and scenario while staying within the assigned intent.
+{avoid_text}
+""".rstrip()
+    if corrective_feedback:
+        grounded_rules += f"""
+
+CORRECTION REQUIRED AFTER THE PREVIOUS ATTEMPT:
+{corrective_feedback}
+""".rstrip()
+    messages[1]["content"] += grounded_rules
+    return messages
 
 if __name__ == "__main__":
     quiz_input = QuizGenerationRequest(

@@ -9,7 +9,9 @@ from authoring.grounded_batch import (
     BatchGenerationError,
     derive_seed,
     generate_batch,
+    validate_pilot_question,
 )
+from authoring.question_intents import PILOT_BATCH_ID, QuestionIntent, load_pilot_blueprint
 from scripts.generate_grounded_batch import build_parser
 from taxonomy.loader import course_paths, course_provenance_path
 
@@ -73,12 +75,21 @@ class DeterministicFakeModel:
             response = self.responses.pop(0)
             return response(seed) if callable(response) else response
 
+        prompt = messages[1]["content"]
+        if '"intent_id": "AI-SRC-01-INT-01"' in prompt:
+            answer = "Initial state, actions, transition model, goal test, and path cost"
+            return raw_question(
+                seed,
+                options=[answer, f"A {seed}", f"B {seed}", f"C {seed}"],
+                correct_answer=answer,
+            )
+
         return raw_question(seed)
 
 
 def config(**overrides):
     fields = {
-        "batch_id": "pilot-grounded-001",
+        "batch_id": PILOT_BATCH_ID,
         "skill_ids": ["AI-SRC-01", "AI-SRC-02", "AI-SRC-08"],
         "questions_per_skill": 2,
         "base_seed": 20260806,
@@ -175,7 +186,7 @@ def test_only_approved_same_skill_references_are_used(tmp_path):
     _, output = run(tmp_path)
 
     for record in jsonl(output / "pending_questions.jsonl"):
-        assert set(record["reference_ids"]) == REFERENCE_IDS[record["skill_id"]]
+        assert set(record["reference_ids"]) <= REFERENCE_IDS[record["skill_id"]]
 
 
 def test_pending_question_provenance_is_complete(tmp_path):
@@ -189,6 +200,8 @@ def test_pending_question_provenance_is_complete(tmp_path):
         "batch_id",
         "question_id",
         "skill_id",
+        "question_index",
+        "intent_id",
         "seed",
         "reference_ids",
         "prompt_version",
@@ -209,6 +222,7 @@ def test_pending_question_provenance_is_complete(tmp_path):
     assert len(record["prompt_hash"]) == 64
     assert record["raw_response"]
     assert record["question"]["explanation"]
+    assert record["question"]["intent_id"] == record["intent_id"]
 
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest["status"] == "complete"
@@ -240,7 +254,7 @@ def test_invalid_raw_output_is_retained_and_retried(tmp_path):
     assert attempts[2]["parsed_question"]
 
 
-def test_retries_are_bounded_and_failure_artifacts_are_written(tmp_path):
+def test_retries_are_bounded_and_incomplete_artifacts_are_written(tmp_path):
     model = DeterministicFakeModel(["bad", "still bad"])
     output = tmp_path / "failed"
     batch_config = config(
@@ -249,18 +263,18 @@ def test_retries_are_bounded_and_failure_artifacts_are_written(tmp_path):
         max_attempts_per_question=2,
     )
 
-    with pytest.raises(BatchGenerationError, match="within 2 attempts"):
-        generate_batch(
-            batch_config,
-            model,
-            output,
-            skills_path=SKILLS_PATH,
-            references_path=REFERENCES_PATH,
-            provenance_path=PROVENANCE_PATH,
-            clock=lambda: FIXED_TIME,
-            git_commit=GIT_COMMIT,
-        )
+    result = generate_batch(
+        batch_config,
+        model,
+        output,
+        skills_path=SKILLS_PATH,
+        references_path=REFERENCES_PATH,
+        provenance_path=PROVENANCE_PATH,
+        clock=lambda: FIXED_TIME,
+        git_commit=GIT_COMMIT,
+    )
 
+    assert result.status == "incomplete"
     assert len(model.calls) == 2
     assert len(jsonl(output / "audit.jsonl")) == 2
     assert json.loads((output / "summary.json").read_text()) == {
@@ -282,18 +296,18 @@ def test_duplicate_questions_are_rejected_and_bounded(tmp_path):
         max_attempts_per_question=2,
     )
 
-    with pytest.raises(BatchGenerationError):
-        generate_batch(
-            batch_config,
-            model,
-            output,
-            skills_path=SKILLS_PATH,
-            references_path=REFERENCES_PATH,
-            provenance_path=PROVENANCE_PATH,
-            clock=lambda: FIXED_TIME,
-            git_commit=GIT_COMMIT,
-        )
+    result = generate_batch(
+        batch_config,
+        model,
+        output,
+        skills_path=SKILLS_PATH,
+        references_path=REFERENCES_PATH,
+        provenance_path=PROVENANCE_PATH,
+        clock=lambda: FIXED_TIME,
+        git_commit=GIT_COMMIT,
+    )
 
+    assert result.status == "incomplete"
     attempts = jsonl(output / "audit.jsonl")
     assert [attempt["validation_status"] for attempt in attempts] == [
         "accepted",

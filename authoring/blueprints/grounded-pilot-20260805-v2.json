@@ -1,0 +1,279 @@
+{
+  "batch_id": "grounded-pilot-20260805-v2",
+  "prompt_version": "v3.3",
+  "review_status": "proposed",
+  "intents": [
+    {
+      "intent_id": "AI-SRC-01-INT-01",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Select the complete canonical five-part search-problem formulation.",
+      "question_archetype": "complete formulation selection",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["initial state", "actions", "transition model", "goal test", "path cost"],
+      "prohibited_conflations": ["counting initial state and start state separately", "mixing state space or action cost into the canonical five-part list"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-02",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Identify the initial state in a concrete scenario.",
+      "question_archetype": "scenario component identification",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["initial state", "configuration before any action"],
+      "prohibited_conflations": ["treating start state as an additional component", "confusing initial state with goal state"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-03",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Identify the available actions in a concrete search scenario.",
+      "question_archetype": "scenario component identification",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930", "AI-SRC-01-8ef4e1416152"],
+      "required_concepts": ["actions", "choices available from a state"],
+      "prohibited_conflations": ["confusing an action with its resulting state", "confusing actions with the transition model"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-04",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Identify what the transition model specifies after an action.",
+      "question_archetype": "input-output interpretation",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930", "AI-SRC-01-9ba6548d4450"],
+      "required_concepts": ["transition model", "resulting state"],
+      "prohibited_conflations": ["equating the transition model with the action set", "equating the transition model with the goal test"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-05",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Choose the goal test for a concrete problem.",
+      "question_archetype": "scenario rule selection",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["goal test", "condition for a goal state"],
+      "prohibited_conflations": ["confusing a named goal state with the goal-test function", "using path cost as the goal test"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-06",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Distinguish individual action cost from accumulated path cost.",
+      "question_archetype": "cost calculation comparison",
+      "preferred_reference_ids": ["AI-SRC-01-9ba6548d4450", "AI-SRC-01-4024dce75930"],
+      "required_concepts": ["action cost", "path cost", "accumulation"],
+      "prohibited_conflations": ["defining action cost as accumulated path cost", "defining path cost as one action's cost"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-07",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Determine which canonical component is missing from a partial formulation.",
+      "question_archetype": "missing component diagnosis",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["canonical five components", "missing component"],
+      "prohibited_conflations": ["counting initial state and start state separately", "substituting state space for a missing canonical component"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-08",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Formalize a constraint-satisfaction scenario as a search problem.",
+      "question_archetype": "CSP scenario formalization",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["empty assignment", "assign variable value", "constraints satisfied"],
+      "prohibited_conflations": ["treating an unassigned variable as an action", "requiring route optimization when all paths have equal cost"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-09",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Formalize the Degrees actor-connection scenario as a search problem.",
+      "question_archetype": "Degrees scenario formalization",
+      "preferred_reference_ids": ["AI-SRC-01-8ef4e1416152"],
+      "required_concepts": ["actors as states", "movies as actions", "two people as endpoints"],
+      "prohibited_conflations": ["treating movies as states", "treating breadth-first search as a formulation component"]
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-10",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Diagnose and repair an invalid search-problem formulation.",
+      "question_archetype": "invalid formulation diagnosis",
+      "preferred_reference_ids": ["AI-SRC-01-4024dce75930"],
+      "required_concepts": ["component-role consistency", "corrected formulation"],
+      "prohibited_conflations": ["counting initial state and start state separately", "combining alternative textbook component lists"]
+    },
+
+    {
+      "intent_id": "AI-SRC-02-INT-01",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Distinguish a state-space graph from a search tree by what each node represents.",
+      "question_archetype": "representation comparison",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["state", "path to a state"],
+      "prohibited_conflations": ["claiming every state appears once in a search tree", "equating a tree node with only a world state"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-02",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Explain why one state may occur in multiple search-tree nodes.",
+      "question_archetype": "causal explanation",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["multiple paths", "repeated state"],
+      "prohibited_conflations": ["calling repeated tree nodes duplicate state-space states", "assuming repeated states require a cycle"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-03",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Map a highlighted state-space path to its search-tree representation.",
+      "question_archetype": "path mapping scenario",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["root-to-descendant path", "action sequence"],
+      "prohibited_conflations": ["mapping a path to an unordered state set", "assuming one tree node represents every path to a state"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-04",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Compare the possible sizes of a state-space graph and its search tree.",
+      "question_archetype": "size relationship reasoning",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["path multiplicity", "tree at least as large"],
+      "prohibited_conflations": ["claiming the search tree must be smaller", "using branching factor alone as the explanation"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-05",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Explain how a state-space cycle induces unbounded search-tree depth.",
+      "question_archetype": "cycle consequence scenario",
+      "preferred_reference_ids": ["AI-SRC-02-a506d362b314"],
+      "required_concepts": ["cycle", "infinite-depth search tree"],
+      "prohibited_conflations": ["claiming the finite graph becomes infinite", "claiming every search algorithm must traverse forever"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-06",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Identify why depth-first search can get trapped by an infinite-depth search tree.",
+      "question_archetype": "algorithm behavior diagnosis",
+      "preferred_reference_ids": ["AI-SRC-02-a506d362b314"],
+      "required_concepts": ["depth-first commitment", "infinite branch"],
+      "prohibited_conflations": ["blaming finite state-space size", "claiming DFS is cost-optimal"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-07",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Classify whether two nodes with the same state but different paths are distinct search-tree nodes.",
+      "question_archetype": "node identity scenario",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["same state", "different plans", "distinct nodes"],
+      "prohibited_conflations": ["merging paths because terminal states match", "treating tree identity as state identity"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-08",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Choose the correct structure for storing all candidate plans from a start state.",
+      "question_archetype": "representation choice",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["candidate plans", "search tree"],
+      "prohibited_conflations": ["claiming a state-space node stores all paths", "confusing representation with frontier policy"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-09",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Diagnose an incorrect claim that a finite state space guarantees a finite search tree.",
+      "question_archetype": "invalid claim diagnosis",
+      "preferred_reference_ids": ["AI-SRC-02-a506d362b314", "AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["finite states", "cycles", "unbounded paths"],
+      "prohibited_conflations": ["equating number of states with number of paths", "claiming cycles add new states"]
+    },
+    {
+      "intent_id": "AI-SRC-02-INT-10",
+      "skill_id": "AI-SRC-02",
+      "assessment_focus": "Infer the represented plan from a root-to-node sequence in a search tree.",
+      "question_archetype": "plan reconstruction",
+      "preferred_reference_ids": ["AI-SRC-02-aa97b7fb3bd9"],
+      "required_concepts": ["root", "descendant", "complete path"],
+      "prohibited_conflations": ["reporting only the terminal state", "reordering actions in the plan"]
+    },
+
+    {
+      "intent_id": "AI-SRC-08-INT-01",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Identify a heuristic as an estimate of remaining cost to a goal.",
+      "question_archetype": "definition in scenario",
+      "preferred_reference_ids": ["AI-SRC-08-a366da363e17"],
+      "required_concepts": ["estimated forward cost", "goal"],
+      "prohibited_conflations": ["equating heuristic with cost already incurred", "claiming an estimate is always exact"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-02",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Compute Manhattan-distance heuristic on a four-way square grid.",
+      "question_archetype": "numeric grid calculation",
+      "preferred_reference_ids": ["AI-SRC-08-cbd77b22bcb9"],
+      "required_concepts": ["Manhattan distance", "four-way movement"],
+      "prohibited_conflations": ["using diagonal distance", "adding cost already travelled"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-03",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Choose which frontier node greedy best-first search expands using heuristic values.",
+      "question_archetype": "frontier ordering scenario",
+      "preferred_reference_ids": ["AI-SRC-08-cbd77b22bcb9"],
+      "required_concepts": ["lowest heuristic estimate", "greedy best-first search"],
+      "prohibited_conflations": ["ordering by path cost", "ordering by path cost plus heuristic"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-04",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Distinguish backward path cost from forward heuristic cost in A-star search.",
+      "question_archetype": "cost-term comparison",
+      "preferred_reference_ids": ["AI-SRC-08-a366da363e17"],
+      "required_concepts": ["backward path cost", "forward estimate"],
+      "prohibited_conflations": ["calling both terms heuristic values", "treating the heuristic as accumulated cost"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-05",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Calculate an A-star estimated total from given path cost and heuristic.",
+      "question_archetype": "numeric A-star calculation",
+      "preferred_reference_ids": ["AI-SRC-08-a366da363e17"],
+      "required_concepts": ["path cost", "heuristic", "sum"],
+      "prohibited_conflations": ["using only the heuristic", "multiplying rather than adding the two terms"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-06",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Explain why heuristic design depends on the graph or problem structure.",
+      "question_archetype": "design rationale",
+      "preferred_reference_ids": ["AI-SRC-08-cbd77b22bcb9"],
+      "required_concepts": ["problem-specific estimate", "movement model"],
+      "prohibited_conflations": ["claiming one formula suits every graph", "using goal-test logic as a heuristic"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-07",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Diagnose a heuristic that measures distance from the start instead of to the goal.",
+      "question_archetype": "invalid heuristic diagnosis",
+      "preferred_reference_ids": ["AI-SRC-08-a366da363e17", "AI-SRC-08-cbd77b22bcb9"],
+      "required_concepts": ["remaining cost", "goal-directed estimate"],
+      "prohibited_conflations": ["accepting elapsed cost as h", "confusing the start and goal arguments"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-08",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Compare frontier priorities under Dijkstra and greedy best-first search.",
+      "question_archetype": "algorithm priority comparison",
+      "preferred_reference_ids": ["AI-SRC-08-cbd77b22bcb9"],
+      "required_concepts": ["actual start distance", "estimated goal distance"],
+      "prohibited_conflations": ["claiming both use the heuristic", "claiming greedy uses accumulated path cost"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-09",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Select the more goal-directed node when heuristic values differ from path costs.",
+      "question_archetype": "contrasting-values scenario",
+      "preferred_reference_ids": ["AI-SRC-08-a366da363e17"],
+      "required_concepts": ["goal-directed estimate", "cost distinction"],
+      "prohibited_conflations": ["assuming the cheapest-so-far node is closest to goal", "assuming lower heuristic guarantees lower total path cost"]
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-10",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Explain what information is lost when greedy search omits cost-so-far.",
+      "question_archetype": "missing-information analysis",
+      "preferred_reference_ids": ["AI-SRC-08-cbd77b22bcb9", "AI-SRC-08-a366da363e17"],
+      "required_concepts": ["cost so far", "heuristic-only priority"],
+      "prohibited_conflations": ["claiming the heuristic contains exact elapsed cost", "claiming greedy and A-star priorities are identical"]
+    }
+  ]
+}

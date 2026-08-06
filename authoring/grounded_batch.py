@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import subprocess
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
@@ -10,9 +11,15 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field, field_validator
 
-from api.prompt_builder import PROMPT_VERSION, build_quiz_messages
+from api.prompt_builder import PROMPT_VERSION, build_grounded_quiz_messages
 from api.response_parser import parse_quiz_messages
 from api.schemas import QuizGenerationRequest, QuizQuestion, difficulty_level
+from authoring.question_intents import (
+    PILOT_BATCH_ID,
+    QuestionIntent,
+    intents_by_skill,
+    load_pilot_blueprint,
+)
 from taxonomy.loader import load_reference_provenance, load_skills
 from taxonomy.schemas import ReferenceProvenance, SkillDefinition
 
@@ -45,6 +52,7 @@ class BatchConfig(BaseModel):
     prompt_version: str = Field(min_length=1)
     difficulty: difficulty_level = "intermediate"
     max_attempts_per_question: int = Field(default=3, ge=1, le=20)
+    allow_intent_reuse: bool = False
     generation_parameters: dict[str, GenerationValue] = Field(default_factory=dict)
 
     @field_validator("batch_id", "model_id", "prompt_version", mode="before")
@@ -69,10 +77,16 @@ class BatchConfig(BaseModel):
         return value
 
 
+class IntentQuestion(QuizQuestion):
+    intent_id: str = Field(min_length=1)
+
+
 class PendingQuestion(BaseModel):
     batch_id: str = Field(min_length=1)
     question_id: str = Field(min_length=1)
     skill_id: str
+    question_index: int = Field(ge=0)
+    intent_id: str = Field(min_length=1)
     seed: int
     reference_ids: list[str] = Field(min_length=1)
     prompt_version: str = Field(min_length=1)
@@ -85,12 +99,13 @@ class PendingQuestion(BaseModel):
     generated_at: datetime
     git_commit: str = Field(min_length=1)
     raw_response: str
-    question: QuizQuestion
+    question: IntentQuestion
 
 
 class AttemptAudit(BaseModel):
     batch_id: str = Field(min_length=1)
     skill_id: str
+    intent_id: str = Field(min_length=1)
     question_index: int
     attempt_index: int
     seed: int
@@ -104,7 +119,7 @@ class AttemptAudit(BaseModel):
     validation_error: str | None = None
     generated_at: datetime
     raw_response: str | None = None
-    parsed_question: QuizQuestion | None = None
+    parsed_question: IntentQuestion | None = None
 
 
 class BatchSummary(BaseModel):
@@ -118,6 +133,7 @@ class BatchResult(BaseModel):
     questions: list[PendingQuestion]
     attempts: list[AttemptAudit]
     summary: BatchSummary
+    status: Literal["complete", "incomplete"]
 
 
 def derive_seed(
@@ -204,6 +220,9 @@ def validate_inputs(
             f"prompt version {config.prompt_version} does not match {PROMPT_VERSION}"
         )
 
+    if config.batch_id != PILOT_BATCH_ID:
+        raise BatchGenerationError(f"batch id must be {PILOT_BATCH_ID}")
+
     if config.model_id != model.model_id:
         raise BatchGenerationError(
             f"model id {config.model_id} does not match loaded model {model.model_id}"
@@ -247,14 +266,16 @@ def validate_inputs(
     return by_skill, references
 
 
-def parse_raw_question(raw_response: str) -> QuizQuestion:
+def parse_raw_question(raw_response: str, intent_id: str) -> IntentQuestion:
     response = parse_quiz_messages(raw_response)
     if len(response.questions) != 1:
         raise ValueError(
             f"expected exactly one question, received {len(response.questions)}"
         )
 
-    return QuizQuestion.model_validate(response.questions[0].model_dump())
+    return IntentQuestion.model_validate(
+        {**response.questions[0].model_dump(), "intent_id": intent_id}
+    )
 
 
 def validate_question(question: QuizQuestion) -> None:
@@ -272,11 +293,151 @@ def validate_question(question: QuizQuestion) -> None:
         raise ValueError("explanation is empty")
 
 
+NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+}
+COMPONENT_PATTERNS = {
+    "initial state": r"\b(?:initial|start) state\b",
+    "actions": r"\bactions?\b",
+    "transition model": r"\btransition model\b",
+    "goal test": r"\bgoal test\b",
+    "path cost": r"\bpath cost\b",
+}
+
+
+def _claimed_component_counts(text: str) -> set[int]:
+    pattern = re.compile(
+        r"(?:search problem|problem formulation)[^.]{0,50}?"
+        r"(?:has|contains|consists of|comprises|requires|uses)\s+"
+        r"(\d+|one|two|three|four|five|six|seven)\s+"
+        r"(?:canonical\s+)?(?:components|elements|parts)",
+        re.IGNORECASE,
+    )
+    counts = set()
+    for match in pattern.finditer(text):
+        value = match.group(1).casefold()
+        counts.add(int(value) if value.isdigit() else NUMBER_WORDS[value])
+    return counts
+
+
+def _component_signature(text: str) -> frozenset[str] | None:
+    components = {
+        name for name, pattern in COMPONENT_PATTERNS.items() if re.search(pattern, text, re.I)
+    }
+    return frozenset(components) if len(components) >= 4 else None
+
+
+def semantic_component_list_key(
+    question: QuizQuestion, intent: QuestionIntent
+) -> frozenset[str] | None:
+    if intent.skill_id != "AI-SRC-01":
+        return None
+    # A genuine component-list question places a list in the answer. A
+    # missing-component question may name four components in its stem but has
+    # a single component as its answer, so it remains a distinct assessment.
+    return _component_signature(question.correct_answer)
+
+
+def validate_pilot_question(
+    question: QuizQuestion,
+    intent: QuestionIntent,
+    accepted_component_keys: set[frozenset[str]],
+) -> frozenset[str] | None:
+    """Apply deterministic terminology and diversity gates for the v2 pilot."""
+    answer_pattern = re.escape(" ".join(question.correct_answer.casefold().split()))
+    explanation = " ".join(question.explanation.casefold().split())
+    if re.search(
+        rf"(?:{answer_pattern})\s+(?:is|are)\s+(?:incorrect|false|not correct)",
+        explanation,
+    ):
+        raise ValueError("explanation contradicts the correct option")
+    if intent.skill_id != "AI-SRC-01":
+        return None
+
+    fields = [question.question, *question.options, question.explanation]
+    for text in fields:
+        lowered = " ".join(text.casefold().split())
+        has_both_synonyms = "initial state" in lowered and "start state" in lowered
+        marks_synonyms = any(
+            marker in lowered
+            for marker in ("synonym", "same component", "also called", "another name")
+        )
+        if has_both_synonyms and not marks_synonyms:
+            raise ValueError(
+                "initial state and start state are presented as different components"
+            )
+
+    authoritative_text = " ".join(
+        (question.question, question.correct_answer, question.explanation)
+    )
+    counts = _claimed_component_counts(authoritative_text)
+    if any(count != 5 for count in counts):
+        raise ValueError("canonical search-problem component count must be five")
+
+    if intent.intent_id == "AI-SRC-01-INT-01":
+        signature = _component_signature(question.correct_answer)
+        has_alternative_component = bool(
+            re.search(r"\b(?:state space|action cost)\b", question.correct_answer, re.I)
+        )
+        if signature != frozenset(COMPONENT_PATTERNS) or has_alternative_component:
+            raise ValueError(
+                "complete formulation must use exactly the canonical five components"
+            )
+
+    lowered_explanation = question.explanation.casefold()
+    for component, pattern in COMPONENT_PATTERNS.items():
+        if re.search(pattern, question.correct_answer, re.I) and re.search(
+            rf"\b{re.escape(component)}\b\s+(?:is|are)\s+(?:not|incorrect)",
+            lowered_explanation,
+        ):
+            raise ValueError("explanation contradicts the correct option")
+
+    if re.search(r"action cost[^.]{0,50}\b(?:accumulated|whole path|entire path)\b", authoritative_text, re.I):
+        raise ValueError("action cost is the cost of an individual action")
+    if re.search(r"path cost[^.]{0,50}\b(?:individual|single|one) action\b", authoritative_text, re.I):
+        raise ValueError("path cost is the accumulated cost of a path")
+
+    answer_counts = _claimed_component_counts(question.correct_answer)
+    explanation_counts = _claimed_component_counts(question.explanation)
+    if answer_counts and explanation_counts and answer_counts != explanation_counts:
+        raise ValueError("explanation contradicts the correct option's component count")
+
+    key = semantic_component_list_key(question, intent)
+    if key is not None and key in accepted_component_keys:
+        raise ValueError("semantically equivalent component-list question")
+    return key
+
+
+def corrective_prompt(status: AttemptStatus, validation_error: str) -> str:
+    if status == "duplicate":
+        return (
+            f"Previous validation failure: {validation_error}. Use a different stem "
+            "and a different scenario while preserving the assigned intent."
+        )
+    if "correct_answer" in validation_error or "Correct answer" in validation_error:
+        return (
+            f"Previous validation failure: {validation_error}. Set correct_answer "
+            "by copying one option verbatim."
+        )
+    return (
+        f"Previous validation failure: {validation_error}. Correct this precise "
+        "schema or validation violation while preserving the assigned intent."
+    )
+
+
 def write_json(path: Path, value: dict) -> None:
-    path.write_text(
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
         json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
+    temporary.replace(path)
 
 
 def write_jsonl(path: Path, values: Sequence[BaseModel]) -> None:
@@ -289,7 +450,21 @@ def write_jsonl(path: Path, values: Sequence[BaseModel]) -> None:
         )
         for value in values
     ]
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
+    )
+    temporary.replace(path)
+
+
+def read_jsonl(path: Path, model_type: type[BaseModel]) -> list:
+    if not path.exists():
+        return []
+    return [
+        model_type.model_validate_json(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def write_artifacts(
@@ -302,6 +477,8 @@ def write_artifacts(
     generated_at: datetime,
     git_commit: str,
     model_revision: str,
+    intents: list[QuestionIntent],
+    status: Literal["complete", "incomplete"],
     error: str | None = None,
 ) -> None:
     output.mkdir(parents=True, exist_ok=True)
@@ -310,7 +487,7 @@ def write_artifacts(
         "model_revision": model_revision,
         "git_commit": git_commit,
         "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
-        "status": "failed" if error else "complete",
+        "status": status,
         "error": error,
         "artifacts": {
             "questions": "pending_questions.jsonl",
@@ -322,6 +499,18 @@ def write_artifacts(
             for skill_id in config.skill_ids
             for record in references[skill_id]
         ],
+        "intents": [intent.model_dump(mode="json") for intent in intents],
+        "accepted_intent_ids": [question.intent_id for question in questions],
+        "slot_intent_ids": {
+            skill_id: [
+                intents[index % len(intents)].intent_id
+                for index in range(config.questions_per_skill)
+            ]
+            for skill_id, intents in {
+                skill_id: [intent for intent in intents if intent.skill_id == skill_id]
+                for skill_id in config.skill_ids
+            }.items()
+        },
     }
     write_jsonl(output / "pending_questions.jsonl", questions)
     write_jsonl(output / "audit.jsonl", attempts)
@@ -339,6 +528,7 @@ def generate_batch(
     provenance_path: Path,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     git_commit: str | None = None,
+    resume: bool = False,
 ) -> BatchResult:
     catalogue = load_skills(skills_path, references_path)
     known_skill_ids = {skill.skill_id for skill in catalogue.skills}
@@ -346,32 +536,147 @@ def generate_batch(
     skills, references = validate_inputs(
         config, model, catalogue.skills, provenance
     )
+    blueprint = load_pilot_blueprint()
+    blueprint_skills = intents_by_skill(blueprint)
+    selected_intents: list[QuestionIntent] = []
+    reference_by_id = {
+        record.reference_id: record
+        for records in references.values()
+        for record in records
+    }
+    for skill_id in config.skill_ids:
+        pool = blueprint_skills.get(skill_id, [])
+        if not pool:
+            raise BatchGenerationError(f"{skill_id} has no reviewed question intents")
+        if config.questions_per_skill > len(pool) and not config.allow_intent_reuse:
+            raise BatchGenerationError(
+                f"{skill_id} requests {config.questions_per_skill} slots but has only "
+                f"{len(pool)} distinct intents"
+            )
+        for intent in pool:
+            missing = [
+                reference_id
+                for reference_id in intent.preferred_reference_ids
+                if reference_id not in reference_by_id
+                or reference_by_id[reference_id].skill_id != skill_id
+            ]
+            if missing:
+                raise BatchGenerationError(
+                    f"{intent.intent_id} has invalid preferred references: {', '.join(missing)}"
+                )
+        selected_intents.extend(pool)
+
+    output.mkdir(parents=True, exist_ok=True)
+    manifest_path = output / "manifest.json"
+    if manifest_path.exists() and not resume:
+        raise BatchGenerationError(
+            f"{output} already contains a batch; pass resume=True to continue it"
+        )
+
     commit = git_commit or current_git_commit()
     started_at = clock()
     questions: list[PendingQuestion] = []
     attempts: list[AttemptAudit] = []
-    seen_questions: set[str] = set()
-    rejected = duplicated = 0
+    if resume:
+        if not manifest_path.exists():
+            raise BatchGenerationError("cannot resume: manifest.json does not exist")
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for field, expected in config.model_dump(mode="json").items():
+            if existing_manifest.get(field) != expected:
+                raise BatchGenerationError(
+                    f"cannot resume: config field {field} does not match the manifest"
+                )
+        if existing_manifest.get("model_revision") != model.model_revision:
+            raise BatchGenerationError("cannot resume with a different model revision")
+        questions = read_jsonl(output / "pending_questions.jsonl", PendingQuestion)
+        attempts = read_jsonl(output / "audit.jsonl", AttemptAudit)
+        started_at = datetime.fromisoformat(
+            existing_manifest["generated_at"].replace("Z", "+00:00")
+        )
+        commit = existing_manifest["git_commit"]
+
+    seen_questions = {normalise_question(item.question.question) for item in questions}
+    accepted_stems = [item.question.question for item in questions]
+    accepted_intent_ids = {item.intent_id for item in questions}
+    accepted_slots = {(item.skill_id, item.question_index) for item in questions}
+    intent_lookup = {intent.intent_id: intent for intent in selected_intents}
+    accepted_component_keys: set[frozenset[str]] = set()
+    for item in questions:
+        key = semantic_component_list_key(item.question, intent_lookup[item.intent_id])
+        if key is not None:
+            accepted_component_keys.add(key)
     failure: str | None = None
+
+    def summary() -> BatchSummary:
+        return BatchSummary(
+            requested=len(config.skill_ids) * config.questions_per_skill,
+            accepted=len(questions),
+            rejected=sum(a.validation_status == "invalid" for a in attempts),
+            duplicated=sum(a.validation_status == "duplicate" for a in attempts),
+        )
+
+    def persist(error: str | None = None, complete: bool = False) -> None:
+        write_artifacts(
+            output,
+            config,
+            questions,
+            attempts,
+            summary(),
+            references,
+            started_at,
+            commit,
+            model.model_revision,
+            selected_intents,
+            "complete" if complete else "incomplete",
+            error,
+        )
+
+    persist()
 
     for skill_id in config.skill_ids:
         skill = skills[skill_id]
-        source_records = references[skill_id]
-        reference_ids = [record.reference_id for record in source_records]
-        request = QuizGenerationRequest(
-            topic=skill.name,
-            difficulty=config.difficulty,
-            learning_objective=skill.learning_objective,
-            question_count=1,
-            reference_material=[record.reference_material for record in source_records],
-        )
-        messages = build_quiz_messages(request)
-        hashed_prompt = prompt_hash(messages)
+        pool = blueprint_skills[skill_id]
 
         for question_index in range(config.questions_per_skill):
+            if (skill_id, question_index) in accepted_slots:
+                continue
+            intent = pool[question_index % len(pool)]
+            if intent.intent_id in accepted_intent_ids and not config.allow_intent_reuse:
+                failure = f"accepted intent {intent.intent_id} cannot be reused"
+                persist(failure)
+                break
+            source_records = [
+                reference_by_id[reference_id]
+                for reference_id in intent.preferred_reference_ids
+            ]
+            reference_ids = [record.reference_id for record in source_records]
+            request = QuizGenerationRequest(
+                topic=skill.name,
+                difficulty=config.difficulty,
+                learning_objective=skill.learning_objective,
+                question_count=1,
+                reference_material=[
+                    record.reference_material for record in source_records
+                ],
+            )
             accepted = False
+            prior_attempts = [
+                attempt
+                for attempt in attempts
+                if attempt.skill_id == skill_id
+                and attempt.question_index == question_index
+            ]
+            next_attempt = (
+                max(attempt.attempt_index for attempt in prior_attempts) + 1
+                if prior_attempts
+                else 0
+            )
+            previous_status = prior_attempts[-1].validation_status if prior_attempts else None
+            previous_error = prior_attempts[-1].validation_error if prior_attempts else None
 
-            for attempt_index in range(config.max_attempts_per_question):
+            for attempt_index in range(
+                next_attempt, next_attempt + config.max_attempts_per_question
+            ):
                 seed = derive_seed(
                     config.batch_id,
                     skill_id,
@@ -381,33 +686,50 @@ def generate_batch(
                 )
                 generated_at = clock()
                 raw_response: str | None = None
-                parsed: QuizQuestion | None = None
+                parsed: IntentQuestion | None = None
                 status: AttemptStatus
                 validation_error: str | None = None
+                feedback = (
+                    corrective_prompt(previous_status, previous_error)
+                    if previous_status is not None and previous_error is not None
+                    else None
+                )
+                messages = build_grounded_quiz_messages(
+                    request,
+                    question_intent=intent,
+                    avoid_stems=accepted_stems,
+                    corrective_feedback=feedback,
+                )
+                hashed_prompt = prompt_hash(messages)
 
                 try:
                     raw_response = model.generate(
                         messages, seed, config.generation_parameters
                     )
-                    parsed = parse_raw_question(raw_response)
+                    parsed = parse_raw_question(raw_response, intent.intent_id)
                     validate_question(parsed)
                     normalised = normalise_question(parsed.question)
                     if normalised in seen_questions:
                         status = "duplicate"
                         validation_error = "duplicate normalized question text"
-                        duplicated += 1
                     else:
+                        component_key = validate_pilot_question(
+                            parsed, intent, accepted_component_keys
+                        )
                         status = "accepted"
-                        seen_questions.add(normalised)
                 except Exception as error:
-                    status = "invalid"
                     validation_error = f"{type(error).__name__}: {error}"
-                    rejected += 1
+                    status = (
+                        "duplicate"
+                        if "semantically equivalent component-list" in str(error)
+                        else "invalid"
+                    )
 
                 attempts.append(
                     AttemptAudit(
                         batch_id=config.batch_id,
                         skill_id=skill_id,
+                        intent_id=intent.intent_id,
                         question_index=question_index,
                         attempt_index=attempt_index,
                         seed=seed,
@@ -426,6 +748,11 @@ def generate_batch(
                 )
 
                 if status == "accepted" and parsed is not None and raw_response is not None:
+                    seen_questions.add(normalise_question(parsed.question))
+                    accepted_stems.append(parsed.question)
+                    accepted_intent_ids.add(intent.intent_id)
+                    if component_key is not None:
+                        accepted_component_keys.add(component_key)
                     questions.append(
                         PendingQuestion(
                             batch_id=config.batch_id,
@@ -433,6 +760,8 @@ def generate_batch(
                                 config.batch_id, skill_id, question_index
                             ),
                             skill_id=skill_id,
+                            question_index=question_index,
+                            intent_id=intent.intent_id,
                             seed=seed,
                             reference_ids=reference_ids,
                             prompt_version=config.prompt_version,
@@ -447,38 +776,30 @@ def generate_batch(
                         )
                     )
                     accepted = True
+                    persist()
                     break
+                previous_status = status
+                previous_error = validation_error
+                persist()
 
             if not accepted:
                 failure = (
                     f"could not generate {skill_id} question {question_index} "
-                    f"within {config.max_attempts_per_question} attempts"
+                    f"within {config.max_attempts_per_question} attempts in this run"
                 )
+                persist(failure)
                 break
 
         if failure:
             break
 
-    summary = BatchSummary(
-        requested=len(config.skill_ids) * config.questions_per_skill,
-        accepted=len(questions),
-        rejected=rejected,
-        duplicated=duplicated,
+    result_status: Literal["complete", "incomplete"] = (
+        "incomplete" if failure else "complete"
     )
-    write_artifacts(
-        output,
-        config,
-        questions,
-        attempts,
-        summary,
-        references,
-        started_at,
-        commit,
-        model.model_revision,
-        failure,
+    persist(failure, complete=not failure)
+    return BatchResult(
+        questions=questions,
+        attempts=attempts,
+        summary=summary(),
+        status=result_status,
     )
-
-    if failure:
-        raise BatchGenerationError(failure)
-
-    return BatchResult(questions=questions, attempts=attempts, summary=summary)

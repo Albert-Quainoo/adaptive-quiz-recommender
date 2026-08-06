@@ -42,15 +42,29 @@ and `HF_TOKEN` must be configured before running the live model. The command
 also requires a clean, committed worktree so its recorded git commit identifies
 the exact generation code and canonical references.
 
+The first live batch, `grounded-pilot-20260805-v1`, is incomplete and
+superseded. Its audit log is retained unchanged. Before any v2 model run, print
+and review the checked-in intent blueprint:
+
+```bash
+python -m scripts.print_grounded_blueprints
+```
+
+After review, start the new batch with:
+
 ```bash
 python -m scripts.generate_grounded_batch \
-  --batch-id grounded-pilot-20260806 \
+  --batch-id grounded-pilot-20260805-v2 \
   --skill-id AI-SRC-01 \
   --skill-id AI-SRC-02 \
   --skill-id AI-SRC-08 \
   --questions-per-skill 10 \
-  --base-seed 20260806 \
-  --output outputs/grounded-pilot-20260806 \
+  --base-seed 20260805 \
+  --output outputs/grounded-pilot-20260805-v2 \
   --model-id "$MODEL_REPOSITORY" \
-  --prompt-version v3.2
+  --prompt-version v3.3
 ```
+
+If a run is interrupted or a slot is exhausted, the manifest remains
+`incomplete` and accepted questions stay on disk. Use the same command with
+`--resume`; accepted slots and intents are not regenerated.

@@ -86,6 +86,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--prompt-version", required=True)
     parser.add_argument("--max-attempts-per-question", type=int, default=3)
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue an existing incomplete batch without regenerating accepted slots.",
+    )
+    parser.add_argument(
+        "--allow-intent-reuse",
+        action="store_true",
+        help="Explicitly permit cycling reviewed intents within one skill batch.",
+    )
+    parser.add_argument(
         "--difficulty",
         choices=("introductory", "intermediate", "advanced"),
         default="intermediate",
@@ -117,6 +127,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             prompt_version=arguments.prompt_version,
             difficulty=arguments.difficulty,
             max_attempts_per_question=arguments.max_attempts_per_question,
+            allow_intent_reuse=arguments.allow_intent_reuse,
             generation_parameters={
                 "max_new_tokens": arguments.max_new_tokens,
                 "do_sample": True,
@@ -135,12 +146,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             references_path=references_path,
             provenance_path=course_provenance_path("ai"),
             git_commit=git_commit,
+            resume=arguments.resume,
         )
     except (BatchGenerationError, ValidationError, ValueError) as error:
         print(f"Batch generation failed: {error}", file=sys.stderr)
         return 1
 
-    print(result.summary.model_dump_json(indent=2))
+    print(result.model_dump_json(indent=2, exclude={"questions", "attempts"}))
 
     return 0
 

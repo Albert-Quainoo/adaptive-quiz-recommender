@@ -1,0 +1,11 @@
+{
+  "grounded-pilot-20260805-v1": {
+    "status": "incomplete",
+    "superseded_by": "grounded-pilot-20260805-v2",
+    "audit_log_policy": "preserve-unchanged"
+  },
+  "grounded-pilot-20260805-v2": {
+    "status": "blueprint-review-pending",
+    "prompt_version": "v3.3"
+  }
+}
