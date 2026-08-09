@@ -11,7 +11,7 @@ pandas
 numpy
 scikit-learn
 pyyaml
-pyBKT
+pyBKT==1.4.3
 
 streamlit
 fastapi

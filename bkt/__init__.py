@@ -1,6 +1,7 @@
 from bkt.adapter import PYBKT_COLUMNS, PyBKTAdapter, attempts_to_dataframe
 from bkt.model import BKTModel
 from bkt.repository import (
+    AttemptConflictError,
     AttemptRepository,
     BKTRepository,
     InMemoryBKTRepository,
@@ -9,8 +10,10 @@ from bkt.repository import (
 )
 from bkt.schemas import AttemptEvent, BKTModelMetadata, MasterySnapshot
 from bkt.service import BKTService
+from bkt.sqlite_repository import SQLiteBKTRepository
 
 __all__ = [
+    "AttemptConflictError",
     "AttemptEvent",
     "AttemptRepository",
     "BKTModel",
@@ -23,5 +26,6 @@ __all__ = [
     "ModelMetadataRepository",
     "PYBKT_COLUMNS",
     "PyBKTAdapter",
+    "SQLiteBKTRepository",
     "attempts_to_dataframe",
 ]

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
+from pyBKT.models import Roster
 
 from bkt.adapter import PyBKTAdapter
 from bkt.schemas import AttemptEvent, BKTModelMetadata
@@ -37,7 +38,7 @@ class BKTModel:
             raise RuntimeError(
                 "pyBKT is required to construct BKTModel without an injected model"
             ) from exc
-        return Model(seed=seed, num_fits=num_fits)
+        return Model(seed=seed, num_fits=num_fits, parallel=False)
 
     @property
     def is_fitted(self) -> bool:
@@ -64,34 +65,49 @@ class BKTModel:
         return self._model.predict(data=self._adapter.to_dataframe(attempts))
 
     def update_mastery(self, attempts: Sequence[AttemptEvent]) -> float:
-        """Return mastery after the final attempt using pyBKT's own update logic."""
-
         self._require_fitted()
+
         if not attempts:
-            raise ValueError("at least one attempt is required for a mastery update")
+            raise ValueError("at least one attempt is required")
 
-        frame = self._adapter.to_dataframe(attempts)
-        final_attempt = attempts[-1]
-        probe = pd.DataFrame(
-            [
-                {
-                    "order_id": len(frame),
-                    "user_id": final_attempt.learner_id,
-                    "skill_name": final_attempt.skill_id,
-                    "correct": -1,
-                }
-            ]
-        )
-        predictions = self._model.predict(
-            data=pd.concat([frame, probe], ignore_index=True)
-        )
-        if "state_predictions" not in predictions:
-            raise ValueError("pyBKT predictions did not include state_predictions")
+        learner_ids = {attempt.learner_id for attempt in attempts}
+        skill_ids = {attempt.skill_id for attempt in attempts}
 
-        probability = float(predictions.iloc[-1]["state_predictions"])
+        if len(learner_ids) != 1 or len(skill_ids) != 1:
+            raise ValueError(
+                "mastery history must contain exactly one learner and one skill"
+            )
+
+        ordered_attempts = sorted(
+            attempts,
+            key=lambda item: (
+                item.attempt_order,
+                item.occurred_at,
+                item.attempt_id,
+            ),
+        )
+        learner_id = ordered_attempts[0].learner_id
+        skill_id = ordered_attempts[0].skill_id
+
+        roster = Roster(
+            students=[learner_id],
+            skills=skill_id,
+            model=self._model,
+        )
+
+        for attempt in ordered_attempts:
+            roster.update_state(skill_id, learner_id, int(attempt.correct))
+
+        probability = float(roster.get_mastery_prob(skill_id, learner_id))
+
         if not 0.0 <= probability <= 1.0:
             raise ValueError("pyBKT returned an invalid mastery probability")
+
         return probability
+
+    def get_parameters(self) -> pd.DataFrame:
+        self._require_fitted()
+        return self._model.params()
 
     def _require_fitted(self) -> None:
         if not self._fitted:

@@ -1,18 +1,32 @@
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AttemptEvent(BaseModel):
     """One scored learner response, in the order it was submitted."""
 
+    model_config = ConfigDict(frozen=True)
+
     attempt_id: str = Field(min_length=1)
+    presentation_id: str = Field(min_length=1)
     learner_id: str = Field(min_length=1)
+    item_id: str = Field(min_length=1)
     skill_id: str = Field(min_length=1)
+    selected_option_id: str = Field(min_length=1)
     correct: bool
+    attempt_order: int = Field(ge=0)
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    @field_validator("attempt_id", "learner_id", "skill_id", mode="before")
+    @field_validator(
+        "attempt_id",
+        "presentation_id",
+        "learner_id",
+        "item_id",
+        "skill_id",
+        "selected_option_id",
+        mode="before",
+    )
     @classmethod
     def strip_identifiers(cls, value: str) -> str:
         return value.strip() if isinstance(value, str) else value
@@ -24,6 +38,7 @@ class MasterySnapshot(BaseModel):
     learner_id: str = Field(min_length=1)
     skill_id: str = Field(min_length=1)
     mastery_probability: float = Field(ge=0.0, le=1.0)
+    attempt_count: int = Field(ge=1)
     model_version: str = Field(min_length=1)
     source_attempt_id: str = Field(min_length=1)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
