@@ -72,6 +72,9 @@ def validate_pilot_blueprint(
         raise ValueError("the pilot must generate exactly one question per intent")
     if blueprint.base_seed is None:
         raise ValueError("the pilot needs an explicit deterministic base seed")
+    if blueprint.review_status == "blueprint-approved":
+        if not blueprint.reviewer_id or blueprint.reviewed_at is None:
+            raise ValueError("an approved blueprint needs a reviewer and timestamp")
     if len(blueprint.intents) != 24:
         raise ValueError("the pilot blueprint must contain exactly 24 intents")
 

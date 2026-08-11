@@ -1,6 +1,7 @@
 """Reviewed intent blueprints for grounded question generation."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -74,6 +75,8 @@ class PilotBlueprint(BaseModel):
     batch_id: str
     prompt_version: str
     review_status: str
+    reviewer_id: str | None = Field(default=None, min_length=1)
+    reviewed_at: datetime | None = None
     base_seed: int | None = Field(default=None, ge=0)
     questions_per_intent: Literal[1] = 1
     skill_conventions: dict[str, list[str]] = Field(default_factory=dict)

@@ -1,7 +1,9 @@
 {
   "batch_id": "grounded-pilot-20260811-v3",
   "prompt_version": "v3.3",
-  "review_status": "proposed",
+  "review_status": "blueprint-approved",
+  "reviewer_id": "albert",
+  "reviewed_at": "2026-08-11T14:55:11Z",
   "base_seed": 20260811,
   "questions_per_intent": 1,
   "skill_conventions": {

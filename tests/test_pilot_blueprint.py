@@ -31,6 +31,9 @@ def test_six_skill_blueprint_passes_every_required_validation():
     summary = validate_pilot_blueprint(blueprint, skills, provenance)
 
     assert summary["intent_count"] == 24
+    assert blueprint.review_status == "blueprint-approved"
+    assert blueprint.reviewer_id == "albert"
+    assert blueprint.reviewed_at is not None
     assert summary["questions_per_intent"] == 1
     assert summary["difficulty_counts"] == {
         "intermediate": 9,
@@ -95,6 +98,7 @@ def test_seed_proposal_and_kaggle_command_are_reproducible():
     assert len(first) == 24
     assert len({item["seed"] for item in first}) == 24
     command = generation_command(blueprint)
+    assert 'export MODEL_REPOSITORY="meta-llama/Llama-3.1-8B-Instruct"' in command
     assert "--all-blueprint-intents" in command
     assert "--difficulty mixed" in command
     assert f"--base-seed {blueprint.base_seed}" in command

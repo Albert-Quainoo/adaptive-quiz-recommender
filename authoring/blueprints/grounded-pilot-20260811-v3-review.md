@@ -1,6 +1,6 @@
 # grounded-pilot-20260811-v3 blueprint review
 
-Status: **proposed**. This blueprint has not run Llama.
+Status: **blueprint-approved**. This blueprint has not run Llama.
 
 ## Validation summary
 
@@ -356,9 +356,11 @@ Retry seeds remain deterministic because the attempt index is included in seed d
 
 ## Exact Kaggle Llama generation command
 
-Do not run until this proposed blueprint is approved and the worktree is clean and committed.
+The blueprint is approved. Run from a clean, committed worktree with HF_TOKEN configured.
 
 ```bash
+export MODEL_REPOSITORY="meta-llama/Llama-3.1-8B-Instruct"
+
 python -m scripts.generate_grounded_batch \
   --batch-id grounded-pilot-20260811-v3 \
   --skill-id AI-FND-01 \

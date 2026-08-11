@@ -1,6 +1,9 @@
 {
   "base_seed": 20260811,
   "batch_id": "grounded-pilot-20260811-v3",
+  "blueprint_review_status": "blueprint-approved",
+  "blueprint_reviewed_at": "2026-08-11T14:55:11Z",
+  "blueprint_reviewer_id": "albert",
   "checks": {
     "ai_src_03_conventions_explicit": true,
     "all_six_skills_covered": true,
@@ -16,7 +19,7 @@
     "intermediate": 9,
     "introductory": 15
   },
-  "generation_command": "python -m scripts.generate_grounded_batch \\\n  --batch-id grounded-pilot-20260811-v3 \\\n  --skill-id AI-FND-01 \\\n  --skill-id AI-AGT-01 \\\n  --skill-id AI-SRC-01 \\\n  --skill-id AI-SRC-02 \\\n  --skill-id AI-SRC-03 \\\n  --skill-id AI-SRC-08 \\\n  --all-blueprint-intents \\\n  --base-seed 20260811 \\\n  --output outputs/grounded-pilot-20260811-v3 \\\n  --model-id \"$MODEL_REPOSITORY\" \\\n  --prompt-version v3.3 \\\n  --difficulty mixed",
+  "generation_command": "export MODEL_REPOSITORY=\"meta-llama/Llama-3.1-8B-Instruct\"\n\npython -m scripts.generate_grounded_batch \\\n  --batch-id grounded-pilot-20260811-v3 \\\n  --skill-id AI-FND-01 \\\n  --skill-id AI-AGT-01 \\\n  --skill-id AI-SRC-01 \\\n  --skill-id AI-SRC-02 \\\n  --skill-id AI-SRC-03 \\\n  --skill-id AI-SRC-08 \\\n  --all-blueprint-intents \\\n  --base-seed 20260811 \\\n  --output outputs/grounded-pilot-20260811-v3 \\\n  --model-id \"$MODEL_REPOSITORY\" \\\n  --prompt-version v3.3 \\\n  --difficulty mixed",
   "intent_count": 24,
   "llama_run_status": "not-run",
   "proposed_first_attempt_seeds": [

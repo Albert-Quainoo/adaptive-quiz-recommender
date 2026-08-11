@@ -9,10 +9,12 @@
     "prompt_version": "v3.3"
   },
   "grounded-pilot-20260811-v3": {
-    "status": "blueprint-review-pending",
+    "status": "blueprint-approved",
     "prompt_version": "v3.3",
     "question_inventory": 24,
-    "llama_run_status": "not-run"
+    "llama_run_status": "not-run",
+    "reviewer_id": "albert",
+    "reviewed_at": "2026-08-11T14:55:11Z"
   },
   "grounded-pilot-ai-fnd-01-cold-start-v1": {
     "status": "blueprint-approved",

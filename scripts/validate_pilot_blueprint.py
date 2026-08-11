@@ -28,6 +28,7 @@ from taxonomy.loader import (
 DEFAULT_BLUEPRINT = BLUEPRINT_DIRECTORY / f"{PILOT_BATCH_ID}.json"
 DEFAULT_REVIEW = BLUEPRINT_DIRECTORY / f"{PILOT_BATCH_ID}-review.md"
 DEFAULT_SUMMARY = BLUEPRINT_DIRECTORY / f"{PILOT_BATCH_ID}-validation.json"
+LLAMA_MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
 
 
 def proposed_seeds(blueprint: PilotBlueprint) -> list[dict[str, object]]:
@@ -59,6 +60,7 @@ def generation_command(blueprint: PilotBlueprint) -> str:
         f"  --skill-id {skill_id} \\" for skill_id in PILOT_SKILL_IDS
     )
     return (
+        f"export MODEL_REPOSITORY=\"{LLAMA_MODEL_ID}\"\n\n"
         "python -m scripts.generate_grounded_batch \\\n"
         f"  --batch-id {blueprint.batch_id} \\\n"
         f"{skill_lines}\n"
@@ -150,7 +152,7 @@ def render_review(
         "",
         "## Exact Kaggle Llama generation command",
         "",
-        "Do not run until this proposed blueprint is approved and the worktree is clean and committed.",
+        "The blueprint is approved. Run from a clean, committed worktree with HF_TOKEN configured.",
         "",
         "```bash",
         command,
@@ -174,6 +176,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = generation_command(blueprint)
     summary = summary | {
         "base_seed": blueprint.base_seed,
+        "blueprint_review_status": blueprint.review_status,
+        "blueprint_reviewer_id": blueprint.reviewer_id,
+        "blueprint_reviewed_at": (
+            blueprint.reviewed_at.isoformat().replace("+00:00", "Z")
+            if blueprint.reviewed_at
+            else None
+        ),
         "proposed_first_attempt_seeds": seeds,
         "generation_command": command,
         "llama_run_status": "not-run",
