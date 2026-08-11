@@ -1,0 +1,1201 @@
+{
+  "accepted_intent_ids": [
+    "AI-FND-01-INT-04",
+    "AI-FND-01-INT-05",
+    "AI-FND-01-INT-06",
+    "AI-AGT-01-INT-01",
+    "AI-AGT-01-INT-02",
+    "AI-AGT-01-INT-03",
+    "AI-AGT-01-INT-04",
+    "AI-AGT-01-INT-05",
+    "AI-AGT-01-INT-06",
+    "AI-SRC-01-INT-11",
+    "AI-SRC-01-INT-12",
+    "AI-SRC-01-INT-13",
+    "AI-SRC-02-INT-01",
+    "AI-SRC-02-INT-02",
+    "AI-SRC-02-INT-03",
+    "AI-SRC-03-INT-01",
+    "AI-SRC-03-INT-02",
+    "AI-SRC-03-INT-03",
+    "AI-SRC-03-INT-04",
+    "AI-SRC-03-INT-05",
+    "AI-SRC-03-INT-06",
+    "AI-SRC-08-INT-01",
+    "AI-SRC-08-INT-02",
+    "AI-SRC-08-INT-03"
+  ],
+  "allow_intent_reuse": false,
+  "artifacts": {
+    "audit": "audit.jsonl",
+    "questions": "pending_questions.jsonl",
+    "summary": "summary.json"
+  },
+  "base_seed": 20260811,
+  "batch_id": "grounded-pilot-20260811-v3",
+  "difficulty": "mixed",
+  "error": null,
+  "generated_at": "2026-08-11T15:11:07.154735Z",
+  "generation_parameters": {
+    "do_sample": true,
+    "max_new_tokens": 600,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "git_commit": "e824b06c57b185cee301820ad4d40a2e46b857ca",
+  "grounding_briefs": {
+    "AI-AGT-01": {
+      "content_hash": "15f0a7c09439c4fd788a478c35f32be8c9f8ab4ff413c6b127e0b6a56b1da79d",
+      "version": "pilot-grounding-v1"
+    },
+    "AI-FND-01": {
+      "content_hash": "7962a10053b00c7f8f677bc5027bc6c1958fe204302b0f85b805c3908f87a73b",
+      "version": "pilot-grounding-v1"
+    },
+    "AI-SRC-01": {
+      "content_hash": "5f99b5115cbbcb8cfc79abe37114877ca99e016d945eb0039c214658523aa24f",
+      "version": "pilot-grounding-v1"
+    },
+    "AI-SRC-02": {
+      "content_hash": "4184cbfee970bdb09f46c0386698e0affddef86bdf65288c06b7731a3446a53f",
+      "version": "pilot-grounding-v1"
+    },
+    "AI-SRC-03": {
+      "content_hash": "631df44fcfd72aa70fe94d5e798a31283198727a53f0d5bde60ba554739a2588",
+      "version": "pilot-grounding-v1"
+    },
+    "AI-SRC-08": {
+      "content_hash": "ad9bbadbde6c8d5d17efdc374420181b9703c1445cbf0c49d90b31c2242ad523",
+      "version": "pilot-grounding-v1"
+    }
+  },
+  "intents": [
+    {
+      "assessment_focus": "Compare two systems and identify which one demonstrates a supported intelligent-system capability.",
+      "cognitive_demand": "Compare a short pair of scenarios and apply the approved capability criteria.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should mistake fixed automation, storage, or arithmetic for intelligent behaviour."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison scenario.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "AI-FND-01-INT-04",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-8bbbddaf2aa6",
+        "AI-FND-01-b50c85fa00a5"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not imply that automation alone establishes intelligence.",
+        "Do not make both systems use a supported intelligent capability."
+      ],
+      "prohibited_conflations": [
+        "automation equals AI",
+        "all computation is intelligent behaviour"
+      ],
+      "question_archetype": "paired-system capability comparison",
+      "required_concepts": [
+        "intelligent-system capability",
+        "supported comparison"
+      ],
+      "required_question_characteristics": [
+        "Use two concise systems with one clearly requiring problem solving, reasoning, decision making, or learning.",
+        "Require comparison rather than definition recall."
+      ],
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "assessment_focus": "Diagnose why a real-world task is an AI application rather than merely a fixed automated operation.",
+      "cognitive_demand": "Interpret a scenario and identify the supported intelligent capability that changes the classification.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should focus on superficial hardware, speed, or automation instead of the intelligent task."
+      ],
+      "generation_constraints": [
+        "Use one short diagnostic scenario.",
+        "Keep every factual claim within the two mapped references."
+      ],
+      "intent_id": "AI-FND-01-INT-05",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-d03d77e0aca2",
+        "AI-FND-01-8bbbddaf2aa6"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask whether every instance of the broad technology is AI.",
+        "Do not rely on adaptation or autonomy unless stated in the scenario."
+      ],
+      "prohibited_conflations": [
+        "fast computation proves intelligence",
+        "automation proves intelligence"
+      ],
+      "question_archetype": "application-versus-automation diagnosis",
+      "required_concepts": [
+        "concrete AI application",
+        "intelligent capability"
+      ],
+      "required_question_characteristics": [
+        "Use a sourced application category such as speech processing, face recognition, game playing, or route finding.",
+        "Contrast it with a fixed operation without adding unsupported implementation claims."
+      ],
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "assessment_focus": "Apply the intelligent-agent view of AI to connect environmental percepts with selected behaviour.",
+      "cognitive_demand": "Interpret a percept-to-action scenario and diagnose the claim that best matches the agent definition.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should reverse input and output or claim that action selection ignores percepts."
+      ],
+      "generation_constraints": [
+        "Use an intermediate interpretation task.",
+        "Do not duplicate the introductory agent-definition intent."
+      ],
+      "intent_id": "AI-FND-01-INT-06",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-f7c5eb1ccf76",
+        "AI-FND-01-d03d77e0aca2"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not leave the environmental input unstated.",
+        "Do not make multiple actions equally compatible with the percept."
+      ],
+      "prohibited_conflations": [
+        "percept is an actuator output",
+        "action is an environmental input"
+      ],
+      "question_archetype": "agent-view scenario interpretation",
+      "required_concepts": [
+        "environmental percept",
+        "selected action"
+      ],
+      "required_question_characteristics": [
+        "State an environmental input and a resulting action or behaviour.",
+        "Assess the relationship without requiring formal tuple notation."
+      ],
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "assessment_focus": "Recognize that an agent perceives its environment and acts upon it.",
+      "cognitive_demand": "Recognize the direction of information and action in a simple interaction.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should reverse who perceives or who acts."
+      ],
+      "generation_constraints": [
+        "Assess recognition at introductory difficulty.",
+        "Use exactly one unambiguous interaction claim."
+      ],
+      "intent_id": "AI-AGT-01-INT-01",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-31af4c58c9a1"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for a formal agent-function definition.",
+        "Do not omit either the input or action side."
+      ],
+      "prohibited_conflations": [
+        "environment selects the agent's action",
+        "agent is identical to the environment"
+      ],
+      "question_archetype": "agent-environment relationship recognition",
+      "required_concepts": [
+        "agent",
+        "environment",
+        "perception",
+        "action"
+      ],
+      "required_question_characteristics": [
+        "Use a one-step agent/environment interaction.",
+        "Make perception and action both visible."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Distinguish a sensor input from an actuator output.",
+      "cognitive_demand": "Interpret one device role in a simple agent scenario.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap sensor and actuator roles or confuse them with the environment."
+      ],
+      "generation_constraints": [
+        "Use an introductory one-step classification.",
+        "Avoid specialist hardware knowledge."
+      ],
+      "intent_id": "AI-AGT-01-INT-02",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-8efa49112c14"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not use a component that plausibly senses and acts at once.",
+        "Do not equate a sensor with the percept itself."
+      ],
+      "prohibited_conflations": [
+        "sensor changes the environment",
+        "actuator receives information"
+      ],
+      "question_archetype": "sensor-versus-actuator classification",
+      "required_concepts": [
+        "sensor",
+        "actuator",
+        "input",
+        "action"
+      ],
+      "required_question_characteristics": [
+        "Name one clearly perceptive component and one clearly acting component.",
+        "Ask for one role classification, not a list."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Interpret the four PEAS roles in a stated task environment.",
+      "cognitive_demand": "Recognize which stated element fills one PEAS role.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should use the other PEAS roles with parallel wording."
+      ],
+      "generation_constraints": [
+        "Assess one PEAS role through interpretation.",
+        "Do not make list recall the tested skill."
+      ],
+      "intent_id": "AI-AGT-01-INT-03",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-8efa49112c14"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require recalling the PEAS expansion as an isolated list.",
+        "Do not assign one scenario element to multiple roles."
+      ],
+      "prohibited_conflations": [
+        "performance measure is an actuator",
+        "environment is a sensor"
+      ],
+      "question_archetype": "single-role PEAS interpretation",
+      "required_concepts": [
+        "PEAS",
+        "task-environment role"
+      ],
+      "required_question_characteristics": [
+        "Ask about one of performance measure, environment, actuators, or sensors in context.",
+        "Supply enough context to make the role unique."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Map sensors and actuators in a navigator-agent scenario and explain their interaction.",
+      "cognitive_demand": "Apply both component roles to a short scenario.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap sensing and acting or substitute the performance measure."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application scenario.",
+        "Ground both claims with the two mapped references."
+      ],
+      "intent_id": "AI-AGT-01-INT-04",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-31af4c58c9a1",
+        "AI-AGT-01-8efa49112c14"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not assume a specific vehicle sensor absent from the scenario.",
+        "Do not make multiple pairings technically plausible."
+      ],
+      "prohibited_conflations": [
+        "route goal is a sensor",
+        "environmental reading is an actuator"
+      ],
+      "question_archetype": "two-role navigator application",
+      "required_concepts": [
+        "navigator agent",
+        "sensor-actuator pairing"
+      ],
+      "required_question_characteristics": [
+        "Use the supported navigator or car-agent context.",
+        "Require a correct sensor/actuator pairing."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Explain how limited sensor information makes an environment partially observable.",
+      "cognitive_demand": "Diagnose observability from the information available to the agent.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should confuse incomplete information with poor performance or limited actions."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnosis.",
+        "Keep the state-information gap explicit."
+      ],
+      "intent_id": "AI-AGT-01-INT-05",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-8efa49112c14"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not infer hidden information not stated in the scenario.",
+        "Do not equate partial observability with actuator failure."
+      ],
+      "prohibited_conflations": [
+        "partial observability means no sensors",
+        "actuator limits determine observability"
+      ],
+      "question_archetype": "observability scenario diagnosis",
+      "required_concepts": [
+        "partially observable environment",
+        "sensor information",
+        "internal estimate"
+      ],
+      "required_question_characteristics": [
+        "State what the agent can and cannot observe.",
+        "Connect missing state information to partial observability."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Diagnose an incorrect PEAS description that assigns an element to the wrong role.",
+      "cognitive_demand": "Compare component functions and repair one role error.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should preserve the role swap or confuse the performance measure with an action."
+      ],
+      "generation_constraints": [
+        "Use one-error misconception diagnosis.",
+        "Provide one uniquely correct repair."
+      ],
+      "intent_id": "AI-AGT-01-INT-06",
+      "learning_objective": "Explain how an agent interacts with its environment through sensors and actuators.",
+      "preferred_reference_ids": [
+        "AI-AGT-01-8efa49112c14"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not include two independent errors.",
+        "Do not use a multifunction component with unclear role."
+      ],
+      "prohibited_conflations": [
+        "performance measure performs actions",
+        "environment receives percepts for the agent"
+      ],
+      "question_archetype": "PEAS misconception repair",
+      "required_concepts": [
+        "PEAS roles",
+        "component function"
+      ],
+      "required_question_characteristics": [
+        "Present one explicit misclassification and ask for the correction.",
+        "Keep the remaining PEAS roles internally consistent."
+      ],
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "assessment_focus": "Identify the initial state in a simple search-problem description.",
+      "cognitive_demand": "Recognize the configuration before any action occurs.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should use an action, a resulting state, or the goal condition."
+      ],
+      "generation_constraints": [
+        "Use introductory recognition.",
+        "Do not ask for the full component inventory."
+      ],
+      "intent_id": "AI-SRC-01-INT-11",
+      "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
+      "preferred_reference_ids": [
+        "AI-SRC-01-4024dce75930",
+        "AI-SRC-01-9ba6548d4450"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not present initial state and start state as separate components.",
+        "Do not leave the starting configuration implicit."
+      ],
+      "prohibited_conflations": [
+        "initial state is an action",
+        "start state is an additional component"
+      ],
+      "question_archetype": "initial-state recognition",
+      "required_concepts": [
+        "initial state",
+        "starting configuration"
+      ],
+      "required_question_characteristics": [
+        "State a simple starting configuration and one goal.",
+        "Ask only which element is the initial state."
+      ],
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "assessment_focus": "Distinguish an available action from the transition model that gives its resulting state.",
+      "cognitive_demand": "Interpret a one-step action/result pair.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap the action with its result or with the goal test."
+      ],
+      "generation_constraints": [
+        "Use one-step interpretation.",
+        "Keep all mapping facts in the stem."
+      ],
+      "intent_id": "AI-SRC-01-INT-12",
+      "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
+      "preferred_reference_ids": [
+        "AI-SRC-01-4024dce75930",
+        "AI-SRC-01-9ba6548d4450"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not use action and result interchangeably.",
+        "Do not require domain knowledge beyond the stated mapping."
+      ],
+      "prohibited_conflations": [
+        "action equals resulting state",
+        "transition model equals action set"
+      ],
+      "question_archetype": "action-transition distinction",
+      "required_concepts": [
+        "action",
+        "transition model",
+        "resulting state"
+      ],
+      "required_question_characteristics": [
+        "Name one available choice and the state produced by taking it.",
+        "Ask which description is the action or transition model."
+      ],
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "assessment_focus": "Distinguish a goal test from accumulated path cost in a simple formulation.",
+      "cognitive_demand": "Recognize whether a stated rule tests success or measures a path.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should confuse reaching the goal with minimizing cost or use one edge cost."
+      ],
+      "generation_constraints": [
+        "Use introductory interpretation.",
+        "Avoid full-list recall."
+      ],
+      "intent_id": "AI-SRC-01-INT-13",
+      "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
+      "preferred_reference_ids": [
+        "AI-SRC-01-4024dce75930",
+        "AI-SRC-01-9ba6548d4450"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not call an individual action cost the whole path cost.",
+        "Do not make the success condition depend on an unstated optimum."
+      ],
+      "prohibited_conflations": [
+        "goal test is path cost",
+        "path cost is one action's cost"
+      ],
+      "question_archetype": "goal-test versus path-cost interpretation",
+      "required_concepts": [
+        "goal test",
+        "path cost"
+      ],
+      "required_question_characteristics": [
+        "State one success condition and one accumulated route measure.",
+        "Ask for a single component classification."
+      ],
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "assessment_focus": "Recognize that a state-space graph represents each state once while a search-tree node represents a path to a state.",
+      "cognitive_demand": "Interpret the representational difference in one statement.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim that both structures store only states or only paths."
+      ],
+      "generation_constraints": [
+        "Assess recognition or interpretation.",
+        "Provide one clear representational distinction."
+      ],
+      "intent_id": "AI-SRC-02-INT-01",
+      "learning_objective": "Distinguish between a state space and a search tree.",
+      "preferred_reference_ids": [
+        "AI-SRC-02-aa97b7fb3bd9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not claim every state appears only once in a search tree.",
+        "Do not use tree and graph as generic shape labels."
+      ],
+      "prohibited_conflations": [
+        "tree node is only a world state",
+        "state space stores duplicate paths"
+      ],
+      "question_archetype": "representation distinction",
+      "required_concepts": [
+        "state-space state",
+        "search-tree path"
+      ],
+      "required_question_characteristics": [
+        "Contrast state identity with path-specific node identity.",
+        "Use plain language rather than graph-theory formalism."
+      ],
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "assessment_focus": "Explain why the same state can appear in multiple search-tree nodes.",
+      "cognitive_demand": "Recognize that different paths create distinct tree nodes.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should merge nodes by final state or claim that repeated states are impossible."
+      ],
+      "generation_constraints": [
+        "Use a short path interpretation.",
+        "Do not ask for an expansion order."
+      ],
+      "intent_id": "AI-SRC-02-INT-02",
+      "learning_objective": "Distinguish between a state space and a search tree.",
+      "preferred_reference_ids": [
+        "AI-SRC-02-aa97b7fb3bd9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require a cycle for the repeated state.",
+        "Do not imply that the underlying state-space state is duplicated."
+      ],
+      "prohibited_conflations": [
+        "same state means same tree node",
+        "repetition requires a cycle"
+      ],
+      "question_archetype": "repeated-state explanation",
+      "required_concepts": [
+        "multiple paths",
+        "distinct search-tree nodes"
+      ],
+      "required_question_characteristics": [
+        "State that two paths end at the same state.",
+        "Ask why the corresponding nodes remain distinct."
+      ],
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "assessment_focus": "Classify a root-to-descendant action sequence as a plan represented in the search tree.",
+      "cognitive_demand": "Interpret what one displayed root-to-node sequence encodes.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should report only the terminal state, reorder actions, or call it the whole state space."
+      ],
+      "generation_constraints": [
+        "Use introductory one-step interpretation.",
+        "Keep the path short and explicit."
+      ],
+      "intent_id": "AI-SRC-02-INT-03",
+      "learning_objective": "Distinguish between a state space and a search tree.",
+      "preferred_reference_ids": [
+        "AI-SRC-02-aa97b7fb3bd9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for algorithm traversal order.",
+        "Do not describe the sequence as an unordered state set."
+      ],
+      "prohibited_conflations": [
+        "plan is unordered",
+        "terminal state alone encodes the path"
+      ],
+      "question_archetype": "root-to-node plan interpretation",
+      "required_concepts": [
+        "root-to-descendant path",
+        "plan"
+      ],
+      "required_question_characteristics": [
+        "Give a short ordered path from the root to one descendant.",
+        "Ask what the sequence represents."
+      ],
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "assessment_focus": "Recognize the frontier as the collection of generated search nodes waiting for expansion.",
+      "cognitive_demand": "Interpret the role of one search-process structure.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe the reached set, goal test, or complete search tree."
+      ],
+      "generation_constraints": [
+        "Assess recognition at introductory difficulty.",
+        "Do not request a BFS, DFS, UCS, Greedy, or A-star trace."
+      ],
+      "intent_id": "AI-SRC-03-INT-01",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-0ccb1b224a85",
+        "AI-SRC-03-e7ed23f73259"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe the frontier as all states in the state space.",
+        "Do not equate the frontier with the expanded set."
+      ],
+      "prohibited_conflations": [
+        "frontier equals expanded states",
+        "frontier equals entire state space"
+      ],
+      "question_archetype": "frontier-role recognition",
+      "required_concepts": [
+        "frontier",
+        "waiting search nodes"
+      ],
+      "required_question_characteristics": [
+        "Describe generated but not yet expanded nodes.",
+        "Keep the question independent of any named search algorithm."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Interpret expansion as applying available actions to a selected node and generating child nodes.",
+      "cognitive_demand": "Recognize the input and output of one expansion step.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should confuse expansion with goal testing, path reconstruction, or frontier ordering."
+      ],
+      "generation_constraints": [
+        "Use a one-step process interpretation.",
+        "Keep every action/result fact explicit."
+      ],
+      "intent_id": "AI-SRC-03-INT-02",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-0ccb1b224a85"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not equate expansion with merely removing a node.",
+        "Do not imply that expansion guarantees a goal."
+      ],
+      "prohibited_conflations": [
+        "expansion is goal testing",
+        "expansion chooses the entire solution"
+      ],
+      "question_archetype": "expansion-step interpretation",
+      "required_concepts": [
+        "selected node",
+        "available actions",
+        "child nodes"
+      ],
+      "required_question_characteristics": [
+        "Name a selected node and the actions available from its state.",
+        "Ask what expansion produces."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Distinguish when a state enters reached from when it enters explored or expanded under the project convention.",
+      "cognitive_demand": "Interpret two named lifecycle events without tracing an algorithm.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap discovery and expansion timing or record the state only at goal testing."
+      ],
+      "generation_constraints": [
+        "Use the explicit project convention in the stem.",
+        "Do not ask for named-algorithm ordering."
+      ],
+      "intent_id": "AI-SRC-03-INT-03",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-e7ed23f73259",
+        "AI-SRC-03-d4bae55f5e66"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not use reached and explored as unexplained synonyms.",
+        "Do not ask about a source convention without naming it."
+      ],
+      "prohibited_conflations": [
+        "reached always means expanded",
+        "explored means waiting in frontier"
+      ],
+      "question_archetype": "reached-versus-expanded timing distinction",
+      "required_concepts": [
+        "reached on frontier admission",
+        "explored on expansion"
+      ],
+      "required_question_characteristics": [
+        "State explicitly that reached means discovered in the scenario.",
+        "Identify frontier admission and later expansion as distinct events."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Apply reached-state membership to prevent duplicate frontier insertion in a short graph-search scenario.",
+      "cognitive_demand": "Diagnose a repeated-state discovery and choose the correct handling step.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should add every generated child, remove the original record, or confuse node paths with state identity."
+      ],
+      "generation_constraints": [
+        "Use an intermediate duplicate-handling scenario.",
+        "Do not require a full traversal trace."
+      ],
+      "intent_id": "AI-SRC-03-INT-04",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-d4bae55f5e66",
+        "AI-SRC-03-e7ed23f73259"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not omit whether the state was previously reached.",
+        "Do not introduce an unstated lower path cost."
+      ],
+      "prohibited_conflations": [
+        "every path creates a new state record",
+        "reached membership implies a goal"
+      ],
+      "question_archetype": "duplicate-discovery scenario",
+      "required_concepts": [
+        "repeated state",
+        "duplicate prevention",
+        "frontier admission"
+      ],
+      "required_question_characteristics": [
+        "State that the repeated state's existing record is already at least as good.",
+        "Ask whether a second frontier record should be added."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Apply the cheaper-path rule to update an unexpanded state's stored frontier cost and parent.",
+      "cognitive_demand": "Compare two path costs to the same unexpanded state and select the correct record update.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should keep the higher cost, store duplicate records, or reopen an expanded state."
+      ],
+      "generation_constraints": [
+        "Use small explicit costs and one comparison.",
+        "Keep the focus on record handling rather than UCS or A-star ordering."
+      ],
+      "intent_id": "AI-SRC-03-INT-05",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-d4bae55f5e66",
+        "AI-SRC-03-0ccb1b224a85"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not leave expansion status unstated.",
+        "Do not imply that the current solver reopens an expanded state."
+      ],
+      "prohibited_conflations": [
+        "lower cost is ignored because state was reached",
+        "expanded state is reopened by this solver"
+      ],
+      "question_archetype": "lower-cost frontier-record update",
+      "required_concepts": [
+        "lower path cost",
+        "frontier record",
+        "parent update"
+      ],
+      "required_question_characteristics": [
+        "Give an existing and newly discovered path cost to the same unexpanded state.",
+        "Require updating both the best cost and parent when the new cost is lower."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Diagnose a search-process description that silently mixes reached-on-discovery with explored-after-expansion.",
+      "cognitive_demand": "Compare lifecycle claims and repair the single convention error.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should preserve the reached/explored swap or confuse expansion with frontier selection."
+      ],
+      "generation_constraints": [
+        "Use an intermediate misconception diagnosis.",
+        "Do not duplicate any dedicated search-template skill."
+      ],
+      "intent_id": "AI-SRC-03-INT-06",
+      "learning_objective": "Explain the roles of the frontier, reached-state set and node expansion.",
+      "preferred_reference_ids": [
+        "AI-SRC-03-e7ed23f73259",
+        "AI-SRC-03-d4bae55f5e66",
+        "AI-SRC-03-0ccb1b224a85"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not use an unnamed textbook convention.",
+        "Do not combine a convention error with an algorithm-ordering error."
+      ],
+      "prohibited_conflations": [
+        "reached and explored are always identical",
+        "selection alone is expansion"
+      ],
+      "question_archetype": "search-structure convention diagnosis",
+      "required_concepts": [
+        "reached convention",
+        "expanded convention",
+        "frontier lifecycle"
+      ],
+      "required_question_characteristics": [
+        "Name reached as discovery and explored as post-removal expansion in the scenario.",
+        "Include exactly one timing or role error to diagnose."
+      ],
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "assessment_focus": "Recognize a heuristic as an estimate of remaining cost from the current state to a goal.",
+      "cognitive_demand": "Interpret the direction and estimated nature of h(n).",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe accumulated start cost, edge cost, or goal-test truth."
+      ],
+      "generation_constraints": [
+        "Assess introductory recognition.",
+        "Do not ask for an A-star expansion trace."
+      ],
+      "intent_id": "AI-SRC-08-INT-01",
+      "learning_objective": "Explain how a heuristic estimates the remaining cost from a state to the goal.",
+      "preferred_reference_ids": [
+        "AI-SRC-08-a366da363e17"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not call the estimate exact.",
+        "Do not omit whether cost is measured from the start or toward the goal."
+      ],
+      "prohibited_conflations": [
+        "h(n) is cost already incurred",
+        "h(n) is always exact"
+      ],
+      "question_archetype": "heuristic-role recognition",
+      "required_concepts": [
+        "heuristic",
+        "estimated remaining cost"
+      ],
+      "required_question_characteristics": [
+        "Name a current state and goal.",
+        "Ask what the heuristic value represents."
+      ],
+      "skill_id": "AI-SRC-08"
+    },
+    {
+      "assessment_focus": "Distinguish the forward heuristic estimate h(n) from accumulated path cost g(n).",
+      "cognitive_demand": "Interpret two supplied cost labels in one state description.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap g and h or add them despite the question asking only for h."
+      ],
+      "generation_constraints": [
+        "Use introductory interpretation with small values.",
+        "Keep the focus on heuristic meaning."
+      ],
+      "intent_id": "AI-SRC-08-INT-02",
+      "learning_objective": "Explain how a heuristic estimates the remaining cost from a state to the goal.",
+      "preferred_reference_ids": [
+        "AI-SRC-08-a366da363e17"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require calculating f(n).",
+        "Do not label both values as estimates."
+      ],
+      "prohibited_conflations": [
+        "g and h are interchangeable",
+        "h includes cost already travelled"
+      ],
+      "question_archetype": "g-versus-h interpretation",
+      "required_concepts": [
+        "g(n)",
+        "h(n)",
+        "remaining cost"
+      ],
+      "required_question_characteristics": [
+        "State both an accumulated start cost and an estimated remaining cost.",
+        "Ask which value is the heuristic."
+      ],
+      "skill_id": "AI-SRC-08"
+    },
+    {
+      "assessment_focus": "Interpret Manhattan distance as a simple heuristic for four-way movement on a square grid.",
+      "cognitive_demand": "Perform one small Manhattan-distance calculation and interpret it as an estimate.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should use one coordinate difference, diagonal distance, or include g(n)."
+      ],
+      "generation_constraints": [
+        "Use an introductory one-step calculation.",
+        "Do not ask for an A-star or Greedy expansion order."
+      ],
+      "intent_id": "AI-SRC-08-INT-03",
+      "learning_objective": "Explain how a heuristic estimates the remaining cost from a state to the goal.",
+      "preferred_reference_ids": [
+        "AI-SRC-08-cbd77b22bcb9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not allow diagonal movement.",
+        "Do not add path cost already travelled."
+      ],
+      "prohibited_conflations": [
+        "diagonal distance is Manhattan distance",
+        "heuristic includes elapsed cost"
+      ],
+      "question_archetype": "one-step grid heuristic application",
+      "required_concepts": [
+        "Manhattan distance",
+        "four-way grid",
+        "heuristic estimate"
+      ],
+      "required_question_characteristics": [
+        "Specify a square grid with four-way movement and two coordinates.",
+        "Require one addition of horizontal and vertical differences."
+      ],
+      "skill_id": "AI-SRC-08"
+    }
+  ],
+  "max_attempts_per_question": 3,
+  "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "prompt_version": "v3.3",
+  "questions_per_skill": null,
+  "references": [
+    {
+      "content_hash": "8bbbddaf2aa68ce8178697a3a3e903ba47e343cf5dd04748fd535706fef8a211",
+      "reference_id": "AI-FND-01-8bbbddaf2aa6",
+      "reference_material": "It provides an introduction to the full range of topics studied in artificial intelligence, with emphasis on the “core competences” of intelligent systems - problem solving, reasoning, decision making, and learning - and on the logical and probabilistic foundations of these activities.",
+      "retrieved_at": "2026-08-11T03:10:00.838747Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:54.593951Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/",
+      "title": "Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "b50c85fa00a57eb23d0e91812efec298d629901dab2ee3cdf0cc3816aeb6ec33",
+      "reference_id": "AI-FND-01-b50c85fa00a5",
+      "reference_material": "This course introduces students to the basic knowledge representation, problem solving, and learning methods of artificial intelligence. Upon completion of 6.034, students should be able to develop intelligent systems by assembling solutions to concrete computational problems; understand the role of knowledge representation, problem solving, and learning in intelligent-system engineering; and appreciate the role of problem solving, vision, and language in understanding human intelligence from a computational perspective.",
+      "retrieved_at": "2026-08-11T03:22:59.515998Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:55.063734Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "ocw.mit.edu",
+      "source_url": "https://ocw.mit.edu/courses/6-034-artificial-intelligence-fall-2010/",
+      "title": "Artificial Intelligence — MIT OpenCourseWare 6.034 (Fall 2010)"
+    },
+    {
+      "content_hash": "d03d77e0aca28bb72ab99abc54076fb048dab4d3fe362f05dd9360156b0a8303",
+      "reference_id": "AI-FND-01-d03d77e0aca2",
+      "reference_material": "For example, AI is used to recognize faces in photographs on your social media, beat the World’s Champion in chess, and process your speech when you speak to Siri or Alexa on your phone. In this course, we will explore some of the ideas that make AI possible: Search Finding a solution to a problem, like a navigator app that finds the best route from your origin to the destination, or like playing a game and figuring out the next move.",
+      "retrieved_at": "2026-08-11T03:22:59.246324Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:55.637060Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/notes/0/",
+      "title": "CS50's Introduction to Artificial Intelligence with Python — Lecture 0"
+    },
+    {
+      "content_hash": "f7c5eb1ccf765edae13fa2f9520aabefcdca29bf54fa3df17587d804990e38cf",
+      "reference_id": "AI-FND-01-f7c5eb1ccf76",
+      "reference_material": "More specifically, Russell sees AI as the field devoted to building intelligent agents, which are functions taking as input tuples of percepts from the external environment, and producing behavior (actions) on the basis of these percepts.",
+      "retrieved_at": "2026-08-11T03:24:35.487618Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:56.110690Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "plato.stanford.edu",
+      "source_url": "https://plato.stanford.edu/entries/artificial-intelligence/",
+      "title": "Artificial Intelligence"
+    },
+    {
+      "content_hash": "31af4c58c9a1c64877bd85efa4a8be41c07745de26bdf3b244bbad515c632756",
+      "reference_id": "AI-AGT-01-31af4c58c9a1",
+      "reference_material": "Agent An entity that perceives its environment and acts upon that environment. In a navigator app, for example, the agent would be a representation of a car that needs to decide on which actions to take to arrive at the destination. State A configuration of an agent in its environment.",
+      "retrieved_at": "2026-08-11T12:56:01.631436Z",
+      "review_note": "Approved: clear agent/environment definition with an accessible navigation example.",
+      "reviewed_at": "2026-08-11T14:18:27.904006Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-AGT-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/notes/0/",
+      "title": "Lecture 0 - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "8efa49112c1414aa6eb584836704203730d74afb09e73e7c8e892c4df93b276f",
+      "reference_id": "AI-AGT-01-8efa49112c14",
+      "reference_material": "To define the task environment, we use the PEAS ( P erformance Measure, E nvironment, A ctuators, S ensors) description. The performance measure describes what utility the agent tries to increase. The environment summarizes where the agent acts and what affects the agent. The actuators and the sensors are the methods with which the agent acts on the environment and receives information from it. The design of an agent heavily depends on the type of environment the agent acts upon. We can characterize the types of environments in the following ways: In partially observable environments, the agent does not have full information about the state and thus must have an internal estimate of the state of the world. This is in contrast to fully observable environments, where the agent has full information about their state.",
+      "retrieved_at": "2026-08-11T12:56:05.176253Z",
+      "review_note": "Approved: strong PEAS, sensor, actuator, and observability grounding.",
+      "reviewed_at": "2026-08-11T14:18:28.547620Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-AGT-01",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/agents.html",
+      "title": "1.1 Agents | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "4024dce75930381f4fa33a3a18e7941bc7915568213c04f42fcd29c88714be3a",
+      "reference_id": "AI-SRC-01-4024dce75930",
+      "reference_material": "We have encountered search problems in our first lecture. A constraint satisfaction problem can be seen as a search problem: Initial state: empty assignment (all variables don’t have any values assigned to them). Actions: add a { variable = value } to assignment; that is, give some variable a value. Transition model: shows how adding the assignment changes the assignment. There is not much depth to this: the transition model returns the state that includes the assignment following the latest action. Goal test: check if all variables are assigned a value and all constraints are satisfied. Path cost function: all paths have the same cost. As we mentioned earlier, as opposed to typical search problems, optimization problems care about the solution and not the route to the solution. However, going about a constraint satisfaction problem naively, as a regular search problem, is massively inefficient. Instead, we can make use of the structure of a constraint satisfaction problem to solve it more efficiently. Backtracking Search Backtracking search is a type of a search algorithm that takes into account the structure of a constraint satisfaction search problem.",
+      "retrieved_at": "2026-08-05T15:08:05.598189Z",
+      "review_note": "Concrete formulation of search-problem components.",
+      "reviewed_at": "2026-08-05T15:17:13.616726Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/2020/notes/3/",
+      "title": "Lecture 3 - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "8ef4e1416152693e5dee2e9d67042e0cc9e4e35978fd343e6e2616f2cb97e315",
+      "reference_id": "AI-SRC-01-8ef4e1416152",
+      "reference_material": "In this problem, we’re interested in finding the shortest path between any two actors by choosing a sequence of movies that connects them. For example, the shortest path between Jennifer Lawrence and Tom Hanks is 2: Jennifer Lawrence is connected to Kevin Bacon by both starring in “X-Men: First Class,” and Kevin Bacon is connected to Tom Hanks by both starring in “Apollo 13.” We can frame this as a search problem: our states are people. Our actions are movies, which take us from one actor to another (it’s true that a movie could take us to multiple different actors, but that’s okay for this problem). Our initial state and goal state are defined by the two people we’re trying to connect. By using breadth-first search, we can find the shortest path from one actor to another.",
+      "retrieved_at": "2026-08-05T15:08:07.922628Z",
+      "review_note": "Concrete search-problem formulation example.",
+      "reviewed_at": "2026-08-05T15:17:14.198044Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/projects/0/degrees/",
+      "title": "Degrees - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "9ba6548d4450e4a4f77b376b5c1c3e349bc2077eaacf3f73720df4e4b49488a6",
+      "reference_id": "AI-SRC-01-9ba6548d4450",
+      "reference_material": "To do this, we must formally express a search problem - given our agent’s current state (its configuration within its environment), how can we arrive at a new state that satisfies its goals in the best possible way? A search problem consists of the following elements: A state space - The set of all possible states that are possible in your given world A set of actions available in each state A transition model - Outputs the next state when a specific action is taken at current state An action cost - Incurred when moving from one state to another after applying an action A start state - The state in which an agent exists initially A goal test - A function that takes a state as input, and determines whether it is a goal state Fundamentally, a search problem is solved by first considering the start state, then exploring the state space using the action and transition and cost methods, iteratively computing children of various states until we arrive at a goal state, at which point we will have determined a path from the start state to the goal state (typically called a plan ).",
+      "retrieved_at": "2026-08-05T15:07:51.492971Z",
+      "review_note": "Canonical definition of search-problem components.",
+      "reviewed_at": "2026-08-05T15:17:13.040862Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-01",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+      "title": "1.2 State Spaces and Search Problems | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "a506d362b314deff7981c0c35b35b02905272bac8b38a1a35c5933f61284968c",
+      "reference_id": "AI-SRC-02-a506d362b314",
+      "reference_material": "If there exist cycles in the state space graph, this inevitably means that the corresponding search tree will be infinite in depth. Hence, there exists the possibility that DFS will faithfully yet tragically get “stuck” searching for the deepest node in an infinite-sized search tree, doomed to never find a solution. Optimality - Depth-first search simply finds the “leftmost” solution in the search tree without regard for path costs, and so is not optimal. Time Complexity - In the worst case, depth first search may end up exploring the entire search tree. Hence, given a tree with maximum depth \\(m\\), the runtime of DFS is \\(O(b^{m})\\). Space Complexity - In the worst case, DFS maintains b nodes at each of \\(m\\) depth levels on the frontier.",
+      "retrieved_at": "2026-08-05T15:08:42.251857Z",
+      "review_note": "Explains the relationship between state spaces and search trees.",
+      "reviewed_at": "2026-08-05T15:17:15.377483Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-02",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/uninformed.html",
+      "title": "1.3 Uninformed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "aa97b7fb3bd9d731d4a78f7b60ee64567d548556e37deab6c9a8864e057dba2d",
+      "reference_id": "AI-SRC-02-aa97b7fb3bd9",
+      "reference_material": "Unlike state space graphs, our next structure of interest, search trees , have no such restriction on the number of times a state can appear. This is because though search trees are also a class of graph with states as nodes and actions as edges between states, each state/node encodes not just the state itself, but the entire path (or plan ) from the start state to the given state in the state space graph. Observe the state space graph and corresponding search tree below: The highlighted path (S → d → e → r → f → G) in the given state space graph is represented in the corresponding search tree by following the path in the tree from the start state S to the highlighted goal state G. Similarly, each and every path from the start node to any other node is represented in the search tree by a path from the root S to some descendant of the root corresponding to the other node. Since there often exist multiple ways to get from one state to another, states tend to show up multiple times in search trees. As a result, search trees are greater than or equal to their corresponding state space graph in size.",
+      "retrieved_at": "2026-08-05T15:08:20.900400Z",
+      "review_note": "Direct comparison of state spaces and search trees.",
+      "reviewed_at": "2026-08-05T15:17:14.805584Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-02",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/state.html",
+      "title": "1.2 State Spaces and Search Problems | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "0ccb1b224a85204f362a6fb8adb2dde6071b0e3dbb182390b6afe48f351a150c",
+      "reference_id": "AI-SRC-03-0ccb1b224a85",
+      "reference_material": "Practically, most implementations of such algorithms will encode information about the parent node, distance to node, and the state inside the node object. This procedure we have just outlined is known as tree search, and the pseudocode for it is presented below: function TREE-SEARCH(problem, frontier) return a solution or failure frontier ← INSERT(MAKE-NODE(INITIAL-STATE[problem]), frontier) while not IS-EMPTY(frontier) do node ← POP(frontier) if problem.IS-GOAL(node.STATE) then return node for each child-node in EXPAND(problem, node) do add child-node to frontier return failure The EXPAND function appearing in the pseudocode returns all the possible nodes that can be reached from a given node by considering all available actions. The pseudocode of the function is as follows: function EXPAND(problem, node) yields nodes s ← node.STATE for each action in problem.ACTIONS(s) do s' ← problem.RESULT(s, action) yield NODE(STATE=s', PARENT=node, ACTION=action) When we have no knowledge of the location of goal states in our search tree, we are forced to select our strategy for tree search from one of the techniques that falls under the umbrella of uninformed search.",
+      "retrieved_at": "2026-08-11T12:50:49.764579Z",
+      "review_note": "Approved: clean tree-search frontier initialization, removal, expansion, and child insertion.",
+      "reviewed_at": "2026-08-11T14:18:29.769165Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-03",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/uninformed.html",
+      "title": "1.3 Uninformed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "d4bae55f5e6663456837c44fa8fd88ffbaaf915e8c6e0eced6e909a90276295a",
+      "reference_id": "AI-SRC-03-d4bae55f5e66",
+      "reference_material": "Even in situations where our search technique doesn’t involve such an infinite loop, it’s often the case that we revisit the same node multiple times because there’s multiple ways to get to that same node. This leads to exponentially more work, and the natural solution is to simply keep track of which states you’ve already expanded, and never expand them again. More explicitly, maintain a “reached” set of expanded nodes while utilizing your search method of choice. Then, ensure that each node isn’t already in the set before expansion and add it to the set after expansion if it’s not. Tree search with this added optimization is known as graph search. Hence, to maintain optimality under A* graph search, we not only need to check whether A* has already visited a node, but also if it has found a cheaper path to it.",
+      "retrieved_at": "2026-08-11T14:10:04Z",
+      "review_note": "Approved: clean reached-state, duplicate-state, expansion, and cheaper-path handling.",
+      "reviewed_at": "2026-08-11T14:18:29.104964Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-03",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/informed.html",
+      "title": "1.4 Informed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "e7ed23f732594077f6327154fc504dbc10e40ab9c8adc2c34e13be08b574a834",
+      "reference_id": "AI-SRC-03-e7ed23f73259",
+      "reference_material": "To actually search, we use the frontier, the mechanism that “manages” the nodes. The frontier starts by containing an initial state and an empty set of explored items, and then repeats the following actions until a solution is reached: If the frontier is empty, stop. There is no solution to the problem. Remove a node from the frontier. This is the node that will be considered. If the node contains the goal state, return the solution. Stop. Else, expand the node (find all the new nodes that could be reached from this node), and add resulting nodes to the frontier. Add the current node to the explored set. There are multiple ways to go about the question of which nodes should be considered first, two of which can be represented by the data structures of stack (in depth-first search) and queue (in breadth-first search). In depth-first search, the frontier is managed as a stack data structure: “last-in first-out.” In breadth-first search, the frontier is managed as a queue data structure: “first-in first-out.”",
+      "retrieved_at": "2026-08-11T14:10:04Z",
+      "review_note": "Approved: clean frontier lifecycle and stack-versus-queue ordering.",
+      "reviewed_at": "2026-08-11T14:18:30.359446Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-03",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/notes/0/",
+      "title": "Lecture 0 - CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "a366da363e17b53d1203171ad64739b57a962e7eab4da7d5d8920846350dca3b",
+      "reference_id": "AI-SRC-08-a366da363e17",
+      "reference_material": "A* combines the total backward cost (sum of edge weights in the path to the state) used by UCS with the estimated forward cost (heuristic value) used by greedy search by adding these two values, effectively yielding an estimated total cost from start to goal. Given that we want to minimize the total cost from start to goal, this is an excellent choice. Completeness and Optimality - A* search is both complete and optimal, given an appropriate heuristic (which we’ll cover in a minute).",
+      "retrieved_at": "2026-08-05T15:08:57.326741Z",
+      "review_note": "Canonical explanation of heuristic cost estimates.",
+      "reviewed_at": "2026-08-05T15:17:16.526412Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-08",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/search/informed.html",
+      "title": "1.4 Informed Search | Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "cbd77b22bcb9c335fed1cb4198474da0e9df97032b642bc1858d668fd506c9da",
+      "reference_id": "AI-SRC-08-cbd77b22bcb9",
+      "reference_material": "First, we’ll define a heuristic function that tells us how close we are to the goal. This heuristic function will be different for each type of graph, but here’s one that works on square grids with 4-way movement: def heuristic(a: GridLocation, b: GridLocation): # Manhattan distance on a square grid return abs(a.x - b.x) + abs(a.y - b.y) In Dijkstra’s Algorithm we used the actual distance from the start for the priority queue ordering. Here instead, in Greedy Best First Search , we’ll use the estimated distance to the goal for the priority queue ordering. The location closest to the goal will be explored first. The code uses the priority queue from Dijkstra’s Algorithm but without cost_so_far : frontier = PriorityQueue() frontier.put(start, 0) came_from: dict[Location, Location] = dict() came_from[start] = None while not frontier.empty(): current = frontier.get() if current == goal: break for next in graph.neighbors(current): if next not in came_from: priority = heuristic(goal, next) frontier.put(next, priority) came_from[next] = current Let’s see how well it works: Dijkstra’s Algorithm Greedy Best-First Search Wow!!",
+      "retrieved_at": "2026-08-05T15:08:55.283048Z",
+      "review_note": "Explains heuristic-directed search and cost estimates.",
+      "reviewed_at": "2026-08-05T15:17:15.958122Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-SRC-08",
+      "source_domain": "www.redblobgames.com",
+      "source_url": "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+      "title": "Red Blob Games: Introduction to the A* Algorithm"
+    }
+  ],
+  "skill_ids": [
+    "AI-FND-01",
+    "AI-AGT-01",
+    "AI-SRC-01",
+    "AI-SRC-02",
+    "AI-SRC-03",
+    "AI-SRC-08"
+  ],
+  "slot_intent_ids": {
+    "AI-AGT-01": [
+      "AI-AGT-01-INT-01",
+      "AI-AGT-01-INT-02",
+      "AI-AGT-01-INT-03",
+      "AI-AGT-01-INT-04",
+      "AI-AGT-01-INT-05",
+      "AI-AGT-01-INT-06"
+    ],
+    "AI-FND-01": [
+      "AI-FND-01-INT-04",
+      "AI-FND-01-INT-05",
+      "AI-FND-01-INT-06"
+    ],
+    "AI-SRC-01": [
+      "AI-SRC-01-INT-11",
+      "AI-SRC-01-INT-12",
+      "AI-SRC-01-INT-13"
+    ],
+    "AI-SRC-02": [
+      "AI-SRC-02-INT-01",
+      "AI-SRC-02-INT-02",
+      "AI-SRC-02-INT-03"
+    ],
+    "AI-SRC-03": [
+      "AI-SRC-03-INT-01",
+      "AI-SRC-03-INT-02",
+      "AI-SRC-03-INT-03",
+      "AI-SRC-03-INT-04",
+      "AI-SRC-03-INT-05",
+      "AI-SRC-03-INT-06"
+    ],
+    "AI-SRC-08": [
+      "AI-SRC-08-INT-01",
+      "AI-SRC-08-INT-02",
+      "AI-SRC-08-INT-03"
+    ]
+  },
+  "status": "complete"
+}
