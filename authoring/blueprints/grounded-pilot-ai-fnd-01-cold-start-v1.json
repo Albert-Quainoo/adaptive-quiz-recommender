@@ -1,0 +1,84 @@
+{
+  "batch_id": "grounded-pilot-ai-fnd-01-cold-start-v1",
+  "prompt_version": "v3.3",
+  "review_status": "blueprint-approved",
+  "intents": [
+    {
+      "intent_id": "AI-FND-01-INT-01",
+      "skill_id": "AI-FND-01",
+      "difficulty": "introductory",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "assessment_focus": "Recognize capabilities associated with intelligent systems: problem solving, reasoning, decision making, and learning.",
+      "question_archetype": "Capability recognition or simple interpretation without full-list recall.",
+      "preferred_reference_ids": [
+        "AI-FND-01-8bbbddaf2aa6",
+        "AI-FND-01-b50c85fa00a5"
+      ],
+      "required_concepts": [
+        "intelligent systems use capabilities such as problem solving, reasoning, decision making, or learning",
+        "the correct option identifies or simply interprets an intelligent capability"
+      ],
+      "prohibited_conflations": [
+        "an unrelated computational capability is evidence of intelligence",
+        "every automated operation is artificial intelligence"
+      ],
+      "generation_constraints": [
+        "Assess recognition or simple interpretation at introductory difficulty.",
+        "Do not ask the learner to reproduce the entire capability list.",
+        "Use plausible non-AI or unrelated computational capabilities as distractors.",
+        "Provide exactly one unambiguous correct answer."
+      ]
+    },
+    {
+      "intent_id": "AI-FND-01-INT-02",
+      "skill_id": "AI-FND-01",
+      "difficulty": "introductory",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "assessment_focus": "Identify a concrete real-world application of artificial intelligence.",
+      "question_archetype": "Accessible scenario distinguishing an AI capability from ordinary fixed or non-adaptive processing.",
+      "preferred_reference_ids": [
+        "AI-FND-01-d03d77e0aca2"
+      ],
+      "required_concepts": [
+        "a concrete AI application such as face recognition, game playing, speech processing, or route finding",
+        "the scenario requires an intelligent capability rather than fixed processing alone"
+      ],
+      "prohibited_conflations": [
+        "every automated system is artificial intelligence",
+        "fixed or non-adaptive processing alone establishes that a system is intelligent"
+      ],
+      "generation_constraints": [
+        "Use a concrete, introductory scenario.",
+        "Distinguish an AI capability from ordinary fixed or non-adaptive processing.",
+        "Do not claim that every automated system is AI.",
+        "Provide exactly one unambiguous correct answer."
+      ]
+    },
+    {
+      "intent_id": "AI-FND-01-INT-03",
+      "skill_id": "AI-FND-01",
+      "difficulty": "introductory",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "assessment_focus": "Understand that an intelligent agent receives percepts from its environment and selects actions based on them.",
+      "question_archetype": "Accessible agent scenario testing the percept-to-action relationship.",
+      "preferred_reference_ids": [
+        "AI-FND-01-f7c5eb1ccf76"
+      ],
+      "required_concepts": [
+        "an agent receives information or percepts from its environment",
+        "the agent selects an action based on those percepts"
+      ],
+      "prohibited_conflations": [
+        "an action is selected without regard to environmental input",
+        "formal tuple notation is required to understand the relationship"
+      ],
+      "generation_constraints": [
+        "Use an accessible agent scenario at introductory difficulty.",
+        "Test the relationship between an environmental percept and the selected action.",
+        "Do not require formal tuple notation.",
+        "Do not require memorization of a mathematical function definition.",
+        "Provide exactly one unambiguous correct answer."
+      ]
+    }
+  ]
+}

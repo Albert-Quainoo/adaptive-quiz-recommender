@@ -134,6 +134,19 @@ AI_SRC_01_COMPONENTS = (
     ("path cost", "action cost"),
 )
 
+AI_FND_01_CAPABILITIES = (
+    ("intelligent agent",),
+    ("problem solving",),
+    ("reasoning", "reason"),
+    ("decision making", "decision"),
+    ("learning", "learn"),
+    ("percept", "perception", "perceive", "recognise", "recognize"),
+    ("action", "act"),
+    ("language", "speech"),
+    ("vision",),
+    ("game", "chess"),
+)
+
 
 @dataclass(frozen=True)
 class SourceScope:
@@ -209,7 +222,10 @@ def terms_of(text: str) -> set[str]:
 
 
 def concept_terms(skill: SkillDefinition) -> set[str]:
-    return terms_of(f"{skill.name} {skill.subtopic}")
+    terms = terms_of(f"{skill.name} {skill.subtopic}")
+    if skill.skill_id == "AI-FND-01":
+        terms.update(("artificial intelligence", "ai"))
+    return terms
 
 
 def objective_terms(skill: SkillDefinition) -> set[str]:
@@ -276,6 +292,16 @@ def passage_covers_skill(
     objective_terms_required: int,
 ) -> bool:
     """Whether the selected passage itself covers the pilot objective."""
+    if skill.skill_id == "AI-FND-01":
+        capabilities = sum(
+            any(matches(term, passage_hay) for term in alternatives)
+            for alternatives in AI_FND_01_CAPABILITIES
+        )
+        identifies_ai = matches("artificial intelligence", passage_hay) or matches(
+            "ai", passage_hay
+        )
+        return identifies_ai and capabilities >= 2
+
     if skill.skill_id == "AI-SRC-01":
         components = sum(
             any(matches(term, passage_hay) for term in alternatives)
@@ -335,6 +361,16 @@ def score_relevance(
     passage_context = tuple(
         sorted(term for term in CONTEXT_TERMS if matches(term, passage_hay))
     )
+    if skill.skill_id == "AI-FND-01":
+        if matches("ai", hay) and "artificial intelligence" not in context:
+            context = tuple(sorted((*context, "artificial intelligence")))
+        if (
+            matches("ai", passage_hay)
+            and "artificial intelligence" not in passage_context
+        ):
+            passage_context = tuple(
+                sorted((*passage_context, "artificial intelligence"))
+            )
     scope = next((str(item) for item in scopes if item.covers(url)), "")
 
     score = (

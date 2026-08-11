@@ -80,8 +80,12 @@ CS188_TEXTBOOK = SourceScope("inst.eecs.berkeley.edu", "/~cs188/textbook/")
 CS50_AI = SourceScope("cs50.harvard.edu", "/ai/")
 MIT_6034 = SourceScope("ocw.mit.edu", "/courses/6-034-artificial-intelligence-")
 REDBLOB_PATHFINDING = SourceScope("redblobgames.com", "/pathfinding/")
+STANFORD_AI = SourceScope("plato.stanford.edu", "/entries/artificial-intelligence/")
 
 PILOT_SOURCE_SCOPES: dict[str, tuple[SourceScope, ...]] = {
+    # Introductory definitions of AI are covered by the same reviewed course
+    # texts used for the search pilot.
+    "AI-FND-01": (STANFORD_AI, CS50_AI, CS188_TEXTBOOK, MIT_6034),
     # Problem formulation and search representation are textbook definitions,
     # so the two course textbooks first.
     "AI-SRC-01": (CS188_TEXTBOOK, CS50_AI, MIT_6034),
@@ -100,10 +104,13 @@ def load_pilot_catalogue() -> SkillCatalogue:
     return load_skills(*course_paths("ai"))
 
 
-def pilot_skills(catalogue: SkillCatalogue) -> list[SkillDefinition]:
+def pilot_skills(
+    catalogue: SkillCatalogue,
+    skill_ids: Sequence[str] = PILOT_SKILL_IDS,
+) -> list[SkillDefinition]:
     by_id = {skill.skill_id: skill for skill in catalogue.skills}
 
-    return [by_id[skill_id] for skill_id in PILOT_SKILL_IDS]
+    return [by_id[skill_id] for skill_id in skill_ids]
 
 
 def scopes_for(skill_id: str) -> tuple[SourceScope, ...]:
@@ -128,11 +135,14 @@ def domains_for(skill_id: str) -> tuple[str, ...]:
     )
 
 
-def plan_pilot(catalogue: SkillCatalogue) -> dict[str, list[str]]:
+def plan_pilot(
+    catalogue: SkillCatalogue,
+    skill_ids: Sequence[str] = PILOT_SKILL_IDS,
+) -> dict[str, list[str]]:
     """The queries the run would issue, per skill, without issuing them."""
     return {
         skill.skill_id: build_search_queries(skill)
-        for skill in pilot_skills(catalogue)
+        for skill in pilot_skills(catalogue, skill_ids)
     }
 
 
@@ -146,6 +156,7 @@ def run_pilot(
     diagnostics: RetrievalDiagnostics | None = None,
     by_skill: dict[str, RetrievalDiagnostics] | None = None,
     known: Iterable[ReferenceCandidate] = (),
+    skill_ids: Sequence[str] = PILOT_SKILL_IDS,
 ) -> list[ReferenceCandidate]:
     """Collect pending candidates for the pilot skills. Nothing is written.
 
@@ -168,7 +179,7 @@ def run_pilot(
 
     candidates: list[ReferenceCandidate] = []
 
-    for skill in pilot_skills(catalogue):
+    for skill in pilot_skills(catalogue, skill_ids):
         for_skill = RetrievalDiagnostics()
         by_skill[skill.skill_id] = for_skill
 

@@ -13,6 +13,13 @@ DIFFICULTIES: tuple[difficulty_level, ...] = (
     "intermediate",
     "advanced",
 )
+DIFFICULTY_FALLBACKS: dict[
+    difficulty_level, tuple[difficulty_level, ...]
+] = {
+    "introductory": ("introductory", "intermediate", "advanced"),
+    "intermediate": ("intermediate", "introductory", "advanced"),
+    "advanced": ("advanced", "intermediate", "introductory"),
+}
 
 
 @dataclass(frozen=True)
@@ -147,12 +154,11 @@ def select_item(
     if non_repeats:
         candidates = non_repeats
 
-    desired_index = DIFFICULTIES.index(desired_difficulty)
+    difficulty_order = DIFFICULTY_FALLBACKS[desired_difficulty]
     selected = min(
         candidates,
         key=lambda item: (
-            abs(DIFFICULTIES.index(item.question.difficulty) - desired_index),
-            DIFFICULTIES.index(item.question.difficulty),
+            difficulty_order.index(item.question.difficulty),
             item.item_id,
         ),
     )

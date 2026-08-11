@@ -10,6 +10,7 @@ from authoring.grounded_review import (
     RevisionProvenance,
     approve_revision,
     assert_immutable_source,
+    build_pending_review,
     export_approved_bank_items,
     inspect_question,
     list_pending,
@@ -18,6 +19,7 @@ from authoring.grounded_review import (
     write_approved_bank,
 )
 from authoring.pilot_curation import build_pilot_review
+from authoring.question_intents import PILOT_BATCH_ID
 
 
 def parser() -> argparse.ArgumentParser:
@@ -53,7 +55,15 @@ def main(argv=None) -> int:
     if arguments.command == "prepare":
         if store.path.exists():
             raise ValueError(f"review store already exists: {store.path}")
-        store.save(build_pilot_review(arguments.batch))
+        manifest = json.loads(
+            (arguments.batch / "manifest.json").read_text(encoding="utf-8")
+        )
+        review = (
+            build_pilot_review(arguments.batch)
+            if manifest.get("batch_id") == PILOT_BATCH_ID
+            else build_pending_review(arguments.batch)
+        )
+        store.save(review)
         return 0
     review = store.load()
     assert_immutable_source(arguments.batch, review)

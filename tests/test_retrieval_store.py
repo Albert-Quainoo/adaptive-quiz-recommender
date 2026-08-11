@@ -130,6 +130,27 @@ def test_a_dry_run_reaches_no_network_and_writes_nothing(tmp_path, capsys, monke
     assert not store_path.exists()
 
 
+def test_a_dry_run_can_target_one_taxonomy_skill(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv(API_KEY_VARIABLE, raising=False)
+    store_path = tmp_path / "candidates.json"
+
+    assert main(
+        [
+            "--store",
+            str(store_path),
+            "retrieve",
+            "--dry-run",
+            "--skill-id",
+            "AI-FND-01",
+        ]
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert "AI-FND-01" in output
+    assert "AI-SRC-01" not in output
+    assert not store_path.exists()
+
+
 def test_retrieval_without_a_key_stops_with_a_named_variable(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv(API_KEY_VARIABLE, raising=False)
 

@@ -1,3 +1,5 @@
+import pytest
+
 from api.bank import BankItem
 from api.schemas import QuizQuestion
 from recommendation.policy import (
@@ -125,6 +127,30 @@ def test_item_ties_use_item_id_and_fallback_prefers_nearest_easier_difficulty():
     assert selection.reason == "fallback_difficulty_used"
 
 
+@pytest.mark.parametrize(
+    ("preferred", "available", "expected"),
+    [
+        ("introductory", ["intermediate", "advanced"], "intermediate"),
+        ("intermediate", ["introductory", "advanced"], "introductory"),
+        ("advanced", ["introductory", "intermediate"], "intermediate"),
+    ],
+)
+def test_difficulty_fallback_order_is_deterministic(preferred, available, expected):
+    selection = select_item(
+        [
+            item(f"item-{difficulty}", "AI-SRC-01", difficulty)
+            for difficulty in reversed(available)
+        ],
+        skill_id="AI-SRC-01",
+        desired_difficulty=preferred,
+        excluded_item_ids=set(),
+        last_answered_item_id=None,
+    )
+
+    assert selection.item.question.difficulty == expected
+    assert selection.reason == "fallback_difficulty_used"
+
+
 def test_default_difficulty_thresholds_are_transparent_and_configurable():
     config = RecommendationPolicyConfig()
 
@@ -132,4 +158,3 @@ def test_default_difficulty_thresholds_are_transparent_and_configurable():
     assert difficulty_for_mastery(0.40, config) == "intermediate"
     assert difficulty_for_mastery(0.74, config) == "intermediate"
     assert difficulty_for_mastery(0.75, config) == "advanced"
-

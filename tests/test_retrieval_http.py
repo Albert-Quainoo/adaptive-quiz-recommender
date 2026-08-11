@@ -683,6 +683,29 @@ def test_scripts_and_styles_are_not_page_text():
     assert "Real text" in visible_text("<script>alert(1)</script><p>Real text</p>")
 
 
+def test_expandable_teaser_and_control_labels_are_not_reference_text():
+    body = (
+        "<p>Lead sentence.</p>"
+        "<div>Truncated duplicate text … <button>Show more</button></div>"
+        "<p>Full clean course description.</p>"
+        "<button>Show less</button>"
+    )
+
+    cleaned = visible_text(body)
+
+    assert "Truncated duplicate" not in cleaned
+    assert "Show more" not in cleaned
+    assert "Show less" not in cleaned
+    assert "Full clean course description." in cleaned
+
+
+def test_removed_inline_markup_does_not_leave_space_before_punctuation():
+    cleaned = visible_text("<p>intelligent agents <span></span>, which act</p>")
+
+    assert "agents ," not in cleaned
+    assert "agents," in cleaned
+
+
 def test_a_redirect_inside_the_allowlist_is_followed_and_recorded():
     target = "https://aima.cs.berkeley.edu/final.html"
     fetcher = HttpPageFetcher(

@@ -13,6 +13,7 @@ class CanonicalGroundingBrief(BaseModel):
     skill_id: str = Field(min_length=1)
     version: str = Field(min_length=1)
     statements: list[str] = Field(min_length=1)
+    intent_reference_ids: dict[str, list[str]] = Field(default_factory=dict)
 
     @property
     def content_hash(self) -> str:
@@ -28,6 +29,25 @@ class CanonicalGroundingBrief(BaseModel):
 PILOT_GROUNDING_BRIEFS = {
     brief.skill_id: brief
     for brief in (
+        CanonicalGroundingBrief(
+            skill_id="AI-FND-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "Intelligent-system capabilities include problem solving, reasoning, decision making, and learning.",
+                "Concrete AI applications include face recognition, game playing, speech processing, and route finding.",
+                "Automation alone does not establish that a system is intelligent.",
+                "An intelligent agent receives percepts from its environment and selects actions based on them.",
+                "Introductory questions should test recognition or simple interpretation rather than formal notation or full-list recall.",
+            ],
+            intent_reference_ids={
+                "AI-FND-01-INT-01": [
+                    "AI-FND-01-8bbbddaf2aa6",
+                    "AI-FND-01-b50c85fa00a5",
+                ],
+                "AI-FND-01-INT-02": ["AI-FND-01-d03d77e0aca2"],
+                "AI-FND-01-INT-03": ["AI-FND-01-f7c5eb1ccf76"],
+            },
+        ),
         CanonicalGroundingBrief(
             skill_id="AI-SRC-01",
             version=GROUNDING_BRIEF_VERSION,

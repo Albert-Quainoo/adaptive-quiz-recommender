@@ -54,6 +54,21 @@ CREATE TABLE IF NOT EXISTS bkt_model_metadata (
     training_attempt_count INTEGER NOT NULL,
     skill_ids TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS learner_sessions (
+    learner_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS question_presentations (
+    presentation_id TEXT PRIMARY KEY,
+    learner_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    presentation_seed TEXT NOT NULL,
+    recommendation_reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (learner_id) REFERENCES learner_sessions(learner_id)
+);
 """
 
 
@@ -75,7 +90,9 @@ class SQLiteBKTRepository:
 
     def __init__(self, database: str | Path) -> None:
         self.database = str(database)
-        self._connection = sqlite3.connect(self.database)
+        # Streamlit caches the shared controller across rerun threads. Controller
+        # calls are serialized, so allow that single connection to follow them.
+        self._connection = sqlite3.connect(self.database, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA foreign_keys = ON")
 

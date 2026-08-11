@@ -75,6 +75,12 @@ MAX_PAGE_FETCHES_PER_SKILL = 25
 # this skill in particular, as against the rest of the allowlist.
 PREFERRED_DOMAIN_COUNT = 3
 
+AI_FND_01_PASSAGE_QUERY = (
+    "Define artificial intelligence and recognise tasks that require intelligent "
+    "behaviour. field devoted building intelligent agents systems percepts "
+    "environment behavior actions examples faces chess speech problem solving learning"
+)
+
 
 class RetrievalError(ValueError):
     pass
@@ -290,6 +296,12 @@ def build_search_queries(skill: SkillDefinition) -> list[str]:
     return unique
 
 
+def passage_query_for(skill: SkillDefinition) -> str:
+    if skill.skill_id == "AI-FND-01":
+        return AI_FND_01_PASSAGE_QUERY
+    return skill.learning_objective
+
+
 def read_page(
     fetcher: PageFetcher, url: str, allowed_domains: Sequence[str]
 ) -> FetchedPage:
@@ -464,7 +476,7 @@ def retrieve_candidates(
 
         # Quote the part that can support the learning objective. The search
         # angle discovers the page; it does not decide what the reviewer sees.
-        passage = select_passage(page.text, skill.learning_objective)
+        passage = select_passage(page.text, passage_query_for(skill))
 
         # Nothing came back at all: the page holds no prose to quote, only
         # menus and headings. Counted with the source files rather than with

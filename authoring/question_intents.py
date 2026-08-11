@@ -5,12 +5,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from api.schemas import difficulty_level
+
 
 PILOT_BATCH_ID = "grounded-pilot-20260805-v2"
+COLD_START_BATCH_ID = "grounded-pilot-ai-fnd-01-cold-start-v1"
 PILOT_PROMPT_VERSION = "v3.3"
-PILOT_BLUEPRINT_PATH = (
-    Path(__file__).resolve().parent / "blueprints" / f"{PILOT_BATCH_ID}.json"
-)
+BLUEPRINT_DIRECTORY = Path(__file__).resolve().parent / "blueprints"
+PILOT_BLUEPRINT_PATH = BLUEPRINT_DIRECTORY / f"{PILOT_BATCH_ID}.json"
 
 
 class QuestionIntent(BaseModel):
@@ -21,6 +23,9 @@ class QuestionIntent(BaseModel):
     preferred_reference_ids: list[str] = Field(min_length=1)
     required_concepts: list[str] = Field(min_length=1)
     prohibited_conflations: list[str] = Field(min_length=1)
+    difficulty: difficulty_level | None = None
+    learning_objective: str | None = Field(default=None, min_length=1)
+    generation_constraints: list[str] = Field(default_factory=list)
 
     @field_validator("intent_id", "skill_id", mode="before")
     @classmethod
@@ -33,6 +38,8 @@ class QuestionIntent(BaseModel):
         "preferred_reference_ids",
         "required_concepts",
         "prohibited_conflations",
+        "learning_objective",
+        "generation_constraints",
         mode="before",
     )
     @classmethod
@@ -70,6 +77,18 @@ def load_pilot_blueprint(path: Path = PILOT_BLUEPRINT_PATH) -> PilotBlueprint:
     blueprint = PilotBlueprint.model_validate_json(path.read_text(encoding="utf-8"))
     if blueprint.batch_id != PILOT_BATCH_ID:
         raise ValueError(f"blueprint batch_id must be {PILOT_BATCH_ID}")
+    if blueprint.prompt_version != PILOT_PROMPT_VERSION:
+        raise ValueError(f"blueprint prompt_version must be {PILOT_PROMPT_VERSION}")
+    return blueprint
+
+
+def load_blueprint_for_batch(batch_id: str) -> PilotBlueprint:
+    path = BLUEPRINT_DIRECTORY / f"{batch_id}.json"
+    if not path.is_file():
+        raise ValueError(f"no question-intent blueprint for batch {batch_id}")
+    blueprint = PilotBlueprint.model_validate_json(path.read_text(encoding="utf-8"))
+    if blueprint.batch_id != batch_id:
+        raise ValueError(f"blueprint batch_id must be {batch_id}")
     if blueprint.prompt_version != PILOT_PROMPT_VERSION:
         raise ValueError(f"blueprint prompt_version must be {PILOT_PROMPT_VERSION}")
     return blueprint

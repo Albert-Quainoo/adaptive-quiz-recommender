@@ -38,6 +38,12 @@ STRIPPED_ELEMENTS = re.compile(
 # A tag opens with a letter, a slash or a bang - never with a space or a
 # digit - so "x < 5 and y > 3" in prose survives this where <[^>]*> ate it.
 TAG = re.compile(r"<\s*/?[a-zA-Z!][^>]*>")
+EXPANDABLE_TEASER = re.compile(
+    r"(^|(?<=[.!?]))[^.!?]*(?:…|\.\.\.)\s*Show more\s*",
+    re.IGNORECASE,
+)
+EXPANSION_CONTROL = re.compile(r"\bShow (?:more|less)\b", re.IGNORECASE)
+SPACE_BEFORE_PUNCTUATION = re.compile(r"\s+([,.;:!?])")
 
 
 def visible_text(body: str) -> str:
@@ -49,8 +55,11 @@ def visible_text(body: str) -> str:
     is how `data-bs-toggle="collapse">` ended up quoted in a passage.
     """
     without_tags = TAG.sub(" ", STRIPPED_ELEMENTS.sub(" ", body))
+    visible = TAG.sub(" ", unescape(without_tags))
+    without_teasers = EXPANDABLE_TEASER.sub(" ", visible)
 
-    return TAG.sub(" ", unescape(without_tags))
+    without_controls = EXPANSION_CONTROL.sub(" ", without_teasers)
+    return SPACE_BEFORE_PUNCTUATION.sub(r"\1", without_controls)
 
 
 def content_type_of(response: httpx.Response) -> str:

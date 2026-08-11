@@ -52,6 +52,52 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
     def list_approved_buildable_items(self) -> list[BankItem]:
         return [item.model_copy(deep=True) for item in self._items]
 
+    def save_learner(self, learner_id: str, *, created_at: datetime) -> None:
+        with self._connection:
+            self._connection.execute(
+                "INSERT OR IGNORE INTO learner_sessions (learner_id, created_at) VALUES (?, ?)",
+                (learner_id, _utc_iso(created_at)),
+            )
+
+    def learner_exists(self, learner_id: str) -> bool:
+        return self._connection.execute(
+            "SELECT 1 FROM learner_sessions WHERE learner_id = ?", (learner_id,)
+        ).fetchone() is not None
+
+    def save_presentation(
+        self,
+        *,
+        presentation_id: str,
+        learner_id: str,
+        item_id: str,
+        presentation_seed: int,
+        recommendation_reason: str,
+        created_at: datetime,
+    ) -> None:
+        with self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO question_presentations (
+                    presentation_id, learner_id, item_id, presentation_seed,
+                    recommendation_reason, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    presentation_id,
+                    learner_id,
+                    item_id,
+                    str(presentation_seed),
+                    recommendation_reason,
+                    _utc_iso(created_at),
+                ),
+            )
+
+    def get_presentation(self, presentation_id: str):
+        return self._connection.execute(
+            "SELECT * FROM question_presentations WHERE presentation_id = ?",
+            (presentation_id,),
+        ).fetchone()
+
     def list_attempts(
         self, learner_id: str | None = None, skill_id: str | None = None
     ):

@@ -24,6 +24,7 @@ from authoring.retrieval.models import (
 from authoring.retrieval.pilot import (
     DEFAULT_STORE_PATH,
     PILOT_ALLOWED_DOMAINS,
+    PILOT_SKILL_IDS,
     load_pilot_catalogue,
     plan_pilot,
     run_pilot,
@@ -53,11 +54,12 @@ def describe(candidate: ReferenceCandidate) -> str:
 
 def retrieve(arguments: argparse.Namespace) -> int:
     catalogue = load_pilot_catalogue()
+    skill_ids = arguments.skill_ids or PILOT_SKILL_IDS
 
     if arguments.dry_run:
         print("Dry run: no search, no fetch, no store, no references.csv.\n")
 
-        for skill_id, queries in plan_pilot(catalogue).items():
+        for skill_id, queries in plan_pilot(catalogue, skill_ids).items():
             print(skill_id)
 
             for query in queries:
@@ -90,6 +92,7 @@ def retrieve(arguments: argparse.Namespace) -> int:
             diagnostics=diagnostics,
             by_skill=by_skill,
             known=held,
+            skill_ids=skill_ids,
         )
     )
 
@@ -181,7 +184,13 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     retrieve_command = commands.add_parser(
-        "retrieve", help="search and read pages for AI-SRC-01, AI-SRC-02 and AI-SRC-08"
+        "retrieve", help="search and read pages for selected AI taxonomy skills"
+    )
+    retrieve_command.add_argument(
+        "--skill-id",
+        dest="skill_ids",
+        action="append",
+        help="taxonomy skill to retrieve (repeatable; defaults to the original pilot)",
     )
     retrieve_command.add_argument(
         "--dry-run",

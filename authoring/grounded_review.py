@@ -175,6 +175,33 @@ def load_source_questions(batch_path: Path) -> list[PendingQuestion]:
     ]
 
 
+def build_pending_review(batch_path: Path) -> GroundedReview:
+    """Create a pending-only review store for a completed generated batch."""
+    manifest = json.loads((batch_path / "manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("status") != "complete":
+        raise ValueError("only a complete generated batch can enter human review")
+    questions = load_source_questions(batch_path)
+    expected = manifest.get("questions_per_skill", 0) * len(
+        manifest.get("skill_ids", [])
+    )
+    if not questions or len(questions) != expected:
+        raise ValueError("generated batch does not contain its expected questions")
+    return GroundedReview(
+        batch_id=manifest["batch_id"],
+        source_hashes=source_hashes(batch_path),
+        items=[
+            CurationItem(
+                original_question_id=question.question_id,
+                skill_id=question.skill_id,
+                intent_id=question.intent_id,
+                recommendation="propose_revision",
+                recommendation_reason="Pending human review of generated candidate.",
+            )
+            for question in questions
+        ],
+    )
+
+
 class GroundedReviewStore:
     def __init__(self, path: Path):
         self.path = path

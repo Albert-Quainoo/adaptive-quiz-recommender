@@ -21,6 +21,7 @@ class BKTModel:
         num_fits: int = 1,
         adapter: PyBKTAdapter | None = None,
         clock: Callable[[], datetime] | None = None,
+        fitted: bool = False,
     ) -> None:
         self._model = model if model is not None else self._create_model(seed, num_fits)
         self.model_version = model_version.strip()
@@ -28,7 +29,7 @@ class BKTModel:
             raise ValueError("model_version is required")
         self._adapter = adapter or PyBKTAdapter()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
-        self._fitted = False
+        self._fitted = fitted
 
     @staticmethod
     def _create_model(seed: int, num_fits: int) -> Any:

@@ -74,6 +74,7 @@ from authoring.retrieval.search import (
     build_search_queries,
     build_search_schedule,
     known_for,
+    passage_query_for,
     retrieve_candidates,
 )
 from taxonomy.schemas import SkillDefinition
@@ -688,6 +689,22 @@ def test_the_pilot_plans_queries_for_its_three_skills():
     assert all(len(queries) == 3 for queries in plan.values())
 
 
+def test_the_retrieval_plan_can_target_the_cold_start_skill():
+    plan = plan_pilot(load_pilot_catalogue(), ["AI-FND-01"])
+
+    assert list(plan) == ["AI-FND-01"]
+    assert len(plan["AI-FND-01"]) == 3
+
+
+def test_cold_start_passage_selection_uses_definition_and_example_terms():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-FND-01"])[0]
+
+    query = passage_query_for(catalogue_skill)
+
+    assert "field devoted building intelligent agents" in query
+    assert "examples faces chess speech" in query
+
+
 def test_the_pilot_skills_carry_the_approved_canonical_references():
     assert {
         skill_definition.skill_id: len(skill_definition.reference_material)
@@ -715,6 +732,116 @@ def test_the_pilot_run_produces_pending_candidates_only():
     assert {item.skill_id for item in candidates} == set(PILOT_SKILL_IDS)
     assert all(item.review_status == "pending" for item in candidates)
     assert export_reference_material(candidates) == {}
+
+
+def test_a_targeted_cold_start_run_still_produces_pending_candidates_only():
+    url = "https://inst.eecs.berkeley.edu/~cs188/textbook/intro/what.html"
+    provider = FakeSearchProvider([hit(url)])
+    fetcher = FakePageFetcher(
+        {
+            url: (
+                "Artificial intelligence is the field concerned with defining "
+                "and building intelligent systems. These systems perform tasks "
+                "that require intelligent behaviour, including perceiving an "
+                "environment, reasoning about choices, learning from experience, "
+                "and acting to achieve objectives. People can recognise an AI "
+                "system by capabilities such as reasoning, learning, perception, "
+                "or adapting its actions to the situation. This definition helps "
+                "separate artificial intelligence from fixed automatic behaviour."
+            )
+        }
+    )
+
+    candidates = run_pilot(
+        load_pilot_catalogue(),
+        provider,
+        fetcher,
+        allowed_domains=("inst.eecs.berkeley.edu",),
+        clock=fixed_clock,
+        skill_ids=["AI-FND-01"],
+    )
+
+    assert {item.skill_id for item in candidates} == {"AI-FND-01"}
+    assert all(item.review_status == "pending" for item in candidates)
+    assert export_reference_material(candidates) == {}
+
+
+def test_cold_start_relevance_accepts_capabilities_without_exact_objective_wording():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-FND-01"])[0]
+    passage = (
+        "Artificial intelligence studies intelligent systems and their core "
+        "capabilities, including problem solving, reasoning, decision making, "
+        "and learning from experience."
+    )
+
+    scored = score_relevance(
+        catalogue_skill,
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/",
+        "Introduction to Artificial Intelligence",
+        "",
+        passage,
+        scopes_for("AI-FND-01"),
+    )
+
+    assert scored.is_relevant()
+    assert scored.passage_coverage_passed
+
+
+def test_cold_start_relevance_rejects_a_bare_ai_mention():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-FND-01"])[0]
+
+    scored = score_relevance(
+        catalogue_skill,
+        "https://inst.eecs.berkeley.edu/~cs188/textbook/",
+        "Introduction to Artificial Intelligence",
+        "",
+        "This page introduces an artificial intelligence course and its staff.",
+        scopes_for("AI-FND-01"),
+    )
+
+    assert not scored.is_relevant()
+    assert not scored.passage_coverage_passed
+
+
+def test_cold_start_relevance_accepts_ai_abbreviation_with_concrete_capabilities():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-FND-01"])[0]
+    passage = (
+        "AI can recognize faces in photographs, play chess, and process speech "
+        "when a person interacts with a digital assistant."
+    )
+
+    scored = score_relevance(
+        catalogue_skill,
+        "https://cs50.harvard.edu/ai/notes/0/",
+        "Artificial Intelligence",
+        "",
+        passage,
+        scopes_for("AI-FND-01"),
+    )
+
+    assert scored.is_relevant()
+    assert scored.passage_coverage_passed
+
+
+def test_cold_start_relevance_accepts_the_intelligent_agent_definition():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-FND-01"])[0]
+    passage = (
+        "Russell sees AI as the field devoted to building intelligent agents, "
+        "which take percepts from an external environment and produce actions "
+        "on the basis of those percepts."
+    )
+
+    scored = score_relevance(
+        catalogue_skill,
+        "https://plato.stanford.edu/entries/artificial-intelligence/",
+        "Artificial Intelligence",
+        "",
+        passage,
+        scopes_for("AI-FND-01"),
+    )
+
+    assert scored.is_relevant()
+    assert scored.passage_coverage_passed
 
 
 # Diagnostics: every result is accounted for
@@ -1901,6 +2028,7 @@ def test_the_scopes_name_the_paths_the_pilot_was_pointed_at():
         "inst.eecs.berkeley.edu/~cs188/textbook/",
         "cs50.harvard.edu/ai/",
         "ocw.mit.edu/courses/6-034-artificial-intelligence-",
+        "plato.stanford.edu/entries/artificial-intelligence/",
         "redblobgames.com/pathfinding/",
     }
 

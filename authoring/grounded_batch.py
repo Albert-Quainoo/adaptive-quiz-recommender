@@ -11,14 +11,15 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field, field_validator
 
+from api.bank import BankItem
 from api.prompt_builder import PROMPT_VERSION, build_grounded_quiz_messages
 from api.response_parser import parse_quiz_messages
 from api.schemas import QuizGenerationRequest, QuizQuestion, difficulty_level
 from authoring.question_intents import (
-    PILOT_BATCH_ID,
+    COLD_START_BATCH_ID,
     QuestionIntent,
     intents_by_skill,
-    load_pilot_blueprint,
+    load_blueprint_for_batch,
 )
 from authoring.grounding_briefs import grounding_brief
 from authoring.question_quality import generic_quality_issues
@@ -222,9 +223,6 @@ def validate_inputs(
             f"prompt version {config.prompt_version} does not match {PROMPT_VERSION}"
         )
 
-    if config.batch_id != PILOT_BATCH_ID:
-        raise BatchGenerationError(f"batch id must be {PILOT_BATCH_ID}")
-
     if config.model_id != model.model_id:
         raise BatchGenerationError(
             f"model id {config.model_id} does not match loaded model {model.model_id}"
@@ -266,6 +264,27 @@ def validate_inputs(
         references[skill_id].sort(key=lambda record: record.reference_id)
 
     return by_skill, references
+
+
+def validate_blueprint_config(config: BatchConfig) -> None:
+    if config.batch_id != COLD_START_BATCH_ID:
+        return
+    if config.skill_ids != ["AI-FND-01"]:
+        raise BatchGenerationError(
+            "the AI-FND-01 cold-start batch must select only AI-FND-01"
+        )
+    if config.questions_per_skill != 3:
+        raise BatchGenerationError(
+            "the AI-FND-01 cold-start batch must contain exactly three questions"
+        )
+    if config.difficulty != "introductory":
+        raise BatchGenerationError(
+            "the AI-FND-01 cold-start batch must use introductory difficulty"
+        )
+    if config.allow_intent_reuse:
+        raise BatchGenerationError(
+            "the AI-FND-01 cold-start batch cannot reuse question intents"
+        )
 
 
 def parse_raw_question(raw_response: str, intent_id: str) -> IntentQuestion:
@@ -359,6 +378,53 @@ def validate_pilot_question(
         explanation,
     ):
         raise ValueError("explanation contradicts the correct option")
+    if intent.skill_id == "AI-FND-01":
+        authoritative_text = " ".join(
+            (question.question, question.correct_answer, question.explanation)
+        )
+        lowered = authoritative_text.casefold()
+        if question.difficulty != "introductory":
+            raise ValueError("AI-FND-01 cold-start questions must be introductory")
+        if intent.intent_id == "AI-FND-01-INT-01" and re.search(
+            r"\b(?:entire|complete|full) list\b|\blist all\b", lowered
+        ):
+            raise ValueError("core-capabilities intent must not require full-list recall")
+        if intent.intent_id == "AI-FND-01-INT-02":
+            applications = (
+                "face",
+                "photograph",
+                "photo",
+                "game",
+                "chess",
+                "speech",
+                "siri",
+                "alexa",
+                "route",
+                "navigation",
+                "navigator",
+            )
+            if not any(term in lowered for term in applications):
+                raise ValueError(
+                    "real-world application intent needs a grounded concrete scenario"
+                )
+            if re.search(r"\bevery automated (?:system|process) is (?:an? )?ai\b", lowered):
+                raise ValueError("automation alone must not be presented as AI")
+        if intent.intent_id == "AI-FND-01-INT-03":
+            has_percept = any(
+                term in lowered
+                for term in ("percept", "environment", "detect", "sense", "sensor", "observ")
+            )
+            has_action = any(
+                term in lowered
+                for term in ("action", "choose", "select", "respond", "move", "stop", "turn")
+            )
+            if not has_percept or not has_action:
+                raise ValueError(
+                    "agent intent must connect an environmental percept to an action"
+                )
+            if re.search(r"\btuple notation\b|\bmathematical function definition\b", lowered):
+                raise ValueError("agent intent must not require formal notation")
+        return None
     if intent.skill_id != "AI-SRC-01":
         return None
 
@@ -414,6 +480,29 @@ def validate_pilot_question(
     if key is not None and key in accepted_component_keys:
         raise ValueError("semantically equivalent component-list question")
     return key
+
+
+def validate_cold_start_diversity(questions: Sequence[PendingQuestion]) -> None:
+    relevant = [
+        item for item in questions if item.batch_id == COLD_START_BATCH_ID
+    ]
+    if not relevant:
+        return
+    expected = {
+        "AI-FND-01-INT-01",
+        "AI-FND-01-INT-02",
+        "AI-FND-01-INT-03",
+    }
+    intent_ids = [item.intent_id for item in relevant]
+    if len(relevant) != 3 or set(intent_ids) != expected:
+        raise ValueError("cold-start batch must cover each of its three intents once")
+    stems = [normalise_question(item.question.question) for item in relevant]
+    if len(stems) != len(set(stems)):
+        raise ValueError("cold-start batch question texts must be distinct")
+    if sum(intent_id == "AI-FND-01-INT-03" for intent_id in intent_ids) != 1:
+        raise ValueError("cold-start batch must contain exactly one agent question")
+    if sum(intent_id == "AI-FND-01-INT-02" for intent_id in intent_ids) < 1:
+        raise ValueError("cold-start batch must contain a scenario-based application question")
 
 
 def corrective_prompt(status: AttemptStatus, validation_error: str) -> str:
@@ -545,7 +634,12 @@ def generate_batch(
     skills, references = validate_inputs(
         config, model, catalogue.skills, provenance
     )
-    blueprint = load_pilot_blueprint()
+    validate_blueprint_config(config)
+    blueprint = load_blueprint_for_batch(config.batch_id)
+    if blueprint.prompt_version != config.prompt_version:
+        raise BatchGenerationError(
+            "batch config prompt version does not match its intent blueprint"
+        )
     blueprint_skills = intents_by_skill(blueprint)
     selected_intents: list[QuestionIntent] = []
     reference_by_id = {
@@ -563,6 +657,17 @@ def generate_batch(
                 f"{len(pool)} distinct intents"
             )
         for intent in pool:
+            if intent.difficulty is not None and intent.difficulty != config.difficulty:
+                raise BatchGenerationError(
+                    f"{intent.intent_id} requires {intent.difficulty} difficulty"
+                )
+            if (
+                intent.learning_objective is not None
+                and intent.learning_objective != skills[skill_id].learning_objective
+            ):
+                raise BatchGenerationError(
+                    f"{intent.intent_id} learning objective is not canonical"
+                )
             missing = [
                 reference_id
                 for reference_id in intent.preferred_reference_ids
@@ -572,6 +677,16 @@ def generate_batch(
             if missing:
                 raise BatchGenerationError(
                     f"{intent.intent_id} has invalid preferred references: {', '.join(missing)}"
+                )
+            brief_reference_ids = grounding_brief(skill_id).intent_reference_ids.get(
+                intent.intent_id
+            )
+            if (
+                brief_reference_ids is not None
+                and brief_reference_ids != intent.preferred_reference_ids
+            ):
+                raise BatchGenerationError(
+                    f"{intent.intent_id} preferred references do not match its grounding brief"
                 )
         selected_intents.extend(pool)
 
@@ -720,6 +835,14 @@ def generate_batch(
                     )
                     parsed = parse_raw_question(raw_response, intent.intent_id)
                     validate_question(parsed)
+                    BankItem(
+                        item_id=question_id(
+                            config.batch_id, skill_id, question_index
+                        ),
+                        skill_id=skill_id,
+                        provenance="generated",
+                        question=parsed,
+                    )
                     normalised = normalise_question(parsed.question)
                     if normalised in seen_questions:
                         status = "duplicate"
@@ -816,6 +939,12 @@ def generate_batch(
     result_status: Literal["complete", "incomplete"] = (
         "incomplete" if failure else "complete"
     )
+    if not failure:
+        try:
+            validate_cold_start_diversity(questions)
+        except ValueError as error:
+            failure = str(error)
+            result_status = "incomplete"
     persist(failure, complete=not failure)
     return BatchResult(
         questions=questions,

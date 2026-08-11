@@ -19,6 +19,7 @@ env/
 !.env.example
 *.pem
 *.key
+.streamlit/secrets.toml
 
 # IDE files
 .vscode/

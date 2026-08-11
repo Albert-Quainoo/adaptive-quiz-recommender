@@ -1,10 +1,19 @@
-"""Print the proposed grounded-pilot v2 intent blueprints for review."""
+"""Print a versioned grounded-question intent blueprint for review."""
 
-from authoring.question_intents import format_blueprint_review, load_pilot_blueprint
+import argparse
+
+from authoring.question_intents import (
+    PILOT_BATCH_ID,
+    format_blueprint_review,
+    load_blueprint_for_batch,
+)
 
 
-def main() -> int:
-    print(format_blueprint_review(load_pilot_blueprint()))
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--batch-id", default=PILOT_BATCH_ID)
+    arguments = parser.parse_args(argv)
+    print(format_blueprint_review(load_blueprint_for_batch(arguments.batch_id)))
     return 0
 
 

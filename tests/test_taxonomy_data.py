@@ -40,7 +40,7 @@ SKILLS_PER_TOPIC = {
 # code, and hand-authored ones because a person writes them. This list should
 # shrink to nothing as references.csv is filled in.
 AWAITING_REFERENCE_MATERIAL = [
-    "AI-FND-01", "AI-FND-02", "AI-FND-03", "AI-FND-04",
+    "AI-FND-02", "AI-FND-03", "AI-FND-04",
     "AI-AGT-01", "AI-AGT-02", "AI-AGT-03", "AI-AGT-04", "AI-AGT-05",
     "AI-SRC-03", "AI-SRC-07", "AI-SRC-11",
     "AI-ML-01", "AI-ML-02", "AI-ML-03", "AI-ML-04", "AI-ML-05",
@@ -62,6 +62,10 @@ IMPLEMENTED_TEMPLATES = [
 DECLARED_BUT_UNIMPLEMENTED_TEMPLATES = []
 
 PILOT_REFERENCE_IDS = {
+    "AI-FND-01-8bbbddaf2aa6",
+    "AI-FND-01-b50c85fa00a5",
+    "AI-FND-01-d03d77e0aca2",
+    "AI-FND-01-f7c5eb1ccf76",
     "AI-SRC-01-4024dce75930",
     "AI-SRC-01-8ef4e1416152",
     "AI-SRC-01-9ba6548d4450",
@@ -144,8 +148,9 @@ def test_the_approved_pilot_skills_are_generation_ready():
 
     assert {
         skill_id: len(by_id[skill_id].reference_material)
-        for skill_id in ("AI-SRC-01", "AI-SRC-02", "AI-SRC-08")
+        for skill_id in ("AI-FND-01", "AI-SRC-01", "AI-SRC-02", "AI-SRC-08")
     } == {
+        "AI-FND-01": 4,
         "AI-SRC-01": 3,
         "AI-SRC-02": 2,
         "AI-SRC-08": 2,
