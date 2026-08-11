@@ -141,7 +141,7 @@ Status: **blueprint-approved**. This blueprint has not run Llama.
 - Prohibited ambiguity: Do not include two independent errors.; Do not use a multifunction component with unclear role.
 - Misconception/distractor strategy: Distractors should preserve the role swap or confuse the performance measure with an action.
 
-### AI-SRC-01-INT-01 — introductory
+### AI-SRC-01-INT-11 — introductory
 
 - Skill: AI-SRC-01
 - Canonical objective: Identify the initial state, actions, transition model, goal test and path cost of a search problem.
@@ -153,7 +153,7 @@ Status: **blueprint-approved**. This blueprint has not run Llama.
 - Prohibited ambiguity: Do not present initial state and start state as separate components.; Do not leave the starting configuration implicit.
 - Misconception/distractor strategy: Distractors should use an action, a resulting state, or the goal condition.
 
-### AI-SRC-01-INT-02 — introductory
+### AI-SRC-01-INT-12 — introductory
 
 - Skill: AI-SRC-01
 - Canonical objective: Identify the initial state, actions, transition model, goal test and path cost of a search problem.
@@ -165,7 +165,7 @@ Status: **blueprint-approved**. This blueprint has not run Llama.
 - Prohibited ambiguity: Do not use action and result interchangeably.; Do not require domain knowledge beyond the stated mapping.
 - Misconception/distractor strategy: Distractors should swap the action with its result or with the goal test.
 
-### AI-SRC-01-INT-03 — introductory
+### AI-SRC-01-INT-13 — introductory
 
 - Skill: AI-SRC-01
 - Canonical objective: Identify the initial state, actions, transition model, goal test and path cost of a search problem.
@@ -336,9 +336,9 @@ Base seed: `20260811`
 | AI-AGT-01-INT-04 | 3 | 1510062202 |
 | AI-AGT-01-INT-05 | 4 | 1239544048 |
 | AI-AGT-01-INT-06 | 5 | 4264789084 |
-| AI-SRC-01-INT-01 | 0 | 4129721347 |
-| AI-SRC-01-INT-02 | 1 | 3968689575 |
-| AI-SRC-01-INT-03 | 2 | 1982436537 |
+| AI-SRC-01-INT-11 | 0 | 4129721347 |
+| AI-SRC-01-INT-12 | 1 | 3968689575 |
+| AI-SRC-01-INT-13 | 2 | 1982436537 |
 | AI-SRC-02-INT-01 | 0 | 3641971561 |
 | AI-SRC-02-INT-02 | 1 | 2835183362 |
 | AI-SRC-02-INT-03 | 2 | 1584601142 |

@@ -64,6 +64,21 @@ def test_inventory_ids_ordering_and_designs_are_deterministic_and_distinct():
         ) == len(mine)
 
 
+def test_new_src_01_intents_do_not_reuse_legacy_validator_ids():
+    blueprint, _, _ = inputs()
+    current = {
+        intent.intent_id
+        for intent in blueprint.intents
+        if intent.skill_id == "AI-SRC-01"
+    }
+
+    assert current == {
+        "AI-SRC-01-INT-11",
+        "AI-SRC-01-INT-12",
+        "AI-SRC-01-INT-13",
+    }
+
+
 def test_every_mapping_is_approved_same_skill_provenance():
     blueprint, _, provenance = inputs()
     by_id = {record.reference_id: record for record in provenance}

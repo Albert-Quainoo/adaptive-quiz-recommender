@@ -164,7 +164,7 @@
       "generation_constraints": ["Use one-error misconception diagnosis.", "Provide one uniquely correct repair."]
     },
     {
-      "intent_id": "AI-SRC-01-INT-01",
+      "intent_id": "AI-SRC-01-INT-11",
       "skill_id": "AI-SRC-01",
       "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
       "difficulty": "introductory",
@@ -180,7 +180,7 @@
       "generation_constraints": ["Use introductory recognition.", "Do not ask for the full component inventory."]
     },
     {
-      "intent_id": "AI-SRC-01-INT-02",
+      "intent_id": "AI-SRC-01-INT-12",
       "skill_id": "AI-SRC-01",
       "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
       "difficulty": "introductory",
@@ -196,7 +196,7 @@
       "generation_constraints": ["Use one-step interpretation.", "Keep all mapping facts in the stem."]
     },
     {
-      "intent_id": "AI-SRC-01-INT-03",
+      "intent_id": "AI-SRC-01-INT-13",
       "skill_id": "AI-SRC-01",
       "learning_objective": "Identify the initial state, actions, transition model, goal test and path cost of a search problem.",
       "difficulty": "introductory",
