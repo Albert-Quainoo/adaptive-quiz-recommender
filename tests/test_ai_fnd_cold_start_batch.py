@@ -4,7 +4,13 @@ from datetime import datetime, timezone
 from api.bank import BankItem
 from api.prompt_builder import PROMPT_VERSION
 from api.schemas import QuizQuestion
-from authoring.grounded_batch import BatchConfig, generate_batch
+import pytest
+
+from authoring.grounded_batch import (
+    BatchConfig,
+    generate_batch,
+    validate_pilot_question,
+)
 from authoring.grounded_review import build_pending_review
 from authoring.grounding_briefs import grounding_brief
 from authoring.question_intents import (
@@ -184,3 +190,96 @@ def test_complete_batch_enters_pending_human_review_without_approval(tmp_path):
     assert len(review.items) == 3
     assert {item.final_review_status for item in review.items} == {"pending"}
     assert {item.intent_id for item in review.items} == set(EXPECTED_REFERENCES)
+
+
+def intent(intent_id):
+    blueprint = load_blueprint_for_batch(COLD_START_BATCH_ID)
+    return next(item for item in blueprint.intents if item.intent_id == intent_id)
+
+
+@pytest.mark.parametrize(
+    "intent_id,question,error",
+    [
+        (
+            "AI-FND-01-INT-01",
+            {
+                "question": "What is an example of a task that requires intelligent behaviour?",
+                "options": [
+                    "Playing a video game",
+                    "Translating text from one language to another",
+                    "Making decisions based on incomplete information",
+                    "Performing a series of pre-programmed calculations",
+                ],
+                "correct_answer": "Making decisions based on incomplete information",
+                "explanation": "Decision making is associated with intelligent systems.",
+                "concept": "Core capabilities",
+                "difficulty": "introductory",
+            },
+            "exactly one intelligent-capability option",
+        ),
+        (
+            "AI-FND-01-INT-02",
+            {
+                "question": "What is an example of a task that uses artificial intelligence?",
+                "options": [
+                    "Controlling a robotic arm to assemble a car",
+                    "Recognizing faces in photographs on social media",
+                    "Processing transactions at a cash register",
+                    "Playing a game and figuring out the next move",
+                ],
+                "correct_answer": "Recognizing faces in photographs on social media",
+                "explanation": "Face recognition is a concrete AI application.",
+                "concept": "AI application",
+                "difficulty": "introductory",
+            },
+            "exactly one grounded AI application",
+        ),
+        (
+            "AI-FND-01-INT-03",
+            {
+                "question": "What is the key characteristic of an intelligent agent?",
+                "options": [
+                    "It receives percepts and selects actions based on them",
+                    "It always repeats a fixed response",
+                    "It stores a large amount of data",
+                    "It performs every task without input",
+                ],
+                "correct_answer": "It receives percepts and selects actions based on them",
+                "explanation": "An agent receives percepts from its environment and selects actions.",
+                "concept": "Percepts and actions",
+                "difficulty": "introductory",
+            },
+            "connect an environmental percept to an action",
+        ),
+    ],
+)
+def test_live_ambiguous_candidates_are_rejected(intent_id, question, error):
+    with pytest.raises(ValueError, match=error):
+        validate_pilot_question(
+            QuizQuestion.model_validate(question), intent(intent_id), set()
+        )
+
+
+def test_unambiguous_scenario_revisions_pass_intent_validation():
+    revisions = {
+        "AI-FND-01-INT-01": {
+            "question": "An automated system observes changing road conditions and chooses another route when traffic builds up. Which capability does this demonstrate?",
+            "options": [
+                "Decision making based on current information",
+                "Repeating a fixed sequence regardless of conditions",
+                "Copying stored data without interpreting it",
+                "Performing the same calculation with unchanged inputs",
+            ],
+            "correct_answer": "Decision making based on current information",
+            "explanation": "Decision making is a core capability of intelligent systems; the system uses current conditions to choose a route.",
+            "concept": "Decision making as an intelligent-system capability",
+            "difficulty": "introductory",
+        },
+        "AI-FND-01-INT-02": QUESTIONS["AI-FND-01-INT-02"],
+        "AI-FND-01-INT-03": QUESTIONS["AI-FND-01-INT-03"],
+    }
+
+    for intent_id, question in revisions.items():
+        validate_pilot_question(
+            QuizQuestion.model_validate(question), intent(intent_id), set()
+        )

@@ -1,7 +1,8 @@
 import inspect
 
-from app.ui import feedback, login, progress, question
+from app.ui import content_gap, feedback, login, progress, question
 from app.view_models import (
+    ContentGapViewModel,
     ProgressViewModel,
     QuestionOptionViewModel,
     QuestionViewModel,
@@ -98,6 +99,7 @@ def test_component_signatures_match_the_streamlit_shell():
         "next_enabled",
     ]
     assert list(inspect.signature(progress.render_progress).parameters) == ["progress"]
+    assert list(inspect.signature(content_gap.render_content_gap).parameters) == ["gap"]
 
 
 def test_login_returns_only_a_submitted_normalized_learner_id(monkeypatch):
@@ -167,3 +169,30 @@ def test_progress_uses_probability_scale_and_readable_reason(monkeypatch):
     assert progress_call[2]["text"] == "Mastery: 80%"
     assert "Attempts: 3" in caption[1][0]
     assert info[1] == ("Ready for advanced practice.",)
+
+
+def test_content_gap_displays_progression_and_inventory_details(monkeypatch):
+    rendered = FakeStreamlit()
+    monkeypatch.setattr(content_gap, "st", rendered)
+    gap = ContentGapViewModel(
+        completed_skill_id="AI-FND-01",
+        completed_skill_name="Artificial intelligence",
+        newly_unlocked_skill_id="AI-AGT-01",
+        newly_unlocked_skill_name="Agent and environment",
+        missing_approved_content=True,
+        current_mastery_probability=0.8,
+        prerequisite_mastery_threshold=0.75,
+    )
+
+    content_gap.render_content_gap(gap)
+
+    rendered_text = "\n".join(
+        str(call[1][0]) for call in rendered.calls if call[0] in {"warning", "write"}
+    )
+    assert "Completed/mastered skill" in rendered_text
+    assert "AI-FND-01" in rendered_text
+    assert "Newly unlocked skill" in rendered_text
+    assert "AI-AGT-01" in rendered_text
+    assert "Missing approved content" in rendered_text
+    assert "Current mastery: 80%" in rendered_text
+    assert "Prerequisite threshold: 75%" in rendered_text

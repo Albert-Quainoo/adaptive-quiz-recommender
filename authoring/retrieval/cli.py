@@ -8,6 +8,7 @@ changes it.
 
 import argparse
 import csv
+import html
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -24,6 +25,7 @@ from authoring.retrieval.models import (
 from authoring.retrieval.pilot import (
     DEFAULT_STORE_PATH,
     PILOT_ALLOWED_DOMAINS,
+    PILOT_CLOSURE_SKILL_IDS,
     PILOT_SKILL_IDS,
     load_pilot_catalogue,
     plan_pilot,
@@ -169,6 +171,101 @@ def export(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def review_bundle(arguments: argparse.Namespace) -> int:
+    """Write a deterministic, strongest-first closure review bundle."""
+    catalogue = load_pilot_catalogue()
+    objectives = {
+        skill.skill_id: skill.learning_objective for skill in catalogue.skills
+    }
+    candidates = [
+        candidate
+        for candidate in CandidateStore(arguments.store).load()
+        if candidate.skill_id in PILOT_CLOSURE_SKILL_IDS
+        and candidate.review_status == "pending"
+    ]
+    domain_best: dict[tuple[str, str, str], int] = {}
+
+    for candidate in candidates:
+        group = (
+            candidate.skill_id,
+            candidate.learning_objective_facet,
+            candidate.source_domain,
+        )
+        domain_best[group] = max(
+            domain_best.get(group, candidate.relevance_score),
+            candidate.relevance_score,
+        )
+
+    candidates.sort(
+        key=lambda item: (
+            PILOT_CLOSURE_SKILL_IDS.index(item.skill_id),
+            item.learning_objective_facet,
+            -domain_best[
+                (item.skill_id, item.learning_objective_facet, item.source_domain)
+            ],
+            item.source_domain,
+            -item.relevance_score,
+            item.source_url,
+            item.candidate_id,
+        )
+    )
+
+    lines = [
+        "# Pilot-closure reference review",
+        "",
+        "All candidates are pending. Retrieval does not approve references.",
+    ]
+    current_skill = current_facet = current_domain = None
+
+    for candidate in candidates:
+        if candidate.skill_id != current_skill:
+            current_skill = candidate.skill_id
+            current_facet = current_domain = None
+            for_skill = [item for item in candidates if item.skill_id == current_skill]
+            domains = sorted({item.source_domain for item in for_skill})
+            lines += [
+                "",
+                f"## {current_skill}",
+                "",
+                f"Learning objective: {html.escape(objectives[current_skill])}",
+                "",
+                (
+                    f"Coverage: {len(for_skill)} pending candidate(s) across "
+                    f"{len(domains)} approved domain(s): "
+                    f"{html.escape(', '.join(domains))}. Target: approximately 5."
+                ),
+            ]
+        if candidate.learning_objective_facet != current_facet:
+            current_facet = candidate.learning_objective_facet
+            current_domain = None
+            lines += ["", f"### {html.escape(current_facet)}"]
+        if candidate.source_domain != current_domain:
+            current_domain = candidate.source_domain
+            lines += ["", f"#### {html.escape(current_domain)}"]
+
+        passage = html.escape(candidate.passage).replace("```", "` ` `")
+        lines += [
+            "",
+            f"- **{candidate.candidate_id}** — relevance {candidate.relevance_score}",
+            f"  - Title: {html.escape(candidate.title)}",
+            f"  - URL: {candidate.source_url}",
+            f"  - Matched: {html.escape(', '.join(candidate.matched_terms))}",
+            "",
+            "  ```text",
+            f"  {passage}",
+            "  ```",
+        ]
+
+    if not candidates:
+        lines += ["", "No pending pilot-closure candidates are available."]
+
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Wrote {len(candidates)} pending candidate(s) to {arguments.output}.")
+
+    return 0 if candidates else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m authoring.retrieval.cli",
@@ -227,6 +324,16 @@ def build_parser() -> argparse.ArgumentParser:
         "export", help="print approved candidates as references.csv rows, on stdout"
     )
     export_command.set_defaults(handler=export)
+
+    bundle_command = commands.add_parser(
+        "bundle", help="write the pending pilot-closure reference review bundle"
+    )
+    bundle_command.add_argument(
+        "--output",
+        type=Path,
+        default=Path("outputs/pilot_closure_reference_review.md"),
+    )
+    bundle_command.set_defaults(handler=review_bundle)
 
     return parser
 

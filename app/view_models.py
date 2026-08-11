@@ -67,3 +67,15 @@ class ProgressViewModel(BaseModel):
     attempt_count: int = Field(ge=0)
     difficulty: difficulty_level
     readable_recommendation_reason: str = Field(min_length=1)
+
+
+class ContentGapViewModel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    completed_skill_id: str = Field(min_length=1)
+    completed_skill_name: str = Field(min_length=1)
+    newly_unlocked_skill_id: str = Field(min_length=1)
+    newly_unlocked_skill_name: str = Field(min_length=1)
+    missing_approved_content: bool
+    current_mastery_probability: float = Field(ge=0.0, le=1.0)
+    prerequisite_mastery_threshold: float = Field(ge=0.0, le=1.0)

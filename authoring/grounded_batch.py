@@ -28,6 +28,7 @@ from taxonomy.schemas import ReferenceProvenance, SkillDefinition
 
 GenerationValue = bool | int | float | str
 AttemptStatus = Literal["accepted", "invalid", "duplicate"]
+BatchDifficulty = difficulty_level | Literal["mixed"]
 
 
 class BatchGenerationError(RuntimeError):
@@ -49,11 +50,11 @@ class BatchModel(Protocol):
 class BatchConfig(BaseModel):
     batch_id: str = Field(min_length=1)
     skill_ids: list[str] = Field(min_length=1)
-    questions_per_skill: int = Field(ge=1)
+    questions_per_skill: int | None = Field(default=None, ge=1)
     base_seed: int = Field(ge=0)
     model_id: str = Field(min_length=1)
     prompt_version: str = Field(min_length=1)
-    difficulty: difficulty_level = "intermediate"
+    difficulty: BatchDifficulty = "intermediate"
     max_attempts_per_question: int = Field(default=3, ge=1, le=20)
     allow_intent_reuse: bool = False
     generation_parameters: dict[str, GenerationValue] = Field(default_factory=dict)
@@ -287,6 +288,11 @@ def validate_blueprint_config(config: BatchConfig) -> None:
         )
 
 
+def slot_count(config: BatchConfig, intents: Sequence[QuestionIntent]) -> int:
+    """How many reviewed intents this skill contributes to the batch."""
+    return config.questions_per_skill or len(intents)
+
+
 def parse_raw_question(raw_response: str, intent_id: str) -> IntentQuestion:
     response = parse_quiz_messages(raw_response)
     if len(response.questions) != 1:
@@ -383,39 +389,72 @@ def validate_pilot_question(
             (question.question, question.correct_answer, question.explanation)
         )
         lowered = authoritative_text.casefold()
-        if question.difficulty != "introductory":
+        cold_start_intents = {
+            "AI-FND-01-INT-01",
+            "AI-FND-01-INT-02",
+            "AI-FND-01-INT-03",
+        }
+        if (
+            intent.intent_id in cold_start_intents
+            and question.difficulty != "introductory"
+        ):
             raise ValueError("AI-FND-01 cold-start questions must be introductory")
         if intent.intent_id == "AI-FND-01-INT-01" and re.search(
             r"\b(?:entire|complete|full) list\b|\blist all\b", lowered
         ):
             raise ValueError("core-capabilities intent must not require full-list recall")
-        if intent.intent_id == "AI-FND-01-INT-02":
-            applications = (
-                "face",
-                "photograph",
-                "photo",
-                "game",
-                "chess",
-                "speech",
-                "siri",
-                "alexa",
-                "route",
-                "navigation",
-                "navigator",
+        if intent.intent_id == "AI-FND-01-INT-01":
+            capability_pattern = re.compile(
+                r"\b(?:problem solving|reasoning|decisions?|decision making|"
+                r"learning|learns?|translating|translation|video games?|game playing)\b",
+                re.I,
             )
-            if not any(term in lowered for term in applications):
+            capable_options = [
+                option for option in question.options if capability_pattern.search(option)
+            ]
+            if len(capable_options) != 1:
                 raise ValueError(
-                    "real-world application intent needs a grounded concrete scenario"
+                    "core-capabilities intent needs exactly one intelligent-capability option"
+                )
+        if intent.intent_id == "AI-FND-01-INT-02":
+            application_pattern = re.compile(
+                r"\b(?:faces?|photographs?|photos?|games?|chess|speech|siri|alexa|"
+                r"routes?|navigation|navigator)\b",
+                re.I,
+            )
+            application_options = [
+                option for option in question.options if application_pattern.search(option)
+            ]
+            if len(application_options) != 1 or not application_pattern.search(
+                question.correct_answer
+            ):
+                raise ValueError(
+                    "real-world application intent needs exactly one grounded AI application"
+                )
+            incorrect_options = [
+                option
+                for option in question.options
+                if option != question.correct_answer
+            ]
+            fixed_pattern = re.compile(
+                r"\b(?:fixed|preset|same|exactly|regardless|without interpreting|"
+                r"unchanged|pre-programmed|rule-based|calculator|timer|conveyor)\b",
+                re.I,
+            )
+            if any(not fixed_pattern.search(option) for option in incorrect_options):
+                raise ValueError(
+                    "real-world application distractors must be explicitly fixed operations"
                 )
             if re.search(r"\bevery automated (?:system|process) is (?:an? )?ai\b", lowered):
                 raise ValueError("automation alone must not be presented as AI")
         if intent.intent_id == "AI-FND-01-INT-03":
+            stem = question.question.casefold()
             has_percept = any(
-                term in lowered
+                term in stem
                 for term in ("percept", "environment", "detect", "sense", "sensor", "observ")
             )
             has_action = any(
-                term in lowered
+                term in stem
                 for term in ("action", "choose", "select", "respond", "move", "stop", "turn")
             )
             if not has_percept or not has_action:
@@ -602,7 +641,7 @@ def write_artifacts(
         "slot_intent_ids": {
             skill_id: [
                 intents[index % len(intents)].intent_id
-                for index in range(config.questions_per_skill)
+                for index in range(slot_count(config, intents))
             ]
             for skill_id, intents in {
                 skill_id: [intent for intent in intents if intent.skill_id == skill_id]
@@ -651,13 +690,22 @@ def generate_batch(
         pool = blueprint_skills.get(skill_id, [])
         if not pool:
             raise BatchGenerationError(f"{skill_id} has no reviewed question intents")
-        if config.questions_per_skill > len(pool) and not config.allow_intent_reuse:
+        requested = slot_count(config, pool)
+        if requested > len(pool) and not config.allow_intent_reuse:
             raise BatchGenerationError(
-                f"{skill_id} requests {config.questions_per_skill} slots but has only "
+                f"{skill_id} requests {requested} slots but has only "
                 f"{len(pool)} distinct intents"
             )
         for intent in pool:
-            if intent.difficulty is not None and intent.difficulty != config.difficulty:
+            if config.difficulty == "mixed" and intent.difficulty is None:
+                raise BatchGenerationError(
+                    f"{intent.intent_id} needs an explicit difficulty for a mixed batch"
+                )
+            if (
+                config.difficulty != "mixed"
+                and intent.difficulty is not None
+                and intent.difficulty != config.difficulty
+            ):
                 raise BatchGenerationError(
                     f"{intent.intent_id} requires {intent.difficulty} difficulty"
                 )
@@ -735,7 +783,10 @@ def generate_batch(
 
     def summary() -> BatchSummary:
         return BatchSummary(
-            requested=len(config.skill_ids) * config.questions_per_skill,
+            requested=sum(
+                slot_count(config, blueprint_skills[skill_id])
+                for skill_id in config.skill_ids
+            ),
             accepted=len(questions),
             rejected=sum(a.validation_status == "invalid" for a in attempts),
             duplicated=sum(a.validation_status == "duplicate" for a in attempts),
@@ -763,7 +814,7 @@ def generate_batch(
         skill = skills[skill_id]
         pool = blueprint_skills[skill_id]
 
-        for question_index in range(config.questions_per_skill):
+        for question_index in range(slot_count(config, pool)):
             if (skill_id, question_index) in accepted_slots:
                 continue
             intent = pool[question_index % len(pool)]
@@ -776,9 +827,16 @@ def generate_batch(
                 for reference_id in intent.preferred_reference_ids
             ]
             reference_ids = [record.reference_id for record in source_records]
+            requested_difficulty = (
+                intent.difficulty if config.difficulty == "mixed" else config.difficulty
+            )
+            if requested_difficulty is None:
+                raise BatchGenerationError(
+                    f"{intent.intent_id} has no generation difficulty"
+                )
             request = QuizGenerationRequest(
                 topic=skill.name,
-                difficulty=config.difficulty,
+                difficulty=requested_difficulty,
                 learning_objective=skill.learning_objective,
                 question_count=1,
                 reference_material=[
@@ -835,6 +893,10 @@ def generate_batch(
                     )
                     parsed = parse_raw_question(raw_response, intent.intent_id)
                     validate_question(parsed)
+                    if parsed.difficulty != requested_difficulty:
+                        raise ValueError(
+                            "question difficulty does not match the assigned intent"
+                        )
                     BankItem(
                         item_id=question_id(
                             config.batch_id, skill_id, question_index

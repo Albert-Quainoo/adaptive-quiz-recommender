@@ -1,0 +1,282 @@
+{
+  "base_seed": 20260811,
+  "batch_id": "grounded-pilot-20260811-v3",
+  "checks": {
+    "ai_src_03_conventions_explicit": true,
+    "all_six_skills_covered": true,
+    "approved_reference_mappings": true,
+    "correct_skill_and_difficulty_counts": true,
+    "deterministic_ordering": true,
+    "exactly_24_intents": true,
+    "sufficient_intent_diversity": true,
+    "supported_difficulties_only": true,
+    "unique_intent_ids": true
+  },
+  "difficulty_counts": {
+    "intermediate": 9,
+    "introductory": 15
+  },
+  "generation_command": "python -m scripts.generate_grounded_batch \\\n  --batch-id grounded-pilot-20260811-v3 \\\n  --skill-id AI-FND-01 \\\n  --skill-id AI-AGT-01 \\\n  --skill-id AI-SRC-01 \\\n  --skill-id AI-SRC-02 \\\n  --skill-id AI-SRC-03 \\\n  --skill-id AI-SRC-08 \\\n  --all-blueprint-intents \\\n  --base-seed 20260811 \\\n  --output outputs/grounded-pilot-20260811-v3 \\\n  --model-id \"$MODEL_REPOSITORY\" \\\n  --prompt-version v3.3 \\\n  --difficulty mixed",
+  "intent_count": 24,
+  "llama_run_status": "not-run",
+  "proposed_first_attempt_seeds": [
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-FND-01-INT-04",
+      "question_index": 0,
+      "seed": 1624431487,
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-FND-01-INT-05",
+      "question_index": 1,
+      "seed": 3751862752,
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-FND-01-INT-06",
+      "question_index": 2,
+      "seed": 965594951,
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-01",
+      "question_index": 0,
+      "seed": 3421874111,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-02",
+      "question_index": 1,
+      "seed": 288316075,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-03",
+      "question_index": 2,
+      "seed": 2156472931,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-04",
+      "question_index": 3,
+      "seed": 1510062202,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-05",
+      "question_index": 4,
+      "seed": 1239544048,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-AGT-01-INT-06",
+      "question_index": 5,
+      "seed": 4264789084,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-01-INT-01",
+      "question_index": 0,
+      "seed": 4129721347,
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-01-INT-02",
+      "question_index": 1,
+      "seed": 3968689575,
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-01-INT-03",
+      "question_index": 2,
+      "seed": 1982436537,
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-02-INT-01",
+      "question_index": 0,
+      "seed": 3641971561,
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-02-INT-02",
+      "question_index": 1,
+      "seed": 2835183362,
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-02-INT-03",
+      "question_index": 2,
+      "seed": 1584601142,
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-01",
+      "question_index": 0,
+      "seed": 2851759830,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-02",
+      "question_index": 1,
+      "seed": 2170737470,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-03",
+      "question_index": 2,
+      "seed": 671124761,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-04",
+      "question_index": 3,
+      "seed": 1537508959,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-05",
+      "question_index": 4,
+      "seed": 1696686317,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-03-INT-06",
+      "question_index": 5,
+      "seed": 2078111574,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-08-INT-01",
+      "question_index": 0,
+      "seed": 3101149788,
+      "skill_id": "AI-SRC-08"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-08-INT-02",
+      "question_index": 1,
+      "seed": 1319962358,
+      "skill_id": "AI-SRC-08"
+    },
+    {
+      "attempt_index": 0,
+      "intent_id": "AI-SRC-08-INT-03",
+      "question_index": 2,
+      "seed": 2138054861,
+      "skill_id": "AI-SRC-08"
+    }
+  ],
+  "questions_per_intent": 1,
+  "reference_readiness": {
+    "AI-AGT-01": {
+      "approved_count": 2,
+      "domains": [
+        "cs50.harvard.edu",
+        "inst.eecs.berkeley.edu"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-AGT-01-31af4c58c9a1",
+        "AI-AGT-01-8efa49112c14"
+      ]
+    },
+    "AI-FND-01": {
+      "approved_count": 4,
+      "domains": [
+        "cs50.harvard.edu",
+        "inst.eecs.berkeley.edu",
+        "ocw.mit.edu",
+        "plato.stanford.edu"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-FND-01-8bbbddaf2aa6",
+        "AI-FND-01-b50c85fa00a5",
+        "AI-FND-01-d03d77e0aca2",
+        "AI-FND-01-f7c5eb1ccf76"
+      ]
+    },
+    "AI-SRC-01": {
+      "approved_count": 3,
+      "domains": [
+        "cs50.harvard.edu",
+        "inst.eecs.berkeley.edu"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-SRC-01-4024dce75930",
+        "AI-SRC-01-8ef4e1416152",
+        "AI-SRC-01-9ba6548d4450"
+      ]
+    },
+    "AI-SRC-02": {
+      "approved_count": 2,
+      "domains": [
+        "inst.eecs.berkeley.edu"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-SRC-02-a506d362b314",
+        "AI-SRC-02-aa97b7fb3bd9"
+      ]
+    },
+    "AI-SRC-03": {
+      "approved_count": 3,
+      "domains": [
+        "cs50.harvard.edu",
+        "inst.eecs.berkeley.edu"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-SRC-03-0ccb1b224a85",
+        "AI-SRC-03-d4bae55f5e66",
+        "AI-SRC-03-e7ed23f73259"
+      ]
+    },
+    "AI-SRC-08": {
+      "approved_count": 2,
+      "domains": [
+        "inst.eecs.berkeley.edu",
+        "www.redblobgames.com"
+      ],
+      "ready": true,
+      "reference_ids": [
+        "AI-SRC-08-a366da363e17",
+        "AI-SRC-08-cbd77b22bcb9"
+      ]
+    }
+  },
+  "skill_difficulty_counts": {
+    "AI-AGT-01:intermediate": 3,
+    "AI-AGT-01:introductory": 3,
+    "AI-FND-01:intermediate": 3,
+    "AI-SRC-01:introductory": 3,
+    "AI-SRC-02:introductory": 3,
+    "AI-SRC-03:intermediate": 3,
+    "AI-SRC-03:introductory": 3,
+    "AI-SRC-08:introductory": 3
+  }
+}

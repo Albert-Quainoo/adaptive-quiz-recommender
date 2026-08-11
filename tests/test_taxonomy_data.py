@@ -41,8 +41,8 @@ SKILLS_PER_TOPIC = {
 # shrink to nothing as references.csv is filled in.
 AWAITING_REFERENCE_MATERIAL = [
     "AI-FND-02", "AI-FND-03", "AI-FND-04",
-    "AI-AGT-01", "AI-AGT-02", "AI-AGT-03", "AI-AGT-04", "AI-AGT-05",
-    "AI-SRC-03", "AI-SRC-07", "AI-SRC-11",
+    "AI-AGT-02", "AI-AGT-03", "AI-AGT-04", "AI-AGT-05",
+    "AI-SRC-07", "AI-SRC-11",
     "AI-ML-01", "AI-ML-02", "AI-ML-03", "AI-ML-04", "AI-ML-05",
     "AI-ML-06", "AI-ML-07", "AI-ML-08", "AI-ML-09",
     "AI-NN-01", "AI-NN-02", "AI-NN-03", "AI-NN-04",
@@ -66,11 +66,16 @@ PILOT_REFERENCE_IDS = {
     "AI-FND-01-b50c85fa00a5",
     "AI-FND-01-d03d77e0aca2",
     "AI-FND-01-f7c5eb1ccf76",
+    "AI-AGT-01-31af4c58c9a1",
+    "AI-AGT-01-8efa49112c14",
     "AI-SRC-01-4024dce75930",
     "AI-SRC-01-8ef4e1416152",
     "AI-SRC-01-9ba6548d4450",
     "AI-SRC-02-a506d362b314",
     "AI-SRC-02-aa97b7fb3bd9",
+    "AI-SRC-03-0ccb1b224a85",
+    "AI-SRC-03-d4bae55f5e66",
+    "AI-SRC-03-e7ed23f73259",
     "AI-SRC-08-a366da363e17",
     "AI-SRC-08-cbd77b22bcb9",
 }
@@ -148,11 +153,20 @@ def test_the_approved_pilot_skills_are_generation_ready():
 
     assert {
         skill_id: len(by_id[skill_id].reference_material)
-        for skill_id in ("AI-FND-01", "AI-SRC-01", "AI-SRC-02", "AI-SRC-08")
+        for skill_id in (
+            "AI-FND-01",
+            "AI-AGT-01",
+            "AI-SRC-01",
+            "AI-SRC-02",
+            "AI-SRC-03",
+            "AI-SRC-08",
+        )
     } == {
         "AI-FND-01": 4,
+        "AI-AGT-01": 2,
         "AI-SRC-01": 3,
         "AI-SRC-02": 2,
+        "AI-SRC-03": 3,
         "AI-SRC-08": 2,
     }
 

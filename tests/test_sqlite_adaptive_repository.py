@@ -16,6 +16,7 @@ from bkt import (
     SQLiteBKTRepository,
 )
 from recommendation import (
+    ContentGapResult,
     RecommendationPolicyConfig,
     RecommendationRequest,
     RecommendationService,
@@ -360,4 +361,43 @@ def test_recommendations_are_persisted_with_versions_and_learners_are_isolated(
     assert unseen_events[0].reason == "foundational_unseen_skill"
     assert reopened.list_attempts(learner_id="learner-2") == []
     assert reopened.list_latest_mastery("learner-2") == []
+    reopened.close()
+
+
+def test_content_gap_result_is_persisted_with_mastery_and_threshold(tmp_path):
+    database = tmp_path / "content-gaps.sqlite3"
+    repository = SQLiteRecommendationRepository(
+        database,
+        skills=[_skill("AI-SQL-01")],
+        items=[_item("AI-SQL-01")],
+    )
+    repository.initialize_schema()
+    result = ContentGapResult(
+        learner_id="learner-1",
+        completed_skill_id="AI-SQL-01",
+        completed_skill_name="SQL foundation",
+        newly_unlocked_skill_id="AI-SQL-02",
+        newly_unlocked_skill_name="SQL application",
+        current_mastery_probability=0.8,
+        prerequisite_mastery_threshold=0.75,
+        model_version="sqlite-model-v1",
+        policy_version="sqlite-policy-v1",
+    )
+    repository.save_content_gap(result)
+    repository.close()
+
+    reopened = SQLiteRecommendationRepository(
+        database,
+        skills=[_skill("AI-SQL-01")],
+        items=[_item("AI-SQL-01")],
+    )
+    events = reopened.list_content_gaps(learner_id="learner-1")
+
+    assert len(events) == 1
+    assert events[0].completed_skill_id == "AI-SQL-01"
+    assert events[0].newly_unlocked_skill_id == "AI-SQL-02"
+    assert events[0].missing_approved_content is True
+    assert events[0].current_mastery_probability == 0.8
+    assert events[0].prerequisite_mastery_threshold == 0.75
+    assert events[0].created_at.tzinfo is not None
     reopened.close()

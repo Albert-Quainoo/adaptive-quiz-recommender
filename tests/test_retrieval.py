@@ -35,6 +35,7 @@ from authoring.retrieval.models import (
 from authoring.retrieval.passage import query_terms, reads_as_prose
 from authoring.retrieval.pilot import (
     PILOT_ALLOWED_DOMAINS,
+    PILOT_CLOSURE_SKILL_IDS,
     PILOT_SKILL_IDS,
     PILOT_SOURCE_SCOPES,
     domains_for,
@@ -74,6 +75,7 @@ from authoring.retrieval.search import (
     build_search_queries,
     build_search_schedule,
     known_for,
+    learning_objective_facet_for,
     passage_query_for,
     retrieve_candidates,
 )
@@ -316,6 +318,68 @@ def test_every_query_is_issued_to_the_provider():
     run(provider, FakePageFetcher({}))
 
     assert provider.queries == build_search_queries(skill())
+
+
+@pytest.mark.parametrize(
+    ("skill_id", "objective_concepts"),
+    [
+        ("AI-AGT-01", {"agent", "environment"}),
+        ("AI-SRC-03", {"frontier", "reached"}),
+    ],
+)
+def test_closure_queries_are_facet_specific_and_use_objective_concepts(
+    skill_id, objective_concepts
+):
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), [skill_id])[0]
+    queries = build_search_queries(catalogue_skill)
+
+    assert len(queries) == 3
+    assert all(objective_concepts.issubset(set(query.lower().split())) for query in queries)
+    joined = " ".join(queries).lower()
+    if skill_id == "AI-AGT-01":
+        assert "sensors" in joined and "actuators" in joined
+    else:
+        assert "node" in joined and "expansion" in joined
+    assert {
+        learning_objective_facet_for(catalogue_skill, query) for query in queries
+    } == {
+        "definition or core concept",
+        "component relationships",
+        (
+            "concrete example, simple application, or misconception"
+            if skill_id == "AI-AGT-01"
+            else "comparison, simple application, or misconception"
+        ),
+    }
+
+
+def test_closure_skills_have_three_reviewed_source_scopes():
+    for skill_id in PILOT_CLOSURE_SKILL_IDS:
+        assert len(scopes_for(skill_id)) == 3
+        assert {scope.domain for scope in scopes_for(skill_id)}.issubset(
+            PILOT_ALLOWED_DOMAINS
+        )
+
+
+def test_agent_relevance_accepts_perception_and_action_wording():
+    catalogue_skill = pilot_skills(load_pilot_catalogue(), ["AI-AGT-01"])[0]
+    passage = (
+        "An agent perceives its environment and acts upon that "
+        "environment. Percepts provide the agent's input, while its actions "
+        "change the environment as it pursues a goal."
+    )
+    scored = score_relevance(
+        catalogue_skill,
+        "https://cs50.harvard.edu/ai/notes/0/",
+        "Introduction to Artificial Intelligence with Python",
+        "Agent and environment",
+        passage,
+        scopes=scopes_for("AI-AGT-01"),
+    )
+
+    assert scored.passage_coverage_passed
+    assert scored.passage_context == ("intelligent agent",)
+    assert scored.is_relevant()
 
 
 # Domain allowlisting

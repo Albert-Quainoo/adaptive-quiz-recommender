@@ -6,7 +6,12 @@ from uuid import uuid4
 from api.bank import BankItem
 from bkt.schemas import MasterySnapshot
 from bkt.sqlite_repository import SQLiteBKTRepository, _aware_datetime, _utc_iso
-from recommendation.schemas import RecommendationEvent, RecommendationResult
+from recommendation.schemas import (
+    ContentGapEvent,
+    ContentGapResult,
+    RecommendationEvent,
+    RecommendationResult,
+)
 from taxonomy.schemas import SkillDefinition
 
 
@@ -162,6 +167,76 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 item_id=row["item_id"],
                 difficulty=row["difficulty"],
                 mastery_probability=row["mastery_probability"],
+                reason=row["reason"],
+                model_version=row["model_version"],
+                policy_version=row["policy_version"],
+                created_at=_aware_datetime(row["created_at"]),
+            )
+            for row in rows
+        ]
+
+    def save_content_gap(self, gap: ContentGapResult) -> ContentGapEvent:
+        event = ContentGapEvent(
+            **gap.model_dump(),
+            content_gap_id=str(uuid4()),
+            created_at=datetime.now(timezone.utc),
+        )
+        with self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO content_gap_events (
+                    content_gap_id, learner_id, completed_skill_id,
+                    completed_skill_name, newly_unlocked_skill_id,
+                    newly_unlocked_skill_name, missing_approved_content,
+                    current_mastery_probability, prerequisite_mastery_threshold,
+                    reason, model_version, policy_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event.content_gap_id,
+                    event.learner_id,
+                    event.completed_skill_id,
+                    event.completed_skill_name,
+                    event.newly_unlocked_skill_id,
+                    event.newly_unlocked_skill_name,
+                    int(event.missing_approved_content),
+                    event.current_mastery_probability,
+                    event.prerequisite_mastery_threshold,
+                    event.reason,
+                    event.model_version,
+                    event.policy_version,
+                    _utc_iso(event.created_at),
+                ),
+            )
+        return event
+
+    def list_content_gaps(
+        self, *, learner_id: str | None = None
+    ) -> list[ContentGapEvent]:
+        if learner_id is None:
+            rows = self._connection.execute(
+                "SELECT * FROM content_gap_events ORDER BY created_at, content_gap_id"
+            ).fetchall()
+        else:
+            rows = self._connection.execute(
+                """
+                SELECT * FROM content_gap_events
+                WHERE learner_id = ?
+                ORDER BY created_at, content_gap_id
+                """,
+                (learner_id,),
+            ).fetchall()
+        return [
+            ContentGapEvent(
+                content_gap_id=row["content_gap_id"],
+                learner_id=row["learner_id"],
+                completed_skill_id=row["completed_skill_id"],
+                completed_skill_name=row["completed_skill_name"],
+                newly_unlocked_skill_id=row["newly_unlocked_skill_id"],
+                newly_unlocked_skill_name=row["newly_unlocked_skill_name"],
+                missing_approved_content=bool(row["missing_approved_content"]),
+                current_mastery_probability=row["current_mastery_probability"],
+                prerequisite_mastery_threshold=row["prerequisite_mastery_threshold"],
                 reason=row["reason"],
                 model_version=row["model_version"],
                 policy_version=row["policy_version"],

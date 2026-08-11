@@ -492,3 +492,41 @@ def test_an_unscored_candidate_says_so_rather_than_showing_a_zero(store, capsys)
     main(["--store", str(store.path), "list"])
 
     assert "not scored" in capsys.readouterr().out
+
+
+def test_bundle_groups_pending_closure_candidates_and_ranks_within_source(
+    store, tmp_path, capsys
+):
+    first = new_candidate(
+        skill_id="AI-AGT-01",
+        title="Agents",
+        source_url="https://inst.eecs.berkeley.edu/~cs188/textbook/agents/a.html",
+        source_domain="inst.eecs.berkeley.edu",
+        passage="An intelligent agent perceives an environment through sensors and acts on it through actuators. " * 2,
+        retrieved_at=FIXED_TIME,
+        relevance_score=12,
+        learning_objective_facet="component relationships",
+    )
+    strongest = new_candidate(
+        skill_id="AI-AGT-01",
+        title="Agent and environment",
+        source_url="https://inst.eecs.berkeley.edu/~cs188/textbook/agents/b.html",
+        source_domain="inst.eecs.berkeley.edu",
+        passage="An agent uses sensors for percepts and actuators for actions that affect its environment. " * 3,
+        retrieved_at=FIXED_TIME,
+        relevance_score=18,
+        learning_objective_facet="component relationships",
+    )
+    store.add([first, strongest])
+    output = tmp_path / "review.md"
+
+    assert main(["--store", str(store.path), "bundle", "--output", str(output)]) == 0
+
+    rendered = output.read_text()
+    assert "## AI-AGT-01" in rendered
+    assert "### component relationships" in rendered
+    assert "#### inst.eecs.berkeley.edu" in rendered
+    assert "All candidates are pending" in rendered
+    assert "Coverage: 2 pending candidate(s) across 1 approved domain(s)" in rendered
+    assert rendered.index(strongest.candidate_id) < rendered.index(first.candidate_id)
+    assert "Wrote 2 pending candidate(s)" in capsys.readouterr().out

@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -25,6 +26,12 @@ class QuestionIntent(BaseModel):
     prohibited_conflations: list[str] = Field(min_length=1)
     difficulty: difficulty_level | None = None
     learning_objective: str | None = Field(default=None, min_length=1)
+    cognitive_demand: str | None = Field(default=None, min_length=1)
+    required_question_characteristics: list[str] = Field(default_factory=list)
+    prohibited_ambiguity_patterns: list[str] = Field(default_factory=list)
+    expected_misconception_or_distractor_strategy: list[str] = Field(
+        default_factory=list
+    )
     generation_constraints: list[str] = Field(default_factory=list)
 
     @field_validator("intent_id", "skill_id", mode="before")
@@ -39,6 +46,10 @@ class QuestionIntent(BaseModel):
         "required_concepts",
         "prohibited_conflations",
         "learning_objective",
+        "cognitive_demand",
+        "required_question_characteristics",
+        "prohibited_ambiguity_patterns",
+        "expected_misconception_or_distractor_strategy",
         "generation_constraints",
         mode="before",
     )
@@ -63,6 +74,9 @@ class PilotBlueprint(BaseModel):
     batch_id: str
     prompt_version: str
     review_status: str
+    base_seed: int | None = Field(default=None, ge=0)
+    questions_per_intent: Literal[1] = 1
+    skill_conventions: dict[str, list[str]] = Field(default_factory=dict)
     intents: list[QuestionIntent] = Field(min_length=1)
 
     @model_validator(mode="after")

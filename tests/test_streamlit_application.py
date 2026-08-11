@@ -12,6 +12,7 @@ from taxonomy.schemas import SkillDefinition
 
 from app.controller import (
     ApplicationController,
+    ContentGapError,
     InvalidOptionError,
     NoApprovedItemError,
     NoRecommendationError,
@@ -67,8 +68,8 @@ def item(item_id, skill_id):
     )
 
 
-def build_controller(database, *, items=None, token="token-1"):
-    skills = [skill(FOUNDATION), skill(DEPENDENT, [FOUNDATION])]
+def build_controller(database, *, items=None, skills=None, token="token-1"):
+    skills = skills or [skill(FOUNDATION), skill(DEPENDENT, [FOUNDATION])]
     items = items if items is not None else [
         item("foundation-item", FOUNDATION),
         item("dependent-item", DEPENDENT),
@@ -267,3 +268,34 @@ def test_no_recommendation_is_mapped_to_application_error(tmp_path):
     controller.recommendation_service = UnavailableService()
     with pytest.raises(NoRecommendationError):
         controller.recommend_question("learner-1", [])
+
+
+def test_unlocked_missing_content_has_a_specific_application_result(tmp_path):
+    bridge = "AI-APP-02"
+    target = "AI-APP-03"
+    skills = [
+        skill(FOUNDATION),
+        skill(bridge, [FOUNDATION]),
+        skill(target, [bridge]),
+    ]
+    controller, repository = build_controller(
+        tmp_path / "content-gap.sqlite3",
+        skills=skills,
+        items=[item("foundation-item", FOUNDATION), item("target-item", target)],
+    )
+    question = controller.recommend_question("learner-1", [])
+    controller.submit_answer(
+        "learner-1", question.presentation_id, option(question, "Correct")
+    )
+
+    with pytest.raises(ContentGapError) as raised:
+        controller.recommend_question("learner-1", [question.item_id])
+
+    gap = raised.value.content_gap
+    assert gap.completed_skill_id == FOUNDATION
+    assert gap.newly_unlocked_skill_id == bridge
+    assert gap.missing_approved_content is True
+    assert gap.current_mastery_probability == 0.8
+    assert gap.prerequisite_mastery_threshold == 0.75
+    assert repository.list_recommendations(learner_id="learner-1")[-1].skill_id == FOUNDATION
+    assert len(repository.list_content_gaps(learner_id="learner-1")) == 1

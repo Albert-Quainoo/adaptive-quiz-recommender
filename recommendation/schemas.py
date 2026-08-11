@@ -58,3 +58,28 @@ class RecommendationEvent(RecommendationResult):
 
     recommendation_id: str = Field(min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ContentGapResult(BaseModel):
+    """An unlocked pilot skill that cannot be served from the approved bank."""
+
+    model_config = ConfigDict(frozen=True)
+
+    learner_id: str = Field(min_length=1)
+    completed_skill_id: str = Field(min_length=1)
+    completed_skill_name: str = Field(min_length=1)
+    newly_unlocked_skill_id: str = Field(min_length=1)
+    newly_unlocked_skill_name: str = Field(min_length=1)
+    missing_approved_content: bool = True
+    current_mastery_probability: float = Field(ge=0.0, le=1.0)
+    prerequisite_mastery_threshold: float = Field(ge=0.0, le=1.0)
+    reason: Literal["missing_approved_content_for_unlocked_skill"] = (
+        "missing_approved_content_for_unlocked_skill"
+    )
+    model_version: str = Field(min_length=1)
+    policy_version: str = Field(min_length=1)
+
+
+class ContentGapEvent(ContentGapResult):
+    content_gap_id: str = Field(min_length=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

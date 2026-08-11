@@ -18,6 +18,16 @@ FinalReviewStatus = Literal["pending", "approved", "rejected"]
 Recommendation = Literal["propose_revision", "reject"]
 
 
+def question_content_hash(question: QuizQuestion) -> str:
+    encoded = json.dumps(
+        question.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 class QuestionRevision(BaseModel):
     original_question_id: str = Field(min_length=1)
     revision_id: str = Field(min_length=1)
@@ -38,6 +48,7 @@ class QuestionRevision(BaseModel):
     reviewed_at: datetime | None = None
     rejection_reason: str | None = None
     question: QuizQuestion
+    content_hash: str | None = None
 
     @model_validator(mode="after")
     def decision_metadata_matches_status(self) -> "QuestionRevision":
@@ -46,6 +57,11 @@ class QuestionRevision(BaseModel):
             raise ValueError("a decided revision needs reviewer and review time")
         if self.final_review_status == "rejected" and not self.rejection_reason:
             raise ValueError("a rejected revision needs a reason")
+        expected_hash = question_content_hash(self.question)
+        if self.content_hash is None:
+            self.content_hash = expected_hash
+        elif self.content_hash != expected_hash:
+            raise ValueError("revision content_hash does not match its question")
         return self
 
 
@@ -449,7 +465,7 @@ def export_approved_bank_items(review: GroundedReview) -> list[BankItem]:
         )
         exported.append(
             BankItem(
-                item_id=item.original_question_id,
+                item_id=revision.revision_id,
                 question=revision.question,
                 provenance="generated",
                 skill_id=item.skill_id,
@@ -461,7 +477,17 @@ def export_approved_bank_items(review: GroundedReview) -> list[BankItem]:
 def approved_item_provenance(
     review: GroundedReview, item_id: str
 ) -> ApprovedItemProvenance:
-    item = get_item(review, item_id)
+    item = next(
+        (
+            item
+            for item in review.items
+            if item.original_question_id == item_id
+            or any(revision.revision_id == item_id for revision in item.revisions)
+        ),
+        None,
+    )
+    if item is None:
+        raise KeyError(item_id)
     if item.final_review_status != "approved":
         raise ValueError(f"{item_id} is not approved")
     revision = next(
@@ -486,7 +512,7 @@ def approved_item_provenance(
     if missing:
         raise ValueError("approved provenance is incomplete: " + ", ".join(missing))
     return ApprovedItemProvenance(
-        item_id=item.original_question_id,
+        item_id=revision.revision_id,
         original_question_id=item.original_question_id,
         revision_id=revision.revision_id,
         reference_ids=revision.reference_ids,

@@ -5,7 +5,7 @@ import logging
 import streamlit as st
 
 from app.bootstrap import AppSettings, BootstrapError, build_controller
-from app.controller import ApplicationError
+from app.controller import ApplicationError, ContentGapError
 from app.session import (
     begin_submission,
     get_session_state,
@@ -34,6 +34,7 @@ def main() -> None:
 
     try:
         from app.ui.feedback import render_feedback
+        from app.ui.content_gap import render_content_gap
         from app.ui.login import render_login
         from app.ui.progress import render_progress
         from app.ui.question import render_question
@@ -70,6 +71,9 @@ def main() -> None:
                     session.learner_id, session.seen_item_ids
                 ),
             )
+        except ContentGapError as exc:
+            render_content_gap(exc.content_gap)
+            return
         except ApplicationError as exc:
             st.warning(exc.user_message)
             return

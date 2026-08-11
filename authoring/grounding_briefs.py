@@ -49,6 +49,17 @@ PILOT_GROUNDING_BRIEFS = {
             },
         ),
         CanonicalGroundingBrief(
+            skill_id="AI-AGT-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "An agent perceives its environment and acts upon that environment.",
+                "Sensors supply percepts or information from the environment; actuators carry out actions that affect it.",
+                "PEAS means performance measure, environment, actuators, and sensors.",
+                "A partially observable environment does not provide the agent with full state information.",
+                "Questions must not treat the performance measure, environment, actuator, and sensor as interchangeable roles.",
+            ],
+        ),
+        CanonicalGroundingBrief(
             skill_id="AI-SRC-01",
             version=GROUNDING_BRIEF_VERSION,
             statements=[
@@ -66,6 +77,20 @@ PILOT_GROUNDING_BRIEFS = {
                 "Cycles may make the search tree infinitely deep.",
                 "Cycles do not imply that a goal is unreachable.",
                 "Search-tree nodes distinguish paths, so a state may occur repeatedly.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="AI-SRC-03",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "The frontier contains generated search nodes that are waiting to be selected for expansion.",
+                "Expansion removes a selected node, applies the available actions through the result model, and generates child nodes.",
+                "In the project solvers, reached means discovered: BFS and DFS record a state when it is admitted to the frontier.",
+                "Explored or expanded means a state has been removed from the frontier and expanded; these names must not be used as silent synonyms for reached.",
+                "A repeated state is not added again when the existing record is already at least as good.",
+                "For an unexpanded state in a cost-sensitive frontier, a newly discovered lower path cost replaces the stored frontier cost and parent record.",
+                "The current solver does not reopen a state after it has entered the expanded set, so questions must not imply that it does.",
+                "Questions for this skill explain frontier, reached-state, duplicate, and expansion mechanics without asking for a BFS, DFS, UCS, Greedy, or A-star expansion trace.",
             ],
         ),
         CanonicalGroundingBrief(

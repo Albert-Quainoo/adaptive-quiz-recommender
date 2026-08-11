@@ -28,6 +28,7 @@ from taxonomy.loader import course_paths, load_skills
 from taxonomy.schemas import SkillCatalogue, SkillDefinition
 
 PILOT_SKILL_IDS = ("AI-SRC-01", "AI-SRC-02", "AI-SRC-08")
+PILOT_CLOSURE_SKILL_IDS = ("AI-AGT-01", "AI-SRC-03")
 
 # Every domain here is a decision that its material may become course
 # reference text, so each one is named individually - never a whole registry
@@ -86,10 +87,16 @@ PILOT_SOURCE_SCOPES: dict[str, tuple[SourceScope, ...]] = {
     # Introductory definitions of AI are covered by the same reviewed course
     # texts used for the search pilot.
     "AI-FND-01": (STANFORD_AI, CS50_AI, CS188_TEXTBOOK, MIT_6034),
+    # Agent/environment interaction is covered by the introductory agent
+    # treatments in the reviewed AI textbook, encyclopedia and course.
+    "AI-AGT-01": (CS50_AI, STANFORD_AI, CS188_TEXTBOOK),
     # Problem formulation and search representation are textbook definitions,
     # so the two course textbooks first.
     "AI-SRC-01": (CS188_TEXTBOOK, CS50_AI, MIT_6034),
     "AI-SRC-02": (CS188_TEXTBOOK, CS50_AI, MIT_6034),
+    # The search-process data structures are explained in prose and examples
+    # by these reviewed search-course/pathfinding scopes.
+    "AI-SRC-03": (CS188_TEXTBOOK, CS50_AI, REDBLOB_PATHFINDING),
     # Heuristics are where Red Blob Games explains better than the textbooks.
     "AI-SRC-08": (REDBLOB_PATHFINDING, CS188_TEXTBOOK, MIT_6034),
 }

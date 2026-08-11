@@ -178,6 +178,16 @@ def test_revision_history_retains_each_proposal_and_changed_fields():
     assert set(second.revisions[1].changed_fields) >= {"question", "options", "correct_answer"}
 
 
+def test_revision_content_hash_is_bound_to_the_edited_question():
+    revision = proposed().revisions[0]
+    changed = revision.model_dump()
+    changed["question"] = question("A different edited question?").model_dump()
+
+    assert revision.content_hash
+    with pytest.raises(ValueError, match="content_hash"):
+        revision.__class__.model_validate(changed)
+
+
 def test_rejection_requires_and_records_a_reason():
     with pytest.raises(ValueError, match="reason"):
         reject_item(item(), "reviewer", "   ", reviewed_at=REVIEW_TIME)
@@ -227,6 +237,8 @@ def test_only_explicitly_approved_revision_is_exported():
     )
     assert approved_revision.source_batch_id == "grounded-pilot-20260805-v2"
     assert approved_revision.reference_ids == ["AI-SRC-08-reference"]
+    assert approved_revision.content_hash
+    assert exported[0].item_id == approved_revision.revision_id
     lookup = approved_item_provenance(review_with(approved), exported[0].item_id)
     assert lookup.item_id == exported[0].item_id
     assert lookup.source_batch_id == "grounded-pilot-20260805-v2"
@@ -267,7 +279,13 @@ def test_bank_item_ids_are_stable_across_repeated_exports():
 
     first = export_approved_bank_items(review)[0]
     second = export_approved_bank_items(review)[0]
-    assert first.item_id == second.item_id == approved.original_question_id
+    approved_revision = next(
+        revision
+        for revision in approved.revisions
+        if revision.final_review_status == "approved"
+    )
+    assert first.item_id == second.item_id == approved_revision.revision_id
+    assert first.item_id != approved.original_question_id
     assert first.model_dump() == second.model_dump()
 
 

@@ -4,6 +4,8 @@ from recommendation.repository import (
     RecommendationRepository,
 )
 from recommendation.schemas import (
+    ContentGapEvent,
+    ContentGapResult,
     RecommendationEvent,
     RecommendationRequest,
     RecommendationResult,
@@ -12,6 +14,8 @@ from recommendation.service import RecommendationService, RecommendationUnavaila
 from recommendation.sqlite_repository import SQLiteRecommendationRepository
 
 __all__ = [
+    "ContentGapEvent",
+    "ContentGapResult",
     "InMemoryRecommendationRepository",
     "RecommendationPolicyConfig",
     "RecommendationEvent",

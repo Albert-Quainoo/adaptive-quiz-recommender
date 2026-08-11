@@ -284,3 +284,55 @@ def test_no_eligible_item_raises_specific_unavailable_error():
         service(repository).recommend(request(excluded_item_ids=["item-a"]))
 
     assert raised.value.reason == "no_eligible_item"
+
+
+def test_unlocked_missing_prerequisite_content_is_recorded_as_a_content_gap():
+    foundation = skill("AI-FND-01")
+    bridge = skill("AI-AGT-01", [foundation.skill_id])
+    target = skill("AI-SRC-01", [bridge.skill_id])
+    repository = InMemoryRecommendationRepository(
+        skills=[foundation, bridge, target],
+        items=[
+            item("foundation-item", foundation.skill_id, "introductory"),
+            item("target-item", target.skill_id, "intermediate"),
+        ],
+        mastery=[mastery("learner-1", foundation.skill_id, 0.80)],
+    )
+
+    with pytest.raises(RecommendationUnavailable) as raised:
+        service(repository).recommend(
+            request(
+                available_skill_ids=[foundation.skill_id, target.skill_id]
+            )
+        )
+
+    gap = raised.value.content_gap
+    assert raised.value.reason == "missing_approved_content"
+    assert gap.completed_skill_id == foundation.skill_id
+    assert gap.newly_unlocked_skill_id == bridge.skill_id
+    assert gap.missing_approved_content is True
+    assert gap.current_mastery_probability == 0.80
+    assert gap.prerequisite_mastery_threshold == 0.75
+    assert repository.list_recommendations() == []
+    assert repository.list_content_gaps()[0].model_dump(exclude={"content_gap_id", "created_at"}) == gap.model_dump()
+
+
+def test_missing_bridge_content_remains_gated_below_mastery_threshold():
+    foundation = skill("AI-FND-01")
+    bridge = skill("AI-AGT-01", [foundation.skill_id])
+    target = skill("AI-SRC-01", [bridge.skill_id])
+    repository = InMemoryRecommendationRepository(
+        skills=[foundation, bridge, target],
+        items=[
+            item("foundation-item", foundation.skill_id, "introductory"),
+            item("target-item", target.skill_id, "intermediate"),
+        ],
+        mastery=[mastery("learner-1", foundation.skill_id, 0.74)],
+    )
+
+    result = service(repository).recommend(
+        request(available_skill_ids=[foundation.skill_id, target.skill_id])
+    )
+
+    assert result.skill_id == foundation.skill_id
+    assert repository.list_content_gaps() == []

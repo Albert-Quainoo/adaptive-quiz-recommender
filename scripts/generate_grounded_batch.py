@@ -79,7 +79,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--batch-id", required=True)
     parser.add_argument("--skill-id", action="append", required=True)
-    parser.add_argument("--questions-per-skill", type=int, required=True)
+    inventory = parser.add_mutually_exclusive_group(required=True)
+    inventory.add_argument("--questions-per-skill", type=int)
+    inventory.add_argument(
+        "--all-blueprint-intents",
+        action="store_true",
+        help="generate each reviewed blueprint intent exactly once",
+    )
     parser.add_argument("--base-seed", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model-id", required=True)
@@ -97,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--difficulty",
-        choices=("introductory", "intermediate", "advanced"),
+        choices=("introductory", "intermediate", "advanced", "mixed"),
         default="intermediate",
     )
     parser.add_argument("--max-new-tokens", type=int, default=600)

@@ -48,6 +48,22 @@ CREATE TABLE IF NOT EXISTS recommendation_events (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS content_gap_events (
+    content_gap_id TEXT PRIMARY KEY,
+    learner_id TEXT NOT NULL,
+    completed_skill_id TEXT NOT NULL,
+    completed_skill_name TEXT NOT NULL,
+    newly_unlocked_skill_id TEXT NOT NULL,
+    newly_unlocked_skill_name TEXT NOT NULL,
+    missing_approved_content INTEGER NOT NULL CHECK (missing_approved_content IN (0, 1)),
+    current_mastery_probability REAL NOT NULL,
+    prerequisite_mastery_threshold REAL NOT NULL,
+    reason TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS bkt_model_metadata (
     model_version TEXT PRIMARY KEY,
     fitted_at TEXT NOT NULL,

@@ -48,6 +48,9 @@ class ReferenceCandidate(BaseModel):
     # before relevance filtering existed still loads.
     relevance_score: int = 0
     matched_terms: list[str] = Field(default_factory=list)
+    # The objective angle whose query discovered the page. Empty keeps stores
+    # written before facet-specific closure retrieval readable.
+    learning_objective_facet: str = ""
 
     review_status: ReviewStatus = "pending"
     reviewed_at: datetime | None = None
@@ -113,6 +116,7 @@ def new_candidate(
     retrieved_at: datetime,
     relevance_score: int = 0,
     matched_terms: Iterable[str] = (),
+    learning_objective_facet: str = "",
 ) -> ReferenceCandidate:
     """Build a pending candidate. This is the only way retrieval makes one.
 
@@ -134,6 +138,7 @@ def new_candidate(
         content_hash=digest,
         relevance_score=relevance_score,
         matched_terms=list(matched_terms),
+        learning_objective_facet=learning_objective_facet,
         review_status="pending",
     )
 

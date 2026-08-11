@@ -147,6 +147,13 @@ AI_FND_01_CAPABILITIES = (
     ("game", "chess"),
 )
 
+AI_AGT_01_RELATIONSHIPS = (
+    ("agent", "intelligent agent"),
+    ("environment",),
+    ("sensor", "sense", "percept", "perceive", "perception"),
+    ("actuator", "action", "act", "acting"),
+)
+
 
 @dataclass(frozen=True)
 class SourceScope:
@@ -302,6 +309,12 @@ def passage_covers_skill(
         )
         return identifies_ai and capabilities >= 2
 
+    if skill.skill_id == "AI-AGT-01":
+        return all(
+            any(matches(term, passage_hay) for term in alternatives)
+            for alternatives in AI_AGT_01_RELATIONSHIPS
+        )
+
     if skill.skill_id == "AI-SRC-01":
         components = sum(
             any(matches(term, passage_hay) for term in alternatives)
@@ -371,6 +384,19 @@ def score_relevance(
             passage_context = tuple(
                 sorted((*passage_context, "artificial intelligence"))
             )
+    if skill.skill_id == "AI-AGT-01":
+        if (
+            matches("agent", hay)
+            and matches("environment", hay)
+            and "intelligent agent" not in context
+        ):
+            context = tuple(sorted((*context, "intelligent agent")))
+        if (
+            matches("agent", passage_hay)
+            and matches("environment", passage_hay)
+            and "intelligent agent" not in passage_context
+        ):
+            passage_context = tuple(sorted((*passage_context, "intelligent agent")))
     scope = next((str(item) for item in scopes if item.covers(url)), "")
 
     score = (

@@ -19,6 +19,7 @@ from taxonomy.schemas import SkillDefinition
 
 from app.session import attempt_id_for
 from app.view_models import (
+    ContentGapViewModel,
     ProgressViewModel,
     QuestionOptionViewModel,
     QuestionViewModel,
@@ -54,6 +55,16 @@ class NoRecommendationError(ApplicationError):
 
 class NoApprovedItemError(ApplicationError):
     user_message = "No approved question is available for the selected skill."
+
+
+class ContentGapError(ApplicationError):
+    user_message = (
+        "You unlocked the next skill, but approved practice content is not available yet."
+    )
+
+    def __init__(self, content_gap: ContentGapViewModel) -> None:
+        self.content_gap = content_gap
+        super().__init__(self.user_message)
 
 
 class InvalidOptionError(ApplicationError):
@@ -135,6 +146,21 @@ class ApplicationController:
             LOGGER.info(
                 "Recommendation unavailable for learner %s: %s", learner_id, exc.reason
             )
+            if exc.content_gap is not None:
+                gap = exc.content_gap
+                raise ContentGapError(
+                    ContentGapViewModel(
+                        completed_skill_id=gap.completed_skill_id,
+                        completed_skill_name=gap.completed_skill_name,
+                        newly_unlocked_skill_id=gap.newly_unlocked_skill_id,
+                        newly_unlocked_skill_name=gap.newly_unlocked_skill_name,
+                        missing_approved_content=gap.missing_approved_content,
+                        current_mastery_probability=gap.current_mastery_probability,
+                        prerequisite_mastery_threshold=(
+                            gap.prerequisite_mastery_threshold
+                        ),
+                    )
+                ) from exc
             if exc.reason == "no_eligible_item":
                 raise NoApprovedItemError from exc
             raise NoRecommendationError from exc

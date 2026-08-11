@@ -317,7 +317,7 @@ def test_duplicate_questions_are_rejected_and_bounded(tmp_path):
     assert json.loads((output / "summary.json").read_text())["duplicated"] == 2
 
 
-@pytest.mark.parametrize("skill_id", ["AI-SRC-99", "AI-SRC-03"])
+@pytest.mark.parametrize("skill_id", ["AI-SRC-99", "AI-AGT-02"])
 def test_unknown_or_not_generation_ready_skill_fails_before_model_use(
     tmp_path, skill_id
 ):

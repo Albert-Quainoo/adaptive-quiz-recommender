@@ -8,9 +8,15 @@
     "status": "blueprint-review-pending",
     "prompt_version": "v3.3"
   },
+  "grounded-pilot-20260811-v3": {
+    "status": "blueprint-review-pending",
+    "prompt_version": "v3.3",
+    "question_inventory": 24,
+    "llama_run_status": "not-run"
+  },
   "grounded-pilot-ai-fnd-01-cold-start-v1": {
     "status": "blueprint-approved",
     "prompt_version": "v3.3",
-    "question_review_status": "not-generated"
+    "question_review_status": "approved-after-revision"
   }
 }

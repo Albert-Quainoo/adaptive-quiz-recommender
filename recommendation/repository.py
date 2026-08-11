@@ -4,7 +4,12 @@ from uuid import uuid4
 
 from api.bank import BankItem
 from bkt.schemas import AttemptEvent, MasterySnapshot
-from recommendation.schemas import RecommendationEvent, RecommendationResult
+from recommendation.schemas import (
+    ContentGapEvent,
+    ContentGapResult,
+    RecommendationEvent,
+    RecommendationResult,
+)
 from taxonomy.schemas import SkillDefinition
 
 
@@ -20,6 +25,8 @@ class RecommendationRepository(Protocol):
     def save_recommendation(
         self, recommendation: RecommendationResult
     ) -> RecommendationEvent: ...
+
+    def save_content_gap(self, gap: ContentGapResult) -> ContentGapEvent: ...
 
 
 class InMemoryRecommendationRepository:
@@ -38,6 +45,7 @@ class InMemoryRecommendationRepository:
         self._mastery = [snapshot.model_copy(deep=True) for snapshot in mastery]
         self._attempts = [attempt.model_copy(deep=True) for attempt in attempts]
         self._recommendations: list[RecommendationEvent] = []
+        self._content_gaps: list[ContentGapEvent] = []
 
     def list_skills(self) -> list[SkillDefinition]:
         return [skill.model_copy(deep=True) for skill in self._skills]
@@ -92,5 +100,23 @@ class InMemoryRecommendationRepository:
         return [
             event.model_copy(deep=True)
             for event in self._recommendations
+            if learner_id is None or event.learner_id == learner_id
+        ]
+
+    def save_content_gap(self, gap: ContentGapResult) -> ContentGapEvent:
+        event = ContentGapEvent(
+            **gap.model_dump(),
+            content_gap_id=str(uuid4()),
+            created_at=datetime.now(timezone.utc),
+        )
+        self._content_gaps.append(event.model_copy(deep=True))
+        return event
+
+    def list_content_gaps(
+        self, *, learner_id: str | None = None
+    ) -> list[ContentGapEvent]:
+        return [
+            event.model_copy(deep=True)
+            for event in self._content_gaps
             if learner_id is None or event.learner_id == learner_id
         ]

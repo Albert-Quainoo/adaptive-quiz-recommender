@@ -9,17 +9,25 @@ from recommendation.policy import (
     difficulty_for_mastery,
     select_item,
     select_skill,
+    prerequisites_are_mastered,
 )
 from recommendation.repository import RecommendationRepository
-from recommendation.schemas import RecommendationRequest, RecommendationResult
+from recommendation.schemas import (
+    ContentGapResult,
+    RecommendationRequest,
+    RecommendationResult,
+)
 
 
 LOGGER = logging.getLogger(__name__)
 
 
 class RecommendationUnavailable(RuntimeError):
-    def __init__(self, reason: str) -> None:
+    def __init__(
+        self, reason: str, *, content_gap: ContentGapResult | None = None
+    ) -> None:
         self.reason = reason
+        self.content_gap = content_gap
         super().__init__(reason)
 
 
@@ -49,6 +57,28 @@ class RecommendationService:
             for item in items
             if item.item_id is not None and item.skill_id is not None
         }
+        content_gap = self._content_gap(
+            request.learner_id,
+            skills=skills,
+            inventory_skill_ids=inventory_skill_ids,
+            mastery_by_skill=mastery_by_skill,
+            snapshots=snapshots,
+        )
+        if content_gap is not None:
+            self.repository.save_content_gap(content_gap)
+            LOGGER.info(
+                "Recommendation content gap: completed_skill=%s "
+                "newly_unlocked_skill=%s missing_approved_content=%s "
+                "current_mastery=%s prerequisite_threshold=%s",
+                content_gap.completed_skill_id,
+                content_gap.newly_unlocked_skill_id,
+                content_gap.missing_approved_content,
+                content_gap.current_mastery_probability,
+                content_gap.prerequisite_mastery_threshold,
+            )
+            raise RecommendationUnavailable(
+                "missing_approved_content", content_gap=content_gap
+            )
         remaining_skill_ids = set(request.available_skill_ids) & inventory_skill_ids
         if not remaining_skill_ids:
             raise RecommendationUnavailable("no_eligible_item")
@@ -135,6 +165,65 @@ class RecommendationService:
         )
         self.repository.save_recommendation(result)
         return result
+
+    def _content_gap(
+        self,
+        learner_id: str,
+        *,
+        skills,
+        inventory_skill_ids: set[str],
+        mastery_by_skill: dict[str, float],
+        snapshots,
+    ) -> ContentGapResult | None:
+        by_id = {skill.skill_id: skill for skill in skills}
+        required_skill_ids = set(inventory_skill_ids)
+        pending = list(inventory_skill_ids)
+        while pending:
+            skill = by_id.get(pending.pop())
+            if skill is None:
+                continue
+            for prerequisite_id in skill.prerequisite_skill_ids:
+                if prerequisite_id not in required_skill_ids:
+                    required_skill_ids.add(prerequisite_id)
+                    pending.append(prerequisite_id)
+
+        snapshot_by_skill = {snapshot.skill_id: snapshot for snapshot in snapshots}
+        for skill in skills:
+            if (
+                skill.skill_id not in required_skill_ids
+                or skill.skill_id in inventory_skill_ids
+                or not skill.prerequisite_skill_ids
+                or not prerequisites_are_mastered(
+                    skill, mastery_by_skill, self.config
+                )
+            ):
+                continue
+            completed_skill_id = max(
+                skill.prerequisite_skill_ids,
+                key=lambda prerequisite_id: (
+                    snapshot_by_skill[prerequisite_id].updated_at.timestamp()
+                    if prerequisite_id in snapshot_by_skill
+                    else float("-inf"),
+                    prerequisite_id,
+                ),
+            )
+            completed = by_id[completed_skill_id]
+            return ContentGapResult(
+                learner_id=learner_id,
+                completed_skill_id=completed_skill_id,
+                completed_skill_name=completed.name,
+                newly_unlocked_skill_id=skill.skill_id,
+                newly_unlocked_skill_name=skill.name,
+                current_mastery_probability=mastery_by_skill.get(
+                    completed_skill_id, self.config.initial_mastery_probability
+                ),
+                prerequisite_mastery_threshold=(
+                    self.config.prerequisite_mastery_threshold
+                ),
+                model_version=self.model_version,
+                policy_version=self.config.policy_version,
+            )
+        return None
 
     @staticmethod
     def _available_difficulties(

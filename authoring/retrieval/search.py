@@ -81,6 +81,40 @@ AI_FND_01_PASSAGE_QUERY = (
     "environment behavior actions examples faces chess speech problem solving learning"
 )
 
+# Three complementary angles fit the existing three-angle schedule without
+# changing its request budget. Each query below still carries the exact
+# taxonomy objective; the suffix only asks the index for a different kind of
+# evidence supporting it.
+OBJECTIVE_QUERY_FACETS: dict[str, tuple[tuple[str, str], ...]] = {
+    "AI-AGT-01": (
+        ("definition or core concept", "perceives acts definition core concept"),
+        (
+            "component relationships",
+            "relationship sensors actuators percepts actions",
+        ),
+        (
+            "concrete example, simple application, or misconception",
+            "interaction concrete example simple application common misconception",
+        ),
+    ),
+    "AI-SRC-03": (
+        ("definition or core concept", "search process definition roles core concept"),
+        (
+            "component relationships",
+            "state set node expansion relationship search process",
+        ),
+        (
+            "comparison, simple application, or misconception",
+            "explored duplicate comparison distinction example application misconception",
+        ),
+    ),
+}
+
+OBJECTIVE_QUERY_BASES = {
+    "AI-AGT-01": "agent environment",
+    "AI-SRC-03": "frontier reached states",
+}
+
 
 class RetrievalError(ValueError):
     pass
@@ -279,11 +313,19 @@ def build_search_queries(skill: SkillDefinition) -> list[str]:
     OpenCourseWare they returned a problem-solving approach to electromagnetic
     field theory, which answers the question as put. No angle searches alone.
     """
-    queries = [
-        f"{skill.name} {skill.topic}",
-        f"{skill.name} {skill.subtopic}",
-        f"{skill.name} {skill.learning_objective}",
-    ]
+    facets = OBJECTIVE_QUERY_FACETS.get(skill.skill_id)
+    queries = (
+        [
+            f"{skill.name} {OBJECTIVE_QUERY_BASES[skill.skill_id]} {terms}"
+            for _, terms in facets
+        ]
+        if facets
+        else [
+            f"{skill.name} {skill.topic}",
+            f"{skill.name} {skill.subtopic}",
+            f"{skill.name} {skill.learning_objective}",
+        ]
+    )
 
     unique: list[str] = []
 
@@ -294,6 +336,17 @@ def build_search_queries(skill: SkillDefinition) -> list[str]:
             unique.append(normalised)
 
     return unique
+
+
+def learning_objective_facet_for(skill: SkillDefinition, query: str) -> str:
+    """Return the explicit facet represented by one closure query."""
+    facets = OBJECTIVE_QUERY_FACETS.get(skill.skill_id, ())
+
+    for (label, _), planned_query in zip(facets, build_search_queries(skill)):
+        if planned_query == query:
+            return label
+
+    return "taxonomy topic, subtopic, or learning objective"
 
 
 def passage_query_for(skill: SkillDefinition) -> str:
@@ -516,6 +569,7 @@ def retrieve_candidates(
             retrieved_at=clock(),
             relevance_score=relevance.score,
             matched_terms=relevance.matched_terms,
+            learning_objective_facet=learning_objective_facet_for(skill, step.query),
         )
 
         if candidate.content_hash in known.hashes:
