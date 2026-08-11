@@ -1,0 +1,180 @@
+{
+  "accepted_intent_ids": [
+    "AI-FND-01-INT-01",
+    "AI-FND-01-INT-02",
+    "AI-FND-01-INT-03"
+  ],
+  "allow_intent_reuse": false,
+  "artifacts": {
+    "audit": "audit.jsonl",
+    "questions": "pending_questions.jsonl",
+    "summary": "summary.json"
+  },
+  "base_seed": 42,
+  "batch_id": "grounded-pilot-ai-fnd-01-cold-start-v1",
+  "difficulty": "introductory",
+  "error": null,
+  "generated_at": "2026-08-11T11:04:09.854530Z",
+  "generation_parameters": {
+    "do_sample": true,
+    "max_new_tokens": 600,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "git_commit": "6db8e8b170cddcfb11ff8fa72d58f5ad2526cc1e",
+  "grounding_briefs": {
+    "AI-FND-01": {
+      "content_hash": "7962a10053b00c7f8f677bc5027bc6c1958fe204302b0f85b805c3908f87a73b",
+      "version": "pilot-grounding-v1"
+    }
+  },
+  "intents": [
+    {
+      "assessment_focus": "Recognize capabilities associated with intelligent systems: problem solving, reasoning, decision making, and learning.",
+      "difficulty": "introductory",
+      "generation_constraints": [
+        "Assess recognition or simple interpretation at introductory difficulty.",
+        "Do not ask the learner to reproduce the entire capability list.",
+        "Use plausible non-AI or unrelated computational capabilities as distractors.",
+        "Provide exactly one unambiguous correct answer."
+      ],
+      "intent_id": "AI-FND-01-INT-01",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-8bbbddaf2aa6",
+        "AI-FND-01-b50c85fa00a5"
+      ],
+      "prohibited_conflations": [
+        "an unrelated computational capability is evidence of intelligence",
+        "every automated operation is artificial intelligence"
+      ],
+      "question_archetype": "Capability recognition or simple interpretation without full-list recall.",
+      "required_concepts": [
+        "intelligent systems use capabilities such as problem solving, reasoning, decision making, or learning",
+        "the correct option identifies or simply interprets an intelligent capability"
+      ],
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "assessment_focus": "Identify a concrete real-world application of artificial intelligence.",
+      "difficulty": "introductory",
+      "generation_constraints": [
+        "Use a concrete, introductory scenario.",
+        "Distinguish an AI capability from ordinary fixed or non-adaptive processing.",
+        "Do not claim that every automated system is AI.",
+        "Provide exactly one unambiguous correct answer."
+      ],
+      "intent_id": "AI-FND-01-INT-02",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-d03d77e0aca2"
+      ],
+      "prohibited_conflations": [
+        "every automated system is artificial intelligence",
+        "fixed or non-adaptive processing alone establishes that a system is intelligent"
+      ],
+      "question_archetype": "Accessible scenario distinguishing an AI capability from ordinary fixed or non-adaptive processing.",
+      "required_concepts": [
+        "a concrete AI application such as face recognition, game playing, speech processing, or route finding",
+        "the scenario requires an intelligent capability rather than fixed processing alone"
+      ],
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "assessment_focus": "Understand that an intelligent agent receives percepts from its environment and selects actions based on them.",
+      "difficulty": "introductory",
+      "generation_constraints": [
+        "Use an accessible agent scenario at introductory difficulty.",
+        "Test the relationship between an environmental percept and the selected action.",
+        "Do not require formal tuple notation.",
+        "Do not require memorization of a mathematical function definition.",
+        "Provide exactly one unambiguous correct answer."
+      ],
+      "intent_id": "AI-FND-01-INT-03",
+      "learning_objective": "Define artificial intelligence and recognise tasks that require intelligent behaviour.",
+      "preferred_reference_ids": [
+        "AI-FND-01-f7c5eb1ccf76"
+      ],
+      "prohibited_conflations": [
+        "an action is selected without regard to environmental input",
+        "formal tuple notation is required to understand the relationship"
+      ],
+      "question_archetype": "Accessible agent scenario testing the percept-to-action relationship.",
+      "required_concepts": [
+        "an agent receives information or percepts from its environment",
+        "the agent selects an action based on those percepts"
+      ],
+      "skill_id": "AI-FND-01"
+    }
+  ],
+  "max_attempts_per_question": 3,
+  "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "prompt_version": "v3.3",
+  "questions_per_skill": 3,
+  "references": [
+    {
+      "content_hash": "8bbbddaf2aa68ce8178697a3a3e903ba47e343cf5dd04748fd535706fef8a211",
+      "reference_id": "AI-FND-01-8bbbddaf2aa6",
+      "reference_material": "It provides an introduction to the full range of topics studied in artificial intelligence, with emphasis on the “core competences” of intelligent systems - problem solving, reasoning, decision making, and learning - and on the logical and probabilistic foundations of these activities.",
+      "retrieved_at": "2026-08-11T03:10:00.838747Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:54.593951Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "inst.eecs.berkeley.edu",
+      "source_url": "https://inst.eecs.berkeley.edu/~cs188/textbook/",
+      "title": "Introduction to Artificial Intelligence"
+    },
+    {
+      "content_hash": "b50c85fa00a57eb23d0e91812efec298d629901dab2ee3cdf0cc3816aeb6ec33",
+      "reference_id": "AI-FND-01-b50c85fa00a5",
+      "reference_material": "This course introduces students to the basic knowledge representation, problem solving, and learning methods of artificial intelligence. Upon completion of 6.034, students should be able to develop intelligent systems by assembling solutions to concrete computational problems; understand the role of knowledge representation, problem solving, and learning in intelligent-system engineering; and appreciate the role of problem solving, vision, and language in understanding human intelligence from a computational perspective.",
+      "retrieved_at": "2026-08-11T03:22:59.515998Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:55.063734Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "ocw.mit.edu",
+      "source_url": "https://ocw.mit.edu/courses/6-034-artificial-intelligence-fall-2010/",
+      "title": "Artificial Intelligence — MIT OpenCourseWare 6.034 (Fall 2010)"
+    },
+    {
+      "content_hash": "d03d77e0aca28bb72ab99abc54076fb048dab4d3fe362f05dd9360156b0a8303",
+      "reference_id": "AI-FND-01-d03d77e0aca2",
+      "reference_material": "For example, AI is used to recognize faces in photographs on your social media, beat the World’s Champion in chess, and process your speech when you speak to Siri or Alexa on your phone. In this course, we will explore some of the ideas that make AI possible: Search Finding a solution to a problem, like a navigator app that finds the best route from your origin to the destination, or like playing a game and figuring out the next move.",
+      "retrieved_at": "2026-08-11T03:22:59.246324Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:55.637060Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/notes/0/",
+      "title": "CS50's Introduction to Artificial Intelligence with Python — Lecture 0"
+    },
+    {
+      "content_hash": "f7c5eb1ccf765edae13fa2f9520aabefcdca29bf54fa3df17587d804990e38cf",
+      "reference_id": "AI-FND-01-f7c5eb1ccf76",
+      "reference_material": "More specifically, Russell sees AI as the field devoted to building intelligent agents, which are functions taking as input tuples of percepts from the external environment, and producing behavior (actions) on the basis of these percepts.",
+      "retrieved_at": "2026-08-11T03:24:35.487618Z",
+      "review_note": "Approved for AI-FND-01 cold-start grounding.",
+      "reviewed_at": "2026-08-11T03:26:56.110690Z",
+      "reviewer_id": "albert",
+      "skill_id": "AI-FND-01",
+      "source_domain": "plato.stanford.edu",
+      "source_url": "https://plato.stanford.edu/entries/artificial-intelligence/",
+      "title": "Artificial Intelligence"
+    }
+  ],
+  "skill_ids": [
+    "AI-FND-01"
+  ],
+  "slot_intent_ids": {
+    "AI-FND-01": [
+      "AI-FND-01-INT-01",
+      "AI-FND-01-INT-02",
+      "AI-FND-01-INT-03"
+    ]
+  },
+  "status": "complete"
+}
