@@ -89,6 +89,9 @@ def test_component_signatures_match_the_streamlit_shell():
     assert str(inspect.signature(login.render_login)) == (
         "(*, default_learner_id: str = '') -> str | None"
     )
+    assert list(inspect.signature(login.render_learner_switcher).parameters) == [
+        "current_learner_id"
+    ]
     assert list(inspect.signature(question.render_question).parameters) == [
         "question",
         "selected_option_id",
@@ -109,6 +112,17 @@ def test_login_returns_only_a_submitted_normalized_learner_id(monkeypatch):
     assert login.render_login(default_learner_id="suggested") == "learner-1"
     text_input = next(call for call in rendered.calls if call[0] == "text_input")
     assert text_input[2]["value"] == "suggested"
+
+
+def test_learner_switcher_returns_only_an_explicit_button_event(monkeypatch):
+    rendered = FakeStreamlit(next_clicked=True)
+    monkeypatch.setattr(login, "st", rendered)
+
+    assert login.render_learner_switcher("learner-1") is True
+    caption = next(call for call in rendered.calls if call[0] == "caption")
+    button = next(call for call in rendered.calls if call[0] == "button")
+    assert caption[1] == ("Signed in as learner-1",)
+    assert button[1] == ("Switch learner",)
 
 
 def test_question_returns_selection_and_button_event(monkeypatch):

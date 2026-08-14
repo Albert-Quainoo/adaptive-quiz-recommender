@@ -53,6 +53,12 @@ def identify_learner(session: LearnerSessionState, learner_id: str) -> None:
             setattr(session, name, value)
 
 
+def clear_learner(session: LearnerSessionState) -> None:
+    fresh = LearnerSessionState()
+    for name, value in fresh.model_dump().items():
+        setattr(session, name, value)
+
+
 def retain_question(session: LearnerSessionState, question: QuestionViewModel) -> None:
     if session.feedback_state == "visible":
         raise RuntimeError("Finish reviewing feedback before requesting another question.")
@@ -70,6 +76,8 @@ def retain_question(session: LearnerSessionState, question: QuestionViewModel) -
 def begin_submission(session: LearnerSessionState, selected_option_id: str | None) -> str:
     if not session.learner_id or not session.presentation_id:
         raise RuntimeError("There is no question to submit.")
+    if session.submission_state == "submitted":
+        raise RuntimeError("This question has already been submitted.")
     if not selected_option_id:
         raise ValueError("Select an answer before submitting.")
     if session.attempt_id is None:

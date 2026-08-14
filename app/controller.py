@@ -57,6 +57,20 @@ class NoApprovedItemError(ApplicationError):
     user_message = "No approved question is available for the selected skill."
 
 
+class BankExhaustedBelowMasteryError(ApplicationError):
+    user_message = (
+        "You've answered every available practice question for this skill "
+        "without yet reaching mastery. Check back once more questions are added."
+    )
+
+
+class AllEligibleItemsAttemptedError(ApplicationError):
+    user_message = (
+        "You've mastered every skill with available practice questions right "
+        "now. There's nothing new to practice until more content is added."
+    )
+
+
 class ContentGapError(ApplicationError):
     user_message = (
         "You unlocked the next skill, but approved practice content is not available yet."
@@ -94,6 +108,7 @@ class ApplicationController:
         bkt_service: BKTService,
         clock: Callable[[], datetime] | None = None,
         presentation_token_factory: Callable[[], str] | None = None,
+        low_supply_reporter: Callable[[str], None] | None = None,
     ) -> None:
         self._skills = {skill.skill_id: skill.model_copy(deep=True) for skill in skills}
         self._items = {
@@ -108,13 +123,34 @@ class ApplicationController:
         self._presentation_token_factory = presentation_token_factory or (
             lambda: str(uuid4())
         )
+        self._low_supply_reporter = low_supply_reporter
         self._lock = RLock()
+
+    def _report_low_supply(self, skill_id: str) -> None:
+        # Fire-and-forget: an idempotent local insert only, never network or
+        # model calls, and never allowed to affect the learner response.
+        if self._low_supply_reporter is None:
+            return
+        try:
+            self._low_supply_reporter(skill_id)
+        except Exception:
+            LOGGER.warning("low-supply reporting failed for skill %s", skill_id, exc_info=True)
 
     @_synchronized
     def start_learner_session(self, learner_id: str) -> str:
         learner_id = self._normalise_learner_id(learner_id)
         self.repository.save_learner(learner_id, created_at=self._clock())
         return learner_id
+
+    @_synchronized
+    def answered_item_ids(self, learner_id: str) -> list[str]:
+        learner_id = self._normalise_learner_id(learner_id)
+        return list(
+            dict.fromkeys(
+                attempt.item_id
+                for attempt in self.repository.list_attempts(learner_id=learner_id)
+            )
+        )
 
     @_synchronized
     def recommend_question(
@@ -148,6 +184,7 @@ class ApplicationController:
             )
             if exc.content_gap is not None:
                 gap = exc.content_gap
+                self._report_low_supply(gap.newly_unlocked_skill_id)
                 raise ContentGapError(
                     ContentGapViewModel(
                         completed_skill_id=gap.completed_skill_id,
@@ -161,8 +198,12 @@ class ApplicationController:
                         ),
                     )
                 ) from exc
-            if exc.reason == "no_eligible_item":
+            if exc.reason == "bank_empty":
                 raise NoApprovedItemError from exc
+            if exc.reason == "bank_exhausted_below_mastery":
+                raise BankExhaustedBelowMasteryError from exc
+            if exc.reason == "all_eligible_items_attempted":
+                raise AllEligibleItemsAttemptedError from exc
             raise NoRecommendationError from exc
 
         item = self._items.get(recommendation.item_id)

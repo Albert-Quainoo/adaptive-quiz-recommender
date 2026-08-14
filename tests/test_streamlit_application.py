@@ -12,11 +12,13 @@ from taxonomy.schemas import SkillDefinition
 
 from app.controller import (
     ApplicationController,
+    BankExhaustedBelowMasteryError,
     ContentGapError,
     InvalidOptionError,
     NoApprovedItemError,
     NoRecommendationError,
 )
+from app.flow import activate_learner, ensure_question, submit_current_question
 from app.session import (
     begin_submission,
     get_session_state,
@@ -25,6 +27,7 @@ from app.session import (
     retain_question,
     submission_succeeded,
 )
+from app.view_models import readable_recommendation_reason
 
 
 NOW = datetime(2026, 8, 10, tzinfo=timezone.utc)
@@ -184,6 +187,72 @@ def test_feedback_is_retained_across_reruns_and_next_resets_question_state(tmp_p
     assert rerun.feedback_state == "hidden"
 
 
+def test_unanswered_question_is_stable_across_flow_reruns(tmp_path):
+    controller, repository = build_controller(tmp_path / "stable.sqlite3")
+    session = get_session_state({})
+    activate_learner(controller, session, "learner-1")
+
+    first = ensure_question(controller, session)
+    second = ensure_question(controller, session)
+
+    assert second == first
+    assert len(repository.list_recommendations(learner_id="learner-1")) == 1
+
+
+def test_flow_prevents_duplicate_submission_before_controller_call(tmp_path):
+    controller, repository = build_controller(tmp_path / "duplicate.sqlite3")
+    session = get_session_state({})
+    activate_learner(controller, session, "learner-1")
+    question = ensure_question(controller, session)
+    selected = option(question, "Correct")
+
+    first = submit_current_question(controller, session, selected)
+    second = submit_current_question(controller, session, selected)
+
+    assert second == first
+    assert len(repository.list_attempts(learner_id="learner-1")) == 1
+    assert len(repository.list_mastery(learner_id="learner-1")) == 1
+
+
+def test_switching_learner_clears_ui_state_and_restores_persisted_mastery(tmp_path):
+    controller, _ = build_controller(tmp_path / "switch.sqlite3", token="token-1")
+    session = get_session_state({})
+    activate_learner(controller, session, "learner-1")
+    question = ensure_question(controller, session)
+    submit_current_question(controller, session, option(question, "Correct"))
+
+    activate_learner(controller, session, "learner-2")
+    assert session.learner_id == "learner-2"
+    assert session.question is session.feedback is None
+    assert session.seen_item_ids == []
+    assert controller.get_progress("learner-2", FOUNDATION).attempt_count == 0
+
+    activate_learner(controller, session, "learner-1")
+    restored = controller.get_progress("learner-1", FOUNDATION)
+    assert restored.attempt_count == 1
+    assert restored.mastery_probability == 0.8
+    assert session.seen_item_ids == [question.item_id]
+
+
+@pytest.mark.parametrize(
+    ("answer_text", "expected_correct"),
+    [("Correct", True), ("Wrong A", False)],
+)
+def test_flow_supports_correct_and_incorrect_submissions(
+    tmp_path, answer_text, expected_correct
+):
+    controller, _ = build_controller(tmp_path / f"flow-{answer_text}.sqlite3")
+    session = get_session_state({})
+    activate_learner(controller, session, "learner-1")
+    question = ensure_question(controller, session)
+
+    result = submit_current_question(controller, session, option(question, answer_text))
+
+    assert result.correct is expected_correct
+    assert result.explanation
+    assert result.attempt_count == 1
+
+
 def test_learners_are_isolated(tmp_path):
     controller, repository = build_controller(tmp_path / "app.sqlite3")
     first = controller.recommend_question("learner-1", [])
@@ -223,14 +292,31 @@ def test_mastery_update_unlocks_prerequisite_and_changes_recommendation(tmp_path
     assert second.item_id != first.item_id
 
 
-def test_invalid_option_and_missing_approved_item_are_readable(tmp_path):
+def test_exhausted_prerequisite_below_mastery_unlocks_dependent_skill(tmp_path):
+    controller, _ = build_controller(tmp_path / "app.sqlite3")
+    first = controller.recommend_question("learner-1", [])
+    assert first.skill_id == FOUNDATION
+    controller.submit_answer(
+        "learner-1", first.presentation_id, option(first, "Wrong A")
+    )
+
+    second = controller.recommend_question("learner-1", [first.item_id])
+
+    assert second.skill_id == DEPENDENT
+    assert second.recommendation_reason == readable_recommendation_reason(
+        "prerequisite_exhausted_unlock"
+    )
+    assert controller.get_progress("learner-1", FOUNDATION).mastery_probability == 0.2
+
+
+def test_invalid_option_and_exhausted_bank_below_mastery_are_readable(tmp_path):
     controller, _ = build_controller(
         tmp_path / "app.sqlite3", items=[item("foundation-item", FOUNDATION)]
     )
     question = controller.recommend_question("learner-1", [])
     with pytest.raises(InvalidOptionError, match="valid"):
         controller.submit_answer("learner-1", question.presentation_id, "forged")
-    with pytest.raises(NoApprovedItemError):
+    with pytest.raises(BankExhaustedBelowMasteryError):
         controller.recommend_question("learner-1", [question.item_id])
 
 

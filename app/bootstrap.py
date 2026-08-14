@@ -5,7 +5,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from pyBKT.models import Model as PyBKTModel
 from pydantic import ValidationError
@@ -37,6 +37,7 @@ class AppSettings:
     references_path: Path
     model_version: str
     policy_version: str
+    initial_mastery_probability: float = 0.20
     prerequisite_mastery_threshold: float = 0.75
 
     @classmethod
@@ -67,6 +68,9 @@ class AppSettings:
             model_version=setting("QUIZ_BKT_MODEL_VERSION"),
             policy_version=setting(
                 "QUIZ_RECOMMENDATION_POLICY_VERSION", "recommendation-policy-v1"
+            ),
+            initial_mastery_probability=float(
+                setting("QUIZ_INITIAL_MASTERY_PROBABILITY", "0.20")
             ),
             prerequisite_mastery_threshold=float(
                 setting("QUIZ_PREREQUISITE_MASTERY_THRESHOLD", "0.75")
@@ -106,10 +110,36 @@ def load_fitted_bkt_model(path: Path, *, model_version: str) -> BKTModel:
     return BKTModel(engine, model_version=model_version, fitted=True)
 
 
+def _build_low_supply_reporter(settings: AppSettings) -> Callable[[str], None] | None:
+    """An idempotent, DB-only enqueue -- never network or model calls, and
+    never allowed to block or fail application startup."""
+    try:
+        from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
+
+        course_id = os.getenv("QUIZ_COURSE", "ai")
+        job_repository = SQLiteReplenishmentJobRepository(settings.database_path)
+        job_repository.initialize_schema()
+    except Exception:
+        LOGGER.warning(
+            "replenishment job repository unavailable; low-supply reporting disabled",
+            exc_info=True,
+        )
+        return None
+
+    def report(skill_id: str) -> None:
+        job_repository.enqueue(course_id=course_id, skill_id=skill_id, requested_count=1)
+
+    return report
+
+
 def build_controller(settings: AppSettings) -> ApplicationController:
     """Build shared, learner-agnostic services and initialize durable storage."""
 
     try:
+        if not settings.approved_bank_path.is_file():
+            raise BootstrapError("The approved question bank is unavailable.")
+        if not settings.bkt_model_path.is_file():
+            raise BootstrapError("The configured BKT model is unavailable.")
         catalogue = load_skills(settings.skills_path, settings.references_path)
         items = load_approved_bank(settings.approved_bank_path)
         known_skills = {skill.skill_id for skill in catalogue.skills}
@@ -121,12 +151,30 @@ def build_controller(settings: AppSettings) -> ApplicationController:
         model = load_fitted_bkt_model(
             settings.bkt_model_path, model_version=settings.model_version
         )
+        model_parameters = model.get_parameters()
+        model_skill_ids = set(model_parameters.index.get_level_values("skill"))
+        bank_skill_ids = {item.skill_id for item in items if item.skill_id}
+        missing_model_skills = sorted(bank_skill_ids - model_skill_ids)
+        if missing_model_skills:
+            raise BootstrapError(
+                "The configured BKT model is missing approved-bank skills: "
+                + ", ".join(missing_model_skills)
+            )
+        priors = model_parameters.xs("prior", level="param")["value"]
+        if any(
+            abs(float(prior) - settings.initial_mastery_probability) > 1e-9
+            for prior in priors
+        ):
+            raise BootstrapError(
+                "The configured initial mastery does not match the BKT model prior."
+            )
         settings.database_path.parent.mkdir(parents=True, exist_ok=True)
         repository = SQLiteRecommendationRepository(
             settings.database_path, skills=catalogue.skills, items=items
         )
         repository.initialize_schema()
         policy = RecommendationPolicyConfig(
+            initial_mastery_probability=settings.initial_mastery_probability,
             prerequisite_mastery_threshold=settings.prerequisite_mastery_threshold,
             policy_version=settings.policy_version,
         )
@@ -138,6 +186,7 @@ def build_controller(settings: AppSettings) -> ApplicationController:
                 repository, model_version=settings.model_version, config=policy
             ),
             bkt_service=BKTService(model, repository),
+            low_supply_reporter=_build_low_supply_reporter(settings),
         )
     except BootstrapError:
         LOGGER.exception("Application bootstrap failed")

@@ -8,6 +8,10 @@ from api.schemas import difficulty_level
 RECOMMENDATION_REASON_TEXT = {
     "foundational_unseen_skill": "Start with a foundational skill you have not practised yet.",
     "lowest_mastery_eligible_skill": "Practise the eligible skill with the most room to grow.",
+    "prerequisite_exhausted_unlock": (
+        "Moving on: every practice question for the prerequisite skill has been "
+        "answered, even though mastery wasn't yet reached."
+    ),
     "requested_difficulty_used": "This question matches the requested difficulty.",
     "fallback_difficulty_used": "The nearest available difficulty was selected.",
 }
