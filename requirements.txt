@@ -9,7 +9,7 @@ safetensors
 
 pandas
 numpy
-scikit-learn
+scikit-learn==1.6.1
 pyyaml
 pyBKT==1.4.3
 
