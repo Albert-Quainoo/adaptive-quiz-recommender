@@ -1,0 +1,86 @@
+{
+  "batch_id": "grounded-calibration-v1b-intermediate",
+  "prompt_version": "v3.3",
+  "review_status": "blueprint-approved",
+  "reviewer_id": "albert",
+  "reviewed_at": "2026-08-13T20:36:09Z",
+  "base_seed": null,
+  "questions_per_intent": 1,
+  "skill_conventions": {},
+  "intents": [
+    {
+      "intent_id": "AI-SRC-01-INT-09",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Formalize the Degrees actor-connection scenario as a search problem.",
+      "question_archetype": "Degrees scenario formalization",
+      "preferred_reference_ids": [
+        "AI-SRC-01-8ef4e1416152"
+      ],
+      "required_concepts": [
+        "actors as states",
+        "movies as actions",
+        "two people as endpoints"
+      ],
+      "prohibited_conflations": [
+        "treating movies as states",
+        "treating breadth-first search as a formulation component"
+      ],
+      "difficulty": "intermediate",
+      "learning_objective": null,
+      "cognitive_demand": null,
+      "required_question_characteristics": [],
+      "prohibited_ambiguity_patterns": [],
+      "expected_misconception_or_distractor_strategy": [],
+      "generation_constraints": []
+    },
+    {
+      "intent_id": "AI-SRC-01-INT-10",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Diagnose and repair an invalid search-problem formulation.",
+      "question_archetype": "invalid formulation diagnosis",
+      "preferred_reference_ids": [
+        "AI-SRC-01-4024dce75930"
+      ],
+      "required_concepts": [
+        "component-role consistency",
+        "corrected formulation"
+      ],
+      "prohibited_conflations": [
+        "counting initial state and start state separately",
+        "combining alternative textbook component lists"
+      ],
+      "difficulty": "intermediate",
+      "learning_objective": null,
+      "cognitive_demand": null,
+      "required_question_characteristics": [],
+      "prohibited_ambiguity_patterns": [],
+      "expected_misconception_or_distractor_strategy": [],
+      "generation_constraints": []
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-10",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Explain what information is lost when greedy search omits cost-so-far.",
+      "question_archetype": "missing-information analysis",
+      "preferred_reference_ids": [
+        "AI-SRC-08-cbd77b22bcb9",
+        "AI-SRC-08-a366da363e17"
+      ],
+      "required_concepts": [
+        "cost so far",
+        "heuristic-only priority"
+      ],
+      "prohibited_conflations": [
+        "claiming the heuristic contains exact elapsed cost",
+        "claiming greedy and A-star priorities are identical"
+      ],
+      "difficulty": "intermediate",
+      "learning_objective": null,
+      "cognitive_demand": null,
+      "required_question_characteristics": [],
+      "prohibited_ambiguity_patterns": [],
+      "expected_misconception_or_distractor_strategy": [],
+      "generation_constraints": []
+    }
+  ]
+}

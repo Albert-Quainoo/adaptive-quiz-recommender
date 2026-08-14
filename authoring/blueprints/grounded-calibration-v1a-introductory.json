@@ -1,0 +1,64 @@
+{
+  "batch_id": "grounded-calibration-v1a-introductory",
+  "prompt_version": "v3.3",
+  "review_status": "blueprint-approved",
+  "reviewer_id": "albert",
+  "reviewed_at": "2026-08-13T20:36:09Z",
+  "base_seed": null,
+  "questions_per_intent": 1,
+  "skill_conventions": {},
+  "intents": [
+    {
+      "intent_id": "AI-SRC-01-INT-01",
+      "skill_id": "AI-SRC-01",
+      "assessment_focus": "Select the complete canonical five-part search-problem formulation.",
+      "question_archetype": "complete formulation selection",
+      "preferred_reference_ids": [
+        "AI-SRC-01-4024dce75930"
+      ],
+      "required_concepts": [
+        "initial state",
+        "actions",
+        "transition model",
+        "goal test",
+        "path cost"
+      ],
+      "prohibited_conflations": [
+        "counting initial state and start state separately",
+        "mixing state space or action cost into the canonical five-part list"
+      ],
+      "difficulty": "introductory",
+      "learning_objective": null,
+      "cognitive_demand": null,
+      "required_question_characteristics": [],
+      "prohibited_ambiguity_patterns": [],
+      "expected_misconception_or_distractor_strategy": [],
+      "generation_constraints": []
+    },
+    {
+      "intent_id": "AI-SRC-08-INT-05",
+      "skill_id": "AI-SRC-08",
+      "assessment_focus": "Calculate an A-star estimated total from given path cost and heuristic.",
+      "question_archetype": "numeric A-star calculation",
+      "preferred_reference_ids": [
+        "AI-SRC-08-a366da363e17"
+      ],
+      "required_concepts": [
+        "path cost",
+        "heuristic",
+        "sum"
+      ],
+      "prohibited_conflations": [
+        "using only the heuristic",
+        "multiplying rather than adding the two terms"
+      ],
+      "difficulty": "introductory",
+      "learning_objective": null,
+      "cognitive_demand": null,
+      "required_question_characteristics": [],
+      "prohibited_ambiguity_patterns": [],
+      "expected_misconception_or_distractor_strategy": [],
+      "generation_constraints": []
+    }
+  ]
+}
