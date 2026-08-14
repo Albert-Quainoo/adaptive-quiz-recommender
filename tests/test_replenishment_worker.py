@@ -575,6 +575,72 @@ def test_generation_derives_introductory_difficulty_from_blueprint_end_to_end(
     assert generated[0].question.difficulty == "introductory"
 
 
+def test_generation_uses_the_blueprints_explicit_base_seed_when_present(
+    manifest, repository, tmp_path, monkeypatch, approved_candidate
+):
+    """A blueprint's own base_seed (e.g. for reproducing a specific calibration run)
+    always wins over the job_id-derived fallback -- proven end to end via the
+    persisted batch manifest, not just the seed-selection expression in isolation."""
+    blueprint_dir = tmp_path / "blueprints"
+    blueprint_dir.mkdir()
+    intent = QuestionIntent(
+        intent_id=f"{SKILL_ID}-INT-01",
+        skill_id=SKILL_ID,
+        assessment_focus="What a heuristic estimates",
+        question_archetype="definition recall",
+        preferred_reference_ids=[approved_candidate.candidate_id],
+        required_concepts=["heuristic", "estimate"],
+        prohibited_conflations=["heuristic equals exact cost"],
+        difficulty="intermediate",
+    )
+    blueprint = PilotBlueprint(
+        batch_id="test-batch-explicit-seed",
+        prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved",
+        reviewer_id="albert",
+        reviewed_at=FIXED_TIME,
+        base_seed=20260811,
+        intents=[intent],
+    )
+    (blueprint_dir / "test-batch-explicit-seed.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(question_intents, "BLUEPRINT_DIRECTORY", blueprint_dir)
+    monkeypatch.setattr(
+        grounding_briefs,
+        "PILOT_GROUNDING_BRIEFS",
+        {
+            SKILL_ID: CanonicalGroundingBrief(
+                skill_id=SKILL_ID,
+                version="test-v1",
+                statements=["A heuristic estimates the remaining cost to the goal."],
+            )
+        },
+    )
+
+    repository.enqueue(course_id="ai", skill_id=SKILL_ID, requested_count=1, clock=fixed_clock)
+    retrieve_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        retrieve_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=DeterministicFakeModel, clock=fixed_clock,
+    )
+    generate_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        generate_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=DeterministicFakeModel, clock=fixed_clock,
+    )
+
+    after = repository.get(generate_job.job_id)
+    assert after.status == "queued"
+    assert after.job_type == "automated_review"
+
+    output_dir = manifest.review_store_path.parent / "batches" / f"test-batch-explicit-seed__{SKILL_ID}"
+    manifest_data = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest_data["base_seed"] == 20260811
+
+
 def test_generation_config_error_is_permanent_and_makes_no_model_calls(
     manifest, repository, tmp_path, monkeypatch, approved_candidate
 ):

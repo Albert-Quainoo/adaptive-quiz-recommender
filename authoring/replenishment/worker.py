@@ -522,7 +522,15 @@ def _handle_generate_questions(
 
     intents_for_skill = intents_by_skill(blueprint).get(job.skill_id, [])
     output_dir = _batch_output_dir(manifest, blueprint.batch_id, job.skill_id)
-    seed = int(hashlib.sha256(job.job_id.encode("utf-8")).hexdigest()[:8], 16)
+    # An explicit blueprint.base_seed is deliberate operator intent (e.g. reproducing
+    # a specific calibration run) and always wins. Absent one, the seed is derived
+    # from job_id as before -- unique per replenishment episode, with no reproducible
+    # meaning beyond this one job.
+    seed = (
+        blueprint.base_seed
+        if blueprint.base_seed is not None
+        else int(hashlib.sha256(job.job_id.encode("utf-8")).hexdigest()[:8], 16)
+    )
 
     # Recomputed fresh on every tick, right before the only network call this stage
     # makes: an approved item added by another job or a human since retrieval last

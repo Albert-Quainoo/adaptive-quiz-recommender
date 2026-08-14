@@ -4,7 +4,7 @@
   "review_status": "blueprint-approved",
   "reviewer_id": "albert",
   "reviewed_at": "2026-08-13T20:36:09Z",
-  "base_seed": null,
+  "base_seed": 20260811,
   "questions_per_intent": 1,
   "skill_conventions": {},
   "intents": [
