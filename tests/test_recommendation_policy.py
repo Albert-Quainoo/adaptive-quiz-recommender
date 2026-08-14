@@ -62,6 +62,30 @@ def test_locked_skill_is_not_selected_until_its_prerequisite_is_mastered():
     assert unlocked.skill.skill_id == dependent.skill_id
 
 
+def test_exhausted_prerequisite_unlocks_dependent_skill_with_a_distinct_reason():
+    foundation = skill("AI-SRC-01")
+    dependent = skill("AI-SRC-02", [foundation.skill_id])
+    config = RecommendationPolicyConfig(prerequisite_mastery_threshold=0.75)
+
+    still_locked = select_skill(
+        [foundation, dependent],
+        {dependent.skill_id},
+        {foundation.skill_id: 0.30},
+        config,
+    )
+    bypassed = select_skill(
+        [foundation, dependent],
+        {dependent.skill_id},
+        {foundation.skill_id: 0.30},
+        config,
+        {foundation.skill_id},
+    )
+
+    assert still_locked is None
+    assert bypassed.skill.skill_id == dependent.skill_id
+    assert bypassed.reason == "prerequisite_exhausted_unlock"
+
+
 def test_missing_prerequisite_mastery_uses_configured_initial_mastery():
     dependent = skill("AI-SRC-02", ["AI-SRC-01"])
 

@@ -10,6 +10,7 @@ from api.schemas import QuizQuestion
 from app.bootstrap import BootstrapError
 from bkt.train_dev_model import (
     DEVELOPMENT_MODEL_DESCRIPTION,
+    MODERATED_PILOT_PARAMETERS,
     OPPORTUNITY_COUNT,
     SYNTHETIC_LEARNER_COUNT,
     train_dev_model,
@@ -134,3 +135,49 @@ def test_empty_approved_bank_is_rejected(tmp_path):
             model_version="bkt-synthetic-v1",
             seed=42,
         )
+
+
+def test_moderated_profile_is_fixed_and_has_gradual_trajectories(tmp_path):
+    bank_path = tmp_path / "approved-bank.jsonl"
+    write_bank(
+        bank_path,
+        [bank_item("item-a", "skill-a"), bank_item("item-b", "skill-b")],
+    )
+    output_path = tmp_path / "moderated.pkl"
+    metadata_path = tmp_path / "moderated.metadata.json"
+
+    metadata = train_dev_model(
+        bank_path,
+        output_path,
+        metadata_path,
+        model_version="bkt-synthetic-v4",
+        seed=42,
+        parameter_profile="moderated-pilot",
+        clock=lambda: NOW,
+    )
+    model = load_model(output_path)
+
+    assert metadata["parameter_profile"] == "moderated-pilot"
+    assert metadata["parameters"] == MODERATED_PILOT_PARAMETERS
+    for skill_id in SKILLS:
+        parameters = model.coef_[skill_id]
+        assert parameters["prior"] == pytest.approx(0.20)
+        assert parameters["learns"][0] == pytest.approx(0.04)
+        assert parameters["guesses"][0] == pytest.approx(0.40)
+        assert parameters["slips"][0] == pytest.approx(0.20)
+        roster = Roster(students=["learner"], skills=skill_id, model=model)
+        roster.update_state(skill_id, "learner", 0)
+        after_incorrect = roster.get_mastery_prob(skill_id, "learner")
+        roster.update_state(skill_id, "learner", 1)
+        after_correct = roster.get_mastery_prob(skill_id, "learner")
+        assert after_incorrect < 0.20
+        assert 0.20 < after_correct < 0.30
+
+        fresh_roster = Roster(students=["fresh-learner"], skills=skill_id, model=model)
+        fresh_roster.update_state(skill_id, "fresh-learner", 1)
+        after_first_correct = fresh_roster.get_mastery_prob(skill_id, "fresh-learner")
+        fresh_roster.update_state(skill_id, "fresh-learner", 1)
+        after_second_correct = fresh_roster.get_mastery_prob(skill_id, "fresh-learner")
+        assert after_first_correct < 0.40
+        assert after_second_correct < 0.60
+    MODERATED_PILOT_PARAMETERS,

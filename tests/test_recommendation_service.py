@@ -178,7 +178,7 @@ def test_exhausted_first_skill_falls_back_to_next_eligible_skill(caplog):
     assert "fallback_result=fallback:intermediate" in caplog.text
 
 
-def test_exhausted_foundation_does_not_unlock_dependent_skill():
+def test_exhausted_foundation_below_mastery_unlocks_dependent_skill():
     foundation = skill("AI-SRC-01")
     dependent = skill("AI-SRC-02", [foundation.skill_id])
     repository = InMemoryRecommendationRepository(
@@ -189,15 +189,34 @@ def test_exhausted_foundation_does_not_unlock_dependent_skill():
         ],
     )
 
+    result = service(repository).recommend(
+        request(
+            available_skill_ids=[foundation.skill_id, dependent.skill_id],
+            excluded_item_ids=["item-a"],
+        )
+    )
+
+    assert result.skill_id == dependent.skill_id
+    assert result.item_id == "item-b"
+    assert result.reason == "prerequisite_exhausted_unlock"
+
+
+def test_exhausted_foundation_below_mastery_with_no_further_content_is_unavailable():
+    foundation = skill("AI-SRC-01")
+    repository = InMemoryRecommendationRepository(
+        skills=[foundation],
+        items=[item("item-a", foundation.skill_id, "introductory")],
+    )
+
     with pytest.raises(RecommendationUnavailable) as raised:
         service(repository).recommend(
             request(
-                available_skill_ids=[foundation.skill_id, dependent.skill_id],
+                available_skill_ids=[foundation.skill_id],
                 excluded_item_ids=["item-a"],
             )
         )
 
-    assert raised.value.reason == "no_eligible_item"
+    assert raised.value.reason == "bank_exhausted_below_mastery"
 
 
 def test_empty_usable_inventory_is_unavailable():
@@ -209,7 +228,7 @@ def test_empty_usable_inventory_is_unavailable():
     with pytest.raises(RecommendationUnavailable) as raised:
         service(repository).recommend(request())
 
-    assert raised.value.reason == "no_eligible_item"
+    assert raised.value.reason == "bank_empty"
 
 
 def test_one_learners_mastery_does_not_affect_another():
@@ -283,7 +302,20 @@ def test_no_eligible_item_raises_specific_unavailable_error():
     with pytest.raises(RecommendationUnavailable) as raised:
         service(repository).recommend(request(excluded_item_ids=["item-a"]))
 
-    assert raised.value.reason == "no_eligible_item"
+    assert raised.value.reason == "bank_exhausted_below_mastery"
+
+
+def test_all_items_attempted_at_full_mastery_is_distinguished_from_exhaustion():
+    repository = InMemoryRecommendationRepository(
+        skills=[skill("AI-SRC-01")],
+        items=[item("item-a", "AI-SRC-01", "introductory")],
+        mastery=[mastery("learner-1", "AI-SRC-01", 0.90)],
+    )
+
+    with pytest.raises(RecommendationUnavailable) as raised:
+        service(repository).recommend(request(excluded_item_ids=["item-a"]))
+
+    assert raised.value.reason == "all_eligible_items_attempted"
 
 
 def test_unlocked_missing_prerequisite_content_is_recorded_as_a_content_gap():

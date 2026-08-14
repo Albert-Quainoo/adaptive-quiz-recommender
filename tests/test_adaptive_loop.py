@@ -134,7 +134,7 @@ def test_end_to_end_adaptive_loop_unlocks_dependent_skill_after_mastery():
 
     assert first_recommendation.skill_id == FOUNDATIONAL_SKILL_ID
     assert first_recommendation.reason == "foundational_unseen_skill"
-    with pytest.raises(RecommendationUnavailable, match="no_eligible_skill"):
+    with pytest.raises(RecommendationUnavailable, match="no_prerequisite_eligible_skill"):
         recommend(LEARNER_ID, [DEPENDENT_SKILL_ID])
 
     online_snapshots = []

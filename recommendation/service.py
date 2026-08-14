@@ -7,9 +7,10 @@ from recommendation.policy import (
     DIFFICULTIES,
     RecommendationPolicyConfig,
     difficulty_for_mastery,
+    mastery_for,
     select_item,
     select_skill,
-    prerequisites_are_mastered,
+    prerequisites_are_cleared,
 )
 from recommendation.repository import RecommendationRepository
 from recommendation.schemas import (
@@ -81,12 +82,13 @@ class RecommendationService:
             )
         remaining_skill_ids = set(request.available_skill_ids) & inventory_skill_ids
         if not remaining_skill_ids:
-            raise RecommendationUnavailable("no_eligible_item")
+            raise RecommendationUnavailable("bank_empty")
 
         attempts = self.repository.list_attempts(learner_id=request.learner_id)
         last_answered_item_id = attempts[-1].item_id if attempts else None
         excluded_item_ids = set(request.excluded_item_ids)
         found_eligible_skill = False
+        exhausted_skill_ids: list[str] = []
         skill_selection = None
         item_selection = None
 
@@ -96,6 +98,7 @@ class RecommendationService:
                 remaining_skill_ids,
                 mastery_by_skill,
                 self.config,
+                set(exhausted_skill_ids),
             )
             if skill_selection is None:
                 break
@@ -125,6 +128,7 @@ class RecommendationService:
                     desired_difficulty,
                     available_difficulties,
                 )
+                exhausted_skill_ids.append(skill_id)
                 remaining_skill_ids.remove(skill_id)
                 continue
 
@@ -144,7 +148,16 @@ class RecommendationService:
             break
 
         if skill_selection is None or item_selection is None:
-            reason = "no_eligible_item" if found_eligible_skill else "no_eligible_skill"
+            if not found_eligible_skill:
+                reason = "no_prerequisite_eligible_skill"
+            elif any(
+                mastery_for(exhausted_skill_id, mastery_by_skill, self.config)
+                < self.config.prerequisite_mastery_threshold
+                for exhausted_skill_id in exhausted_skill_ids
+            ):
+                reason = "bank_exhausted_below_mastery"
+            else:
+                reason = "all_eligible_items_attempted"
             raise RecommendationUnavailable(reason)
 
         reason = skill_selection.reason
@@ -193,7 +206,7 @@ class RecommendationService:
                 skill.skill_id not in required_skill_ids
                 or skill.skill_id in inventory_skill_ids
                 or not skill.prerequisite_skill_ids
-                or not prerequisites_are_mastered(
+                or not prerequisites_are_cleared(
                     skill, mastery_by_skill, self.config
                 )
             ):

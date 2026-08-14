@@ -66,14 +66,19 @@ def mastery_for(
     return mastery_by_skill.get(skill_id, config.initial_mastery_probability)
 
 
-def prerequisites_are_mastered(
+def prerequisites_are_cleared(
     skill: SkillDefinition,
     mastery_by_skill: Mapping[str, float],
     config: RecommendationPolicyConfig,
+    exhausted_skill_ids: set[str] = frozenset(),
 ) -> bool:
+    """A prerequisite is cleared by mastery, or by exhausting its approved
+    items while still below mastery -- a struggling learner is not stuck
+    forever once a finite item bank runs out."""
     return all(
         mastery_for(prerequisite_id, mastery_by_skill, config)
         >= config.prerequisite_mastery_threshold
+        or prerequisite_id in exhausted_skill_ids
         for prerequisite_id in skill.prerequisite_skill_ids
     )
 
@@ -83,6 +88,7 @@ def select_skill(
     available_skill_ids: set[str],
     mastery_by_skill: Mapping[str, float],
     config: RecommendationPolicyConfig,
+    exhausted_skill_ids: set[str] = frozenset(),
 ) -> SkillSelection | None:
     """Choose an eligible skill; input order is the taxonomy tie-breaker."""
 
@@ -90,7 +96,7 @@ def select_skill(
         (taxonomy_order, skill)
         for taxonomy_order, skill in enumerate(skills)
         if skill.skill_id in available_skill_ids
-        and prerequisites_are_mastered(skill, mastery_by_skill, config)
+        and prerequisites_are_cleared(skill, mastery_by_skill, config, exhausted_skill_ids)
     ]
     if not eligible:
         return None
@@ -115,10 +121,21 @@ def select_skill(
             entry[1].skill_id,
         ),
     )
+    unlocked_via_exhaustion = any(
+        prerequisite_id in exhausted_skill_ids
+        and mastery_for(prerequisite_id, mastery_by_skill, config)
+        < config.prerequisite_mastery_threshold
+        for prerequisite_id in skill.prerequisite_skill_ids
+    )
+    reason = (
+        "prerequisite_exhausted_unlock"
+        if unlocked_via_exhaustion
+        else "lowest_mastery_eligible_skill"
+    )
     return SkillSelection(
         skill=skill,
         mastery_probability=mastery_for(skill.skill_id, mastery_by_skill, config),
-        reason="lowest_mastery_eligible_skill",
+        reason=reason,
     )
 
 

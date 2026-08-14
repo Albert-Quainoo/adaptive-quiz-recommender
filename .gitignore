@@ -75,6 +75,13 @@ kaggle.json
 !outputs/approved_banks/*-validation.json
 !outputs/approved_banks/*-active-bank.json
 
+# BKT model artifact the deployed app depends on (QUIZ_BKT_MODEL_PATH) --
+# same rationale as outputs/approved_banks/ above. Other outputs/bkt_*
+# checkpoints (v1-v3, the undated default) stay ignored.
+!outputs/bkt_dev_model_v4.pkl
+!outputs/bkt_dev_model_v4.metadata.json
+!outputs/bkt_dev_model_v4.pkl.sha256
+
 # Misc
 .python-version
 

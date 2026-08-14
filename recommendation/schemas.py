@@ -9,6 +9,7 @@ from api.schemas import difficulty_level
 RecommendationReason = Literal[
     "foundational_unseen_skill",
     "lowest_mastery_eligible_skill",
+    "prerequisite_exhausted_unlock",
     "requested_difficulty_used",
     "fallback_difficulty_used",
 ]

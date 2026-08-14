@@ -1,0 +1,27 @@
+{
+  "created_at": "2026-08-11T19:28:36.223900+00:00",
+  "description": "Development model using a fixed, reviewed pilot parameter profile; it is not learner-trained or empirically calibrated.",
+  "included_skill_ids": [
+    "AI-AGT-01",
+    "AI-FND-01",
+    "AI-SRC-01",
+    "AI-SRC-02",
+    "AI-SRC-03",
+    "AI-SRC-08"
+  ],
+  "model_artifact_path": "outputs/bkt_dev_model_v4.pkl",
+  "model_version": "bkt-synthetic-v4",
+  "opportunity_count": 10,
+  "parameter_profile": "moderated-pilot",
+  "parameters": {
+    "forgets": 0.0,
+    "guesses": 0.4,
+    "learns": 0.04,
+    "prior": 0.2,
+    "slips": 0.2
+  },
+  "pybkt_version": "1.4.3",
+  "seed": 20260811,
+  "synthetic_learner_count": 8,
+  "training_source": "synthetic"
+}
