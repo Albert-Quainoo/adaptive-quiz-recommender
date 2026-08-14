@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 
 from api.schemas import QuizQuestion
+from authoring.grounded_batch import PendingQuestion
 from authoring.grounded_review import (
+    CurationItem,
     GroundedReviewStore,
     RevisionProvenance,
     approve_revision,
@@ -14,12 +16,38 @@ from authoring.grounded_review import (
     export_approved_bank_items,
     inspect_question,
     list_pending,
+    load_source_questions,
     propose_revision,
+    question_content_hash,
     reject_item,
     write_approved_bank,
 )
 from authoring.pilot_curation import build_pilot_review
 from authoring.question_intents import PILOT_BATCH_ID
+from authoring.review.card import format_review_card, review_priority
+from authoring.review.models import AutomatedReviewReport
+from authoring.review.reports import AutomatedReviewReportStore, review_report_path
+
+
+def _reports_path(store_path: Path) -> Path:
+    """The automated-review reports file sibling to a review store's own path --
+    review_report_path()'s naming convention, applied directly since --store already
+    is review_store_path / f"{batch_id}__{skill_id}.json"."""
+    return review_report_path(store_path.parent, *store_path.stem.split("__", 1))
+
+
+def _report_for_item(
+    item: CurationItem,
+    source: PendingQuestion | None,
+    report_store: AutomatedReviewReportStore,
+) -> AutomatedReviewReport | None:
+    if source is None:
+        return None
+    pending_revisions = [
+        revision for revision in item.revisions if revision.final_review_status == "pending"
+    ]
+    head = pending_revisions[-1].question if pending_revisions else source.question
+    return report_store.latest_for_hash(question_content_hash(head))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -68,10 +96,44 @@ def main(argv=None) -> int:
     review = store.load()
     assert_immutable_source(arguments.batch, review)
     if arguments.command == "list":
-        for item in list_pending(review):
-            print(f"{item.original_question_id}\t{item.intent_id}\t{item.recommendation}")
+        report_store = AutomatedReviewReportStore(_reports_path(arguments.store))
+        source_questions = {
+            question.question_id: question for question in load_source_questions(arguments.batch)
+        }
+        pending = list_pending(review)
+        reports = {
+            item.original_question_id: _report_for_item(
+                item, source_questions.get(item.original_question_id), report_store
+            )
+            for item in pending
+        }
+        # Prioritize low-risk recommend_human_approval items first, so a reviewer
+        # working top-down clears the easy, well-grounded items before anything
+        # automated review flagged as risky.
+        for item in sorted(pending, key=lambda item: review_priority(reports[item.original_question_id])):
+            report = reports[item.original_question_id]
+            auto = f"{report.recommendation}/{report.risk_level}" if report else "not yet reviewed"
+            print(f"{item.original_question_id}\t{item.intent_id}\t{item.recommendation}\tauto={auto}")
     elif arguments.command == "inspect":
-        print(inspect_question(arguments.batch, review, arguments.question_id).model_dump_json(indent=2))
+        inspected = inspect_question(arguments.batch, review, arguments.question_id)
+        print(inspected.model_dump_json(indent=2))
+        report = _report_for_item(
+            inspected.curation,
+            inspected.source_question,
+            AutomatedReviewReportStore(_reports_path(arguments.store)),
+        )
+        supporting_passages = {
+            record["reference_id"]: record["reference_material"] for record in inspected.references
+        }
+        print()
+        print(
+            format_review_card(
+                inspected.source_question.question,
+                inspected.curation,
+                report,
+                supporting_passages=supporting_passages,
+            )
+        )
     elif arguments.command == "propose":
         inspected = inspect_question(arguments.batch, review, arguments.question_id)
         edited = QuizQuestion.model_validate_json(arguments.question_json.read_text(encoding="utf-8"))

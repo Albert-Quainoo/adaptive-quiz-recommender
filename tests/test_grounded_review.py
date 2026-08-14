@@ -446,3 +446,72 @@ def test_generic_quality_checks_cover_requested_deterministic_failures():
         "duplicate_options",
         "explanation_disagreement",
     }
+
+
+def test_answer_revealed_does_not_flag_enumerated_missing_component_question():
+    """Regression: the stem legitimately enumerates all five components, including
+    the correct answer, then asks which is missing -- that's not a giveaway, since
+    the reader still has to reason about which of the first four was named. This is
+    the real AI-SRC-01 approved-bank item that previously false-positived."""
+    enumerated = QuizQuestion(
+        question=(
+            "A course formulation defines a search problem using an initial state, "
+            "actions, a transition model, a goal test, and a path-cost function. If "
+            "the first four have been specified, which component is missing?"
+        ),
+        options=["Path-cost function", "Start state", "Successor state", "Search-tree depth"],
+        correct_answer="Path-cost function",
+        explanation=(
+            "In this formulation, the initial state, actions, transition model and "
+            "goal test are already specified, leaving the path-cost function as the "
+            "missing component."
+        ),
+        concept="Missing search-problem component",
+        difficulty="intermediate",
+    )
+    assert "answer_revealed" not in {
+        issue.code for issue in generic_quality_issues(enumerated, intent_id="I")
+    }
+
+
+def test_answer_revealed_still_flags_direct_assertion_alongside_an_enumeration():
+    """A stem can both enumerate candidate terms AND separately assert the answer
+    outright; the enumeration must not blanket-suppress a genuine reveal elsewhere
+    in the stem."""
+    both = question(
+        "Given components A, B, and Correct, which one is Correct?",
+        correct="Correct",
+    )
+    assert "answer_revealed" in {issue.code for issue in generic_quality_issues(both, intent_id="I")}
+
+
+def test_old_format_review_json_without_require_full_human_review_still_validates():
+    """Recommendation gained a fourth value for automated review; a review file
+    written before that change must still load unchanged."""
+    old_format = {
+        "batch_id": "old-batch",
+        "source_hashes": {},
+        "items": [
+            {
+                "original_question_id": "q-1",
+                "skill_id": "AI-SRC-08",
+                "intent_id": "AI-SRC-08-INT-01",
+                "recommendation": "propose_revision",
+                "recommendation_reason": "Pending human review of generated candidate.",
+            }
+        ],
+    }
+    review = GroundedReview.model_validate(old_format)
+    assert review.items[0].recommendation == "propose_revision"
+
+
+def test_require_full_human_review_is_an_accepted_recommendation():
+    item = CurationItem(
+        original_question_id="q-1",
+        skill_id="AI-SRC-08",
+        intent_id="AI-SRC-08-INT-01",
+        recommendation="require_full_human_review",
+        recommendation_reason="Automated reviewer passes disagreed on grounding.",
+    )
+    assert item.recommendation == "require_full_human_review"
+    assert item.final_review_status == "pending"

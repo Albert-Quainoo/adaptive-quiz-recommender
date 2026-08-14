@@ -15,7 +15,9 @@ from authoring.question_quality import QualityIssue, generic_quality_issues
 
 
 FinalReviewStatus = Literal["pending", "approved", "rejected"]
-Recommendation = Literal["propose_revision", "reject"]
+Recommendation = Literal[
+    "approve_as_written", "propose_revision", "reject", "require_full_human_review"
+]
 
 
 def question_content_hash(question: QuizQuestion) -> str:
@@ -114,7 +116,9 @@ class CurationItem(BaseModel):
                 for revision in self.revisions
                 if revision.final_review_status == "approved"
             ]
-            if len(approved) != 1:
+            if self.recommendation == "approve_as_written" and approved:
+                raise ValueError("an as-written approval cannot approve a revision")
+            if self.recommendation != "approve_as_written" and len(approved) != 1:
                 raise ValueError("an approved item needs exactly one approved revision")
         return self
 
@@ -197,10 +201,13 @@ def build_pending_review(batch_path: Path) -> GroundedReview:
     if manifest.get("status") != "complete":
         raise ValueError("only a complete generated batch can enter human review")
     questions = load_source_questions(batch_path)
-    expected = manifest.get("questions_per_skill", 0) * len(
-        manifest.get("skill_ids", [])
-    )
-    if not questions or len(questions) != expected:
+    # Not an exact questions_per_skill * len(skill_ids) count: a worker-driven batch
+    # may pass generate_batch's skip_question_indices to deliberately leave some slots
+    # ungenerated (already fulfilled by an approved bank item outside this batch -- see
+    # authoring/replenishment/demand.py), so questions_per_skill no longer always
+    # equals how many questions this batch actually produced. manifest["status"] ==
+    # "complete" is itself generate_batch's own authoritative completion signal.
+    if not questions:
         raise ValueError("generated batch does not contain its expected questions")
     return GroundedReview(
         batch_id=manifest["batch_id"],
@@ -409,6 +416,30 @@ def approve_revision(
             "reviewed_by": reviewer,
             "reviewed_at": timestamp,
             "revisions": revisions,
+        }
+    )
+
+
+def approve_as_written(
+    item: CurationItem,
+    reviewer: str,
+    *,
+    reviewed_at: datetime | None = None,
+) -> CurationItem:
+    if item.final_review_status != "pending":
+        raise ValueError("only a pending item can be approved")
+    if item.recommendation != "approve_as_written" or item.revisions:
+        raise ValueError("only an unchanged source candidate can be approved as written")
+    reviewer = reviewer.strip()
+    if not reviewer:
+        raise ValueError("reviewer is required")
+    timestamp = reviewed_at or datetime.now(timezone.utc)
+    return CurationItem.model_validate(
+        item.model_dump()
+        | {
+            "final_review_status": "approved",
+            "reviewed_by": reviewer,
+            "reviewed_at": timestamp,
         }
     )
 
