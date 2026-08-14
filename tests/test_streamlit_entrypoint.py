@@ -2,13 +2,37 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
+from pyBKT.models import Model
 from streamlit.testing.v1 import AppTest
 
 from app.bootstrap import AppSettings, BootstrapError, build_controller, load_approved_bank
+from bkt.adapter import PyBKTAdapter
+from bkt.train_dev_model import MODERATED_PILOT_PARAMETERS, generate_synthetic_attempts
 
 
 BANK_PATH = Path("outputs/approved_banks/pilot-approved-bank-38-v1.jsonl")
+
+
+def _fixed_coefficient_model(skill_ids: list[str], *, seed: int) -> Model:
+    """A fast, hermetic pyBKT model covering only the given skills -- no
+    fitted-artifact fixture file required, unlike a real EM-fit model."""
+    attempts = generate_synthetic_attempts(skill_ids, seed=seed)
+    training_frame = PyBKTAdapter().to_dataframe(attempts)
+    model = Model(seed=seed, num_fits=1, parallel=False)
+    model.coef_ = {
+        skill_id: {
+            "prior": MODERATED_PILOT_PARAMETERS["prior"],
+            "learns": np.array([MODERATED_PILOT_PARAMETERS["learns"]]),
+            "guesses": np.array([MODERATED_PILOT_PARAMETERS["guesses"]]),
+            "slips": np.array([MODERATED_PILOT_PARAMETERS["slips"]]),
+            "forgets": np.array([MODERATED_PILOT_PARAMETERS["forgets"]]),
+        }
+        for skill_id in skill_ids
+    }
+    model.fit(data=training_frame, fixed=True)
+    return model
 
 
 def test_entrypoint_resolves_package_imports_outside_repository_cwd(tmp_path):
@@ -60,13 +84,19 @@ def test_bootstrap_reports_missing_runtime_artifacts(tmp_path, bank_path, model_
 
 
 def test_bootstrap_rejects_model_without_every_bank_skill(tmp_path):
+    incomplete_model_path = tmp_path / "incomplete-coverage-model.pkl"
+    # Deliberately excludes AI-AGT-01 and AI-SRC-03, both present in BANK_PATH.
+    _fixed_coefficient_model(
+        ["AI-FND-01", "AI-SRC-01", "AI-SRC-02", "AI-SRC-08"], seed=20260101
+    ).save(str(incomplete_model_path))
+
     settings = AppSettings(
         database_path=tmp_path / "coverage.sqlite3",
         approved_bank_path=BANK_PATH,
-        bkt_model_path=Path("outputs/bkt_dev_model_v2.pkl"),
+        bkt_model_path=incomplete_model_path,
         skills_path=Path("taxonomy/data/ai/skills.csv"),
         references_path=Path("taxonomy/data/ai/references.csv"),
-        model_version="bkt-synthetic-v2",
+        model_version="bkt-synthetic-incomplete-coverage-fixture",
         policy_version="recommendation-policy-v1",
         initial_mastery_probability=0.0,
     )
