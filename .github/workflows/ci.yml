@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run test suite
+        run: python -m pytest tests/ -q
+
+      - name: Validate the committed 43-item approved bank
+        run: |
+          python scripts/validate_approved_bank.py \
+            --bank outputs/approved_banks/pilot-approved-bank-43-v1.jsonl \
+            --course ai \
+            --expected-count 43 \
+            --required-skill-id AI-FND-01 \
+            --required-skill-id AI-AGT-01 \
+            --required-skill-id AI-SRC-01 \
+            --required-skill-id AI-SRC-02 \
+            --required-skill-id AI-SRC-03 \
+            --required-skill-id AI-SRC-08 \
+            --output "${RUNNER_TEMP}/pilot-approved-bank-43-v1-validation.json"
+
+      - name: Verify the committed BKT model checksum
+        run: |
+          cd outputs
+          shasum -a 256 -c bkt_dev_model_v4.pkl.sha256
+
+      - name: Verify the committed BKT model loads
+        run: |
+          python -c "
+          from app.bootstrap import load_fitted_bkt_model
+          model = load_fitted_bkt_model('outputs/bkt_dev_model_v4.pkl', model_version='bkt-synthetic-v4')
+          skills = sorted(set(model.get_parameters().index.get_level_values('skill')))
+          print('BKT model loaded, skills:', skills)
+          assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']
+          "
