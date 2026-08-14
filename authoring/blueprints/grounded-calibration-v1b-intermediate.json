@@ -28,10 +28,18 @@
       "difficulty": "intermediate",
       "learning_objective": null,
       "cognitive_demand": null,
-      "required_question_characteristics": [],
-      "prohibited_ambiguity_patterns": [],
+      "required_question_characteristics": [
+        "State the stem as a direct interrogative question (ending in '?'), never as an imperative directive such as 'Formalize...' or 'Specify...'.",
+        "Require mapping the actors to search states, the movies to actions, and the two named people to the initial state and the goal test."
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not reuse assessment_focus's imperative wording verbatim as the literal question stem."
+      ],
       "expected_misconception_or_distractor_strategy": [],
-      "generation_constraints": []
+      "generation_constraints": [
+        "Provide exactly four distinct options.",
+        "Set correct_answer to an exact character-for-character copy of one option; never a separately reworded restatement."
+      ]
     },
     {
       "intent_id": "AI-SRC-01-INT-10",
