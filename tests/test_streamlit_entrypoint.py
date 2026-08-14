@@ -8,8 +8,10 @@ from pyBKT.models import Model
 from streamlit.testing.v1 import AppTest
 
 from app.bootstrap import AppSettings, BootstrapError, build_controller, load_approved_bank
+from app.main import configured_settings
 from bkt.adapter import PyBKTAdapter
 from bkt.train_dev_model import MODERATED_PILOT_PARAMETERS, generate_synthetic_attempts
+from database import is_postgres_dsn
 
 
 BANK_PATH = Path("outputs/approved_banks/pilot-approved-bank-38-v1.jsonl")
@@ -193,3 +195,33 @@ def test_switch_button_returns_to_login_and_activates_a_new_learner(
     assert any(
         "Learner: learner-b" in markdown.value for markdown in app.markdown
     )
+
+
+def test_the_local_suite_never_resolves_settings_from_the_real_secrets_file(
+    monkeypatch, tmp_path
+):
+    """.streamlit/secrets.toml is a real, git-ignored file (absent in CI and
+    on a fresh clone) that on a configured developer machine carries the
+    live production Supabase QUIZ_DATABASE_URL. This test only proves
+    anything when that file is actually present -- it is not a substitute
+    for the no_real_secrets autouse fixture in conftest.py, it is proof that
+    fixture is doing its job: even though the real secret is sitting on disk
+    right where app.main.configured_settings() would normally read it from,
+    resolving settings here must still land on the explicit SQLite path,
+    never on the Supabase DSN."""
+    secrets_path = Path(".streamlit/secrets.toml")
+    if not secrets_path.is_file():
+        pytest.skip("the real .streamlit/secrets.toml is not present on this machine")
+    assert "QUIZ_DATABASE_URL" in secrets_path.read_text()
+
+    monkeypatch.delenv("QUIZ_DATABASE_URL", raising=False)
+    monkeypatch.setenv("QUIZ_APPROVED_BANK_PATH", str(BANK_PATH))
+    monkeypatch.setenv("QUIZ_BKT_MODEL_PATH", "outputs/bkt_dev_model_v4.pkl")
+    monkeypatch.setenv("QUIZ_BKT_MODEL_VERSION", "bkt-synthetic-v4")
+    expected_path = tmp_path / "secret-isolation.sqlite3"
+    monkeypatch.setenv("QUIZ_DATABASE_PATH", str(expected_path))
+
+    settings = configured_settings()
+
+    assert not is_postgres_dsn(str(settings.database_path))
+    assert Path(settings.database_path) == expected_path

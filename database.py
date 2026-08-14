@@ -23,8 +23,24 @@ def create_engine_for(
     database: str | Path, *, immediate_transactions: bool = False
 ) -> Engine:
     if isinstance(database, str) and is_postgres_dsn(database):
-        return create_engine(database, pool_pre_ping=True)
+        return create_engine(_with_psycopg_driver(database), pool_pre_ping=True)
     return _create_sqlite_engine(database, immediate_transactions=immediate_transactions)
+
+
+def _with_psycopg_driver(dsn: str) -> str:
+    """Providers (Supabase included) hand out bare postgres://.../postgresql://
+    connection strings. SQLAlchemy's default driver for that bare scheme is
+    psycopg2, which this project does not install -- only psycopg (v3, pinned
+    in requirements.txt) is. Force the +psycopg dialect so a DSN copied
+    straight from a provider works without the caller needing to know that.
+    """
+    if dsn.startswith("postgresql+"):
+        return dsn
+    if dsn.startswith("postgresql://"):
+        return "postgresql+psycopg://" + dsn[len("postgresql://") :]
+    if dsn.startswith("postgres://"):
+        return "postgresql+psycopg://" + dsn[len("postgres://") :]
+    return dsn
 
 
 def _create_sqlite_engine(

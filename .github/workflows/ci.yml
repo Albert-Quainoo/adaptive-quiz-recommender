@@ -41,6 +41,7 @@ jobs:
       - name: Run PostgreSQL integration tests
         env:
           QUIZ_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+          QUIZ_CONFIRM_DESTRUCTIVE_POSTGRES_TESTS: "1"
         run: |
           python -m pytest tests/test_postgres_adaptive_repository.py tests/test_postgres_replenishment_jobs.py -q
 

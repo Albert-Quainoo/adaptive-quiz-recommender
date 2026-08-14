@@ -13,8 +13,7 @@ import pytest
 from sqlalchemy import text
 
 from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
-
-DSN_ENV_VAR = "QUIZ_TEST_POSTGRES_URL"
+from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
 pytestmark = pytest.mark.skipif(
     not os.getenv(DSN_ENV_VAR),
@@ -28,6 +27,7 @@ def _dsn() -> str:
 
 @pytest.fixture(autouse=True)
 def _clean_database():
+    require_safe_postgres_target(_dsn())
     engine_owner = SQLiteReplenishmentJobRepository(_dsn())
     with engine_owner._engine.begin() as connection:
         connection.execute(text("DROP TABLE IF EXISTS replenishment_jobs CASCADE"))

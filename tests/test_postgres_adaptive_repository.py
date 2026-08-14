@@ -19,8 +19,7 @@ from bkt import AttemptConflictError, AttemptEvent, MasterySnapshot, SQLiteBKTRe
 from recommendation import RecommendationPolicyConfig, RecommendationRequest, RecommendationService
 from recommendation.sqlite_repository import SQLiteRecommendationRepository
 from taxonomy.schemas import SkillDefinition
-
-DSN_ENV_VAR = "QUIZ_TEST_POSTGRES_URL"
+from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
 pytestmark = pytest.mark.skipif(
     not os.getenv(DSN_ENV_VAR),
@@ -38,6 +37,7 @@ def _dsn() -> str:
 def _clean_database():
     """Each test gets a schema reset -- one shared Postgres instance/database
     is reused across tests rather than creating a new database per test."""
+    require_safe_postgres_target(_dsn())
     engine_owner = SQLiteBKTRepository(_dsn())
     with engine_owner._engine.begin() as connection:
         connection.execute(

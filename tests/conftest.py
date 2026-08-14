@@ -12,6 +12,7 @@ here deliberately rather than by drifting into it.
 
 import httpx
 import pytest
+import streamlit
 
 
 @pytest.fixture(autouse=True)
@@ -22,3 +23,19 @@ def no_live_requests(monkeypatch):
         )
 
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
+
+
+@pytest.fixture(autouse=True)
+def no_real_secrets(monkeypatch):
+    """The real .streamlit/secrets.toml (git-ignored, present on developer and
+    CI machines that have configured production access) carries the live
+    Supabase QUIZ_DATABASE_URL. app/main.py reads it via `dict(st.secrets)`,
+    and `AppSettings.from_sources` falls back to it whenever QUIZ_DATABASE_URL
+    is unset in the environment -- which every AppTest-based test in this
+    suite deliberately leaves unset, expecting the SQLite path they pass via
+    QUIZ_DATABASE_PATH to win. Replacing the `streamlit.secrets` singleton
+    with an empty dict here means that file is never opened by any test, so
+    no test can silently start writing to production no matter what secrets
+    happen to be configured on the machine running it.
+    """
+    monkeypatch.setattr(streamlit, "secrets", {})
