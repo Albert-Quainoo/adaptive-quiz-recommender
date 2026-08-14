@@ -28,7 +28,9 @@ from authoring.review.config import ReviewPolicyConfig, load_review_policy_confi
 from authoring.review.reports import count_pending_review_items
 from authoring.review.reviewer import ContentReviewer, ModelBackedContentReviewer
 
-DEFAULT_DATABASE_PATH = Path(os.getenv("QUIZ_DATABASE_PATH", "data/adaptive_quiz.sqlite3"))
+DEFAULT_DATABASE_PATH: str | Path = os.getenv("QUIZ_DATABASE_URL") or Path(
+    os.getenv("QUIZ_DATABASE_PATH", "data/adaptive_quiz.sqlite3")
+)
 
 INFERENCE_PROVIDERS: dict[str, Callable[[], BatchModel]] = {
     "local": LlamaBatchModel,
@@ -216,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m authoring.replenishment.cli",
         description="Monitor content supply and drive the replenishment pipeline.",
     )
-    parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE_PATH)
+    parser.add_argument("--database", type=str, default=DEFAULT_DATABASE_PATH)
 
     commands = parser.add_subparsers(dest="command", required=True)
 

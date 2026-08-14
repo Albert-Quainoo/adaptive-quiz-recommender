@@ -1,8 +1,9 @@
-import sqlite3
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from api.bank import BankItem
 from api.presentation import present_bank_item
@@ -136,8 +137,9 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     database = tmp_path / "adaptive.sqlite3"
     repository = SQLiteBKTRepository(database)
 
-    assert repository._connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+    with repository._engine.connect() as connection:
+        assert connection.execute(text("PRAGMA foreign_keys")).fetchone()[0] == 1
+    with pytest.raises(OperationalError, match="no such table"):
         repository.list_attempts()
 
     repository.initialize_schema()
@@ -153,7 +155,8 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     repository.close()
 
     reopened = SQLiteBKTRepository(database)
-    assert reopened._connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    with reopened._engine.connect() as connection:
+        assert connection.execute(text("PRAGMA foreign_keys")).fetchone()[0] == 1
     loaded_attempt = reopened.get_attempt(event.attempt_id)
     loaded_mastery = reopened.get_mastery(event.learner_id, event.skill_id)
 
@@ -166,7 +169,7 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
         loaded_attempt.correct = False
 
     missing_attempt = _attempt("missing")
-    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+    with pytest.raises(IntegrityError, match="FOREIGN KEY"):
         reopened.save_mastery(_snapshot(missing_attempt))
     reopened.close()
 
@@ -206,7 +209,7 @@ def test_atomic_failure_rolls_back_both_attempt_and_mastery(tmp_path, monkeypatc
     event = _attempt("rolled-back")
     snapshot = _snapshot(event)
 
-    def fail_after_attempt_insert(_snapshot):
+    def fail_after_attempt_insert(_connection, _snapshot):
         raise RuntimeError("synthetic mastery write failure")
 
     monkeypatch.setattr(repository, "_insert_mastery", fail_after_attempt_insert)

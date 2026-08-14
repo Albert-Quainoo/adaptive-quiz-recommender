@@ -119,7 +119,8 @@ changes.
 | `BRAVE_SEARCH_API_KEY` | Brave Search credential (existing) | — |
 | `MODEL_REPOSITORY`, `HF_TOKEN` | Llama model/tokenizer (existing) | — |
 | `MODEL_REVISION` | Recorded provenance for the loaded model | `unknown` |
-| `QUIZ_DATABASE_PATH` | Shared SQLite file for jobs and learner state (existing) | `data/adaptive_quiz.sqlite3` |
+| `QUIZ_DATABASE_URL` | Production PostgreSQL DSN for jobs and learner state (e.g. Supabase). When set, used exclusively -- never falls back to SQLite. | — |
+| `QUIZ_DATABASE_PATH` | Local-dev/test SQLite file for jobs and learner state, used only when `QUIZ_DATABASE_URL` is unset | `data/adaptive_quiz.sqlite3` |
 | `QUIZ_REPLENISHMENT_POLL_SECONDS` | Worker poll interval in continuous mode | `30` |
 | `QUIZ_REPLENISHMENT_MAX_ATTEMPTS` | Attempts before a retryable failure becomes permanent | `5` |
 | `QUIZ_REPLENISHMENT_LOW_SUPPLY_THRESHOLD`, `QUIZ_REPLENISHMENT_TARGET_SUPPLY` | Override the manifest's course-wide thresholds | manifest values |
@@ -261,17 +262,20 @@ deploy step — see limitations below.
 Streamlit Community Cloud runs one web process with no persistent background
 worker slot. `authoring.replenishment.cli worker` must run outside that
 process — locally, via `cron`/`systemd`, or as a separate scheduled job —
-against the same SQLite database file. The Streamlit app itself only ever
+against the same database. The Streamlit app itself only ever
 reads job/inventory state for the admin sidebar; it never starts a worker
 thread.
 
 ### Production migration path
 
-The current design targets a single local SQLite file shared by one
-Streamlit process and one worker process. Moving to production means:
+Local development and tests default to a single SQLite file shared by one
+Streamlit process and one worker process. In production, setting
+`QUIZ_DATABASE_URL` (e.g. a Supabase PostgreSQL DSN) switches every
+repository (`SQLiteBKTRepository`, `SQLiteRecommendationRepository`,
+`SQLiteReplenishmentJobRepository`) onto PostgreSQL exclusively via the
+shared SQLAlchemy engine in `database.py` — no other code changes needed.
+Remaining production steps:
 
-- Replacing the SQLite job table with a durable, concurrent-safe database
-  (Postgres) behind the same `SQLiteReplenishmentJobRepository` interface.
 - Running the worker as a standing hosted process (or a scheduled task queue
   worker) instead of a manual/cron-invoked CLI.
 - Replacing the `QUIZ_APPROVED_BANK_PATH` manual deploy step with a small

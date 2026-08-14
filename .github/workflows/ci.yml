@@ -11,6 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: .
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +37,12 @@ jobs:
 
       - name: Run test suite
         run: python -m pytest tests/ -q
+
+      - name: Run PostgreSQL integration tests
+        env:
+          QUIZ_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+        run: |
+          python -m pytest tests/test_postgres_adaptive_repository.py tests/test_postgres_replenishment_jobs.py -q
 
       - name: Validate the committed 43-item approved bank
         run: |

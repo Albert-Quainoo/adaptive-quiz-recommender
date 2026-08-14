@@ -18,6 +18,8 @@ fastapi
 uvicorn
 pydantic
 httpx
+sqlalchemy==2.0.52
+psycopg[binary]==3.3.4
 
 pytest
 python-dotenv

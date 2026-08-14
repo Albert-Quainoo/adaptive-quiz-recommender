@@ -1,4 +1,4 @@
-"""SQLite-backed replenishment job queue.
+"""SQL-backed (SQLite or PostgreSQL) replenishment job queue.
 
 One row tracks one skill's replenishment episode end to end. `job_type`
 starts as "replenish_skill" and is advanced in place by the worker as the
@@ -10,11 +10,11 @@ concurrent `scan` invocations cannot create duplicates.
 This mirrors the connect/schema/transaction conventions of
 bkt/sqlite_repository.py, but is a standalone repository: the worker runs as
 a separate CLI process from Streamlit, and the two must be able to share the
-database file without either blocking the other, hence WAL mode here.
+database without either blocking the other -- hence WAL mode and
+BEGIN IMMEDIATE transactions on SQLite (see database.py).
 """
 
 import json
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,6 +22,11 @@ from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.engine import RowMapping
+from sqlalchemy.exc import IntegrityError
+
+from database import create_engine_for, execute_schema_script
 
 JobType = Literal[
     "retrieve_references",
@@ -152,23 +157,19 @@ WHERE status IN ({_ACTIVE_STATUSES_SQL});
 class SQLiteReplenishmentJobRepository:
     def __init__(self, database: str | Path) -> None:
         self.database = str(database)
-        self._connection = sqlite3.connect(
-            self.database, check_same_thread=False, isolation_level=None
-        )
-        self._connection.row_factory = sqlite3.Row
-        self._connection.execute("PRAGMA journal_mode = WAL")
-        self._connection.execute("PRAGMA foreign_keys = ON")
+        self._engine = create_engine_for(database, immediate_transactions=True)
 
     def initialize_schema(self) -> None:
         # CREATE UNIQUE INDEX IF NOT EXISTS is a no-op if an index by this name already
-        # exists under an older WHERE clause (e.g. a database file created before the
+        # exists under an older WHERE clause (e.g. a database created before the
         # automated-review statuses existed), so the index is dropped and recreated
         # every call -- both operations are cheap and idempotent.
-        self._connection.execute("DROP INDEX IF EXISTS ux_replenishment_jobs_active")
-        self._connection.executescript(SCHEMA)
+        with self._engine.begin() as connection:
+            connection.execute(text("DROP INDEX IF EXISTS ux_replenishment_jobs_active"))
+            execute_schema_script(connection, SCHEMA)
 
     def close(self) -> None:
-        self._connection.close()
+        self._engine.dispose()
 
     def __enter__(self) -> "SQLiteReplenishmentJobRepository":
         return self
@@ -178,14 +179,8 @@ class SQLiteReplenishmentJobRepository:
 
     @contextmanager
     def _transaction(self):
-        self._connection.execute("BEGIN IMMEDIATE")
-        try:
-            yield
-        except Exception:
-            self._connection.execute("ROLLBACK")
-            raise
-        else:
-            self._connection.execute("COMMIT")
+        with self._engine.begin() as connection:
+            yield connection
 
     def enqueue(
         self,
@@ -211,27 +206,32 @@ class SQLiteReplenishmentJobRepository:
             metadata=metadata or {},
         )
         try:
-            with self._transaction():
-                self._connection.execute(
-                    """
-                    INSERT INTO replenishment_jobs (
-                        job_id, course_id, skill_id, job_type, status,
-                        requested_count, attempts, created_at, metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        job.job_id,
-                        job.course_id,
-                        job.skill_id,
-                        job.job_type,
-                        job.status,
-                        job.requested_count,
-                        job.attempts,
-                        _utc_iso(job.created_at),
-                        json.dumps(job.metadata, sort_keys=True),
+            with self._transaction() as connection:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO replenishment_jobs (
+                            job_id, course_id, skill_id, job_type, status,
+                            requested_count, attempts, created_at, metadata_json
+                        ) VALUES (
+                            :job_id, :course_id, :skill_id, :job_type, :status,
+                            :requested_count, :attempts, :created_at, :metadata_json
+                        )
+                        """
                     ),
+                    {
+                        "job_id": job.job_id,
+                        "course_id": job.course_id,
+                        "skill_id": job.skill_id,
+                        "job_type": job.job_type,
+                        "status": job.status,
+                        "requested_count": job.requested_count,
+                        "attempts": job.attempts,
+                        "created_at": _utc_iso(job.created_at),
+                        "metadata_json": json.dumps(job.metadata, sort_keys=True),
+                    },
                 )
-        except sqlite3.IntegrityError:
+        except IntegrityError:
             existing = self._active_job(course_id, skill_id)
             if existing is None:
                 raise JobConflictError(
@@ -242,22 +242,40 @@ class SQLiteReplenishmentJobRepository:
         return job
 
     def _active_job(self, course_id: str, skill_id: str) -> ReplenishmentJob | None:
-        placeholders = ", ".join("?" for _ in ACTIVE_STATUSES)
-        row = self._connection.execute(
-            f"""
-            SELECT * FROM replenishment_jobs
-            WHERE course_id = ? AND skill_id = ?
-              AND status IN ({placeholders})
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (course_id, skill_id, *ACTIVE_STATUSES),
-        ).fetchone()
+        placeholders = ", ".join(f":status_{index}" for index in range(len(ACTIVE_STATUSES)))
+        parameters = {
+            f"status_{index}": status for index, status in enumerate(ACTIVE_STATUSES)
+        }
+        parameters["course_id"] = course_id
+        parameters["skill_id"] = skill_id
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        f"""
+                        SELECT * FROM replenishment_jobs
+                        WHERE course_id = :course_id AND skill_id = :skill_id
+                          AND status IN ({placeholders})
+                        ORDER BY created_at DESC LIMIT 1
+                        """
+                    ),
+                    parameters,
+                )
+                .mappings()
+                .first()
+            )
         return self._job_from_row(row) if row is not None else None
 
     def get(self, job_id: str) -> ReplenishmentJob | None:
-        row = self._connection.execute(
-            "SELECT * FROM replenishment_jobs WHERE job_id = ?", (job_id,)
-        ).fetchone()
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text("SELECT * FROM replenishment_jobs WHERE job_id = :job_id"),
+                    {"job_id": job_id},
+                )
+                .mappings()
+                .first()
+            )
         return self._job_from_row(row) if row is not None else None
 
     def claim_next(
@@ -265,54 +283,70 @@ class SQLiteReplenishmentJobRepository:
     ) -> ReplenishmentJob | None:
         """Atomically claim the oldest queued job, if any."""
         now = clock()
-        with self._transaction():
-            row = self._connection.execute(
-                "SELECT * FROM replenishment_jobs WHERE status = 'queued' "
-                "ORDER BY created_at LIMIT 1"
-            ).fetchone()
+        with self._transaction() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT * FROM replenishment_jobs WHERE status = 'queued' "
+                        "ORDER BY created_at LIMIT 1"
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if row is None:
                 return None
             job = self._job_from_row(row)
             started_at = job.started_at or now
             lease_expires_at = now + timedelta(seconds=lease_seconds)
-            self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'running', attempts = attempts + 1,
-                    started_at = ?, lease_expires_at = ?
-                WHERE job_id = ?
-                """,
-                (_utc_iso(started_at), _utc_iso(lease_expires_at), job.job_id),
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'running', attempts = attempts + 1,
+                        started_at = :started_at, lease_expires_at = :lease_expires_at
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {
+                    "started_at": _utc_iso(started_at),
+                    "lease_expires_at": _utc_iso(lease_expires_at),
+                    "job_id": job.job_id,
+                },
             )
         return self.get(job.job_id)
 
     def recover_expired_leases(self, *, clock=utc_now) -> int:
         """Reset abandoned 'running' jobs (past their lease) back to queued."""
         now = clock()
-        with self._transaction():
-            cursor = self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'queued', lease_expires_at = NULL
-                WHERE status = 'running' AND lease_expires_at < ?
-                """,
-                (_utc_iso(now),),
+        with self._transaction() as connection:
+            result = connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'queued', lease_expires_at = NULL
+                    WHERE status = 'running' AND lease_expires_at < :now
+                    """
+                ),
+                {"now": _utc_iso(now)},
             )
-            return cursor.rowcount
+            return result.rowcount
 
     def requeue_retryable(self, *, clock=utc_now) -> int:
         """Move retryable_failure jobs whose backoff has elapsed back to queued."""
         now = clock()
-        with self._transaction():
-            cursor = self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'queued', next_retry_at = NULL
-                WHERE status = 'retryable_failure' AND next_retry_at <= ?
-                """,
-                (_utc_iso(now),),
+        with self._transaction() as connection:
+            result = connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'queued', next_retry_at = NULL
+                    WHERE status = 'retryable_failure' AND next_retry_at <= :now
+                    """
+                ),
+                {"now": _utc_iso(now)},
             )
-            return cursor.rowcount
+            return result.rowcount
 
     def mark_queued(
         self,
@@ -323,11 +357,21 @@ class SQLiteReplenishmentJobRepository:
     ) -> ReplenishmentJob:
         job = self._require(job_id)
         merged_metadata = {**job.metadata, **(metadata or {})}
-        with self._transaction():
-            self._connection.execute(
-                "UPDATE replenishment_jobs SET status = 'queued', "
-                "job_type = ?, lease_expires_at = NULL, metadata_json = ? WHERE job_id = ?",
-                (job_type or job.job_type, json.dumps(merged_metadata, sort_keys=True), job_id),
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'queued', job_type = :job_type,
+                        lease_expires_at = NULL, metadata_json = :metadata_json
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {
+                    "job_type": job_type or job.job_type,
+                    "metadata_json": json.dumps(merged_metadata, sort_keys=True),
+                    "job_id": job_id,
+                },
             )
         return self._require(job_id)
 
@@ -348,32 +392,37 @@ class SQLiteReplenishmentJobRepository:
     ) -> ReplenishmentJob:
         job = self._require(job_id)
         merged_metadata = {**job.metadata, **(metadata or {})}
-        with self._transaction():
-            self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = ?, job_type = ?, lease_expires_at = NULL,
-                    metadata_json = ?
-                WHERE job_id = ?
-                """,
-                (
-                    status,
-                    job_type or job.job_type,
-                    json.dumps(merged_metadata, sort_keys=True),
-                    job_id,
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = :status, job_type = :job_type, lease_expires_at = NULL,
+                        metadata_json = :metadata_json
+                    WHERE job_id = :job_id
+                    """
                 ),
+                {
+                    "status": status,
+                    "job_type": job_type or job.job_type,
+                    "metadata_json": json.dumps(merged_metadata, sort_keys=True),
+                    "job_id": job_id,
+                },
             )
         return self._require(job_id)
 
     def mark_completed(self, job_id: str, *, clock=utc_now) -> ReplenishmentJob:
-        with self._transaction():
-            self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'completed', completed_at = ?, lease_expires_at = NULL
-                WHERE job_id = ?
-                """,
-                (_utc_iso(clock()), job_id),
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'completed', completed_at = :completed_at,
+                        lease_expires_at = NULL
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {"completed_at": _utc_iso(clock()), "job_id": job_id},
             )
         return self._require(job_id)
 
@@ -393,85 +442,123 @@ class SQLiteReplenishmentJobRepository:
             return self.mark_permanent_failure(
                 job_id, error_code=error_code, error_message=error_message
             )
-        with self._transaction():
-            self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'retryable_failure', lease_expires_at = NULL,
-                    next_retry_at = ?, error_code = ?, error_message = ?
-                WHERE job_id = ?
-                """,
-                (
-                    _utc_iso(now + timedelta(seconds=backoff_seconds * job.attempts)),
-                    error_code,
-                    error_message,
-                    job_id,
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'retryable_failure', lease_expires_at = NULL,
+                        next_retry_at = :next_retry_at, error_code = :error_code,
+                        error_message = :error_message
+                    WHERE job_id = :job_id
+                    """
                 ),
+                {
+                    "next_retry_at": _utc_iso(
+                        now + timedelta(seconds=backoff_seconds * job.attempts)
+                    ),
+                    "error_code": error_code,
+                    "error_message": error_message,
+                    "job_id": job_id,
+                },
             )
         return self._require(job_id)
 
     def mark_permanent_failure(
         self, job_id: str, *, error_code: str, error_message: str
     ) -> ReplenishmentJob:
-        with self._transaction():
-            self._connection.execute(
-                """
-                UPDATE replenishment_jobs
-                SET status = 'permanent_failure', lease_expires_at = NULL,
-                    error_code = ?, error_message = ?
-                WHERE job_id = ?
-                """,
-                (error_code, error_message, job_id),
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'permanent_failure', lease_expires_at = NULL,
+                        error_code = :error_code, error_message = :error_message
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {"error_code": error_code, "error_message": error_message, "job_id": job_id},
             )
         return self._require(job_id)
 
     def cancel(self, job_id: str) -> ReplenishmentJob:
-        with self._transaction():
-            self._connection.execute(
-                "UPDATE replenishment_jobs SET status = 'cancelled', "
-                "lease_expires_at = NULL WHERE job_id = ?",
-                (job_id,),
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs SET status = 'cancelled',
+                        lease_expires_at = NULL WHERE job_id = :job_id
+                    """
+                ),
+                {"job_id": job_id},
             )
         return self._require(job_id)
 
     def list_active(
         self, *, course_id: str | None = None, skill_id: str | None = None
     ) -> list[ReplenishmentJob]:
-        clauses = [f"status IN ({', '.join('?' for _ in ACTIVE_STATUSES)})"]
-        parameters: list[str] = list(ACTIVE_STATUSES)
+        placeholders = ", ".join(f":status_{index}" for index in range(len(ACTIVE_STATUSES)))
+        clauses = [f"status IN ({placeholders})"]
+        parameters = {
+            f"status_{index}": status for index, status in enumerate(ACTIVE_STATUSES)
+        }
         if course_id is not None:
-            clauses.append("course_id = ?")
-            parameters.append(course_id)
+            clauses.append("course_id = :course_id")
+            parameters["course_id"] = course_id
         if skill_id is not None:
-            clauses.append("skill_id = ?")
-            parameters.append(skill_id)
-        rows = self._connection.execute(
-            f"SELECT * FROM replenishment_jobs WHERE {' AND '.join(clauses)} "
-            "ORDER BY created_at",
-            parameters,
-        ).fetchall()
+            clauses.append("skill_id = :skill_id")
+            parameters["skill_id"] = skill_id
+        with self._engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        f"SELECT * FROM replenishment_jobs WHERE {' AND '.join(clauses)} "
+                        "ORDER BY created_at"
+                    ),
+                    parameters,
+                )
+                .mappings()
+                .all()
+            )
         return [self._job_from_row(row) for row in rows]
 
     def list_waiting(self) -> list[ReplenishmentJob]:
-        placeholders = ", ".join("?" for _ in WAITING_STATUSES)
-        rows = self._connection.execute(
-            f"SELECT * FROM replenishment_jobs WHERE status IN ({placeholders}) "
-            "ORDER BY created_at",
-            WAITING_STATUSES,
-        ).fetchall()
+        placeholders = ", ".join(f":status_{index}" for index in range(len(WAITING_STATUSES)))
+        parameters = {
+            f"status_{index}": status for index, status in enumerate(WAITING_STATUSES)
+        }
+        with self._engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        f"SELECT * FROM replenishment_jobs WHERE status IN ({placeholders}) "
+                        "ORDER BY created_at"
+                    ),
+                    parameters,
+                )
+                .mappings()
+                .all()
+            )
         return [self._job_from_row(row) for row in rows]
 
     def latest_for_skill(
         self, course_id: str, skill_id: str
     ) -> ReplenishmentJob | None:
-        row = self._connection.execute(
-            """
-            SELECT * FROM replenishment_jobs
-            WHERE course_id = ? AND skill_id = ?
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (course_id, skill_id),
-        ).fetchone()
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT * FROM replenishment_jobs
+                        WHERE course_id = :course_id AND skill_id = :skill_id
+                        ORDER BY created_at DESC LIMIT 1
+                        """
+                    ),
+                    {"course_id": course_id, "skill_id": skill_id},
+                )
+                .mappings()
+                .first()
+            )
         return self._job_from_row(row) if row is not None else None
 
     def _require(self, job_id: str) -> ReplenishmentJob:
@@ -481,7 +568,7 @@ class SQLiteReplenishmentJobRepository:
         return job
 
     @staticmethod
-    def _job_from_row(row: sqlite3.Row) -> ReplenishmentJob:
+    def _job_from_row(row: RowMapping) -> ReplenishmentJob:
         return ReplenishmentJob(
             job_id=row["job_id"],
             course_id=row["course_id"],

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from authoring.replenishment.jobs import ACTIVE_STATUSES, JobType, SQLiteReplenishmentJobRepository
+from database import execute_schema_script
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -193,23 +194,25 @@ def test_initialize_schema_migrates_an_index_created_under_the_old_status_list()
     repository = SQLiteReplenishmentJobRepository(":memory:")
     # Recreate the pre-automated-review index by hand, as it would exist on an
     # already-deployed database file, before calling the real initialize_schema().
-    repository._connection.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS replenishment_jobs (
-            job_id TEXT PRIMARY KEY, course_id TEXT NOT NULL, skill_id TEXT NOT NULL,
-            job_type TEXT NOT NULL, status TEXT NOT NULL, requested_count INTEGER NOT NULL,
-            attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, started_at TEXT,
-            completed_at TEXT, next_retry_at TEXT, lease_expires_at TEXT, error_code TEXT,
-            error_message TEXT, metadata_json TEXT NOT NULL DEFAULT '{}'
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS ux_replenishment_jobs_active
-        ON replenishment_jobs(course_id, skill_id, job_type)
-        WHERE status IN (
-            'queued', 'running', 'waiting_for_reference_review',
-            'waiting_for_model', 'waiting_for_question_review'
-        );
-        """
-    )
+    with repository._engine.begin() as connection:
+        execute_schema_script(
+            connection,
+            """
+            CREATE TABLE IF NOT EXISTS replenishment_jobs (
+                job_id TEXT PRIMARY KEY, course_id TEXT NOT NULL, skill_id TEXT NOT NULL,
+                job_type TEXT NOT NULL, status TEXT NOT NULL, requested_count INTEGER NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, started_at TEXT,
+                completed_at TEXT, next_retry_at TEXT, lease_expires_at TEXT, error_code TEXT,
+                error_message TEXT, metadata_json TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_replenishment_jobs_active
+            ON replenishment_jobs(course_id, skill_id, job_type)
+            WHERE status IN (
+                'queued', 'running', 'waiting_for_reference_review',
+                'waiting_for_model', 'waiting_for_question_review'
+            );
+            """,
+        )
     repository.initialize_schema()
 
     first = repository.enqueue(

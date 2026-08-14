@@ -30,7 +30,7 @@ class BootstrapError(RuntimeError):
 
 @dataclass(frozen=True)
 class AppSettings:
-    database_path: Path
+    database_path: str | Path
     approved_bank_path: Path
     bkt_model_path: Path
     skills_path: Path
@@ -57,8 +57,16 @@ class AppSettings:
             return value
 
         default_skills, default_references = course_paths(setting("QUIZ_COURSE", "ai"))
+        database_url = os.getenv("QUIZ_DATABASE_URL")
+        if database_url is None and "QUIZ_DATABASE_URL" in secrets:
+            database_url = str(secrets["QUIZ_DATABASE_URL"])
+        database_path: str | Path = (
+            database_url
+            if database_url
+            else Path(setting("QUIZ_DATABASE_PATH", "data/adaptive_quiz.sqlite3"))
+        )
         return cls(
-            database_path=Path(setting("QUIZ_DATABASE_PATH", "data/adaptive_quiz.sqlite3")),
+            database_path=database_path,
             approved_bank_path=Path(setting("QUIZ_APPROVED_BANK_PATH")),
             bkt_model_path=Path(setting("QUIZ_BKT_MODEL_PATH")),
             skills_path=Path(setting("QUIZ_SKILLS_PATH", str(default_skills))),
@@ -168,7 +176,8 @@ def build_controller(settings: AppSettings) -> ApplicationController:
             raise BootstrapError(
                 "The configured initial mastery does not match the BKT model prior."
             )
-        settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(settings.database_path, Path):
+            settings.database_path.parent.mkdir(parents=True, exist_ok=True)
         repository = SQLiteRecommendationRepository(
             settings.database_path, skills=catalogue.skills, items=items
         )
