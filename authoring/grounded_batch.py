@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Protocol
@@ -45,6 +46,23 @@ class BatchModel(Protocol):
         seed: int,
         generation_parameters: dict[str, GenerationValue],
     ) -> str: ...
+
+
+@dataclass(frozen=True)
+class GenerationOutcome:
+    """A generate call's text plus the metadata needed to diagnose a
+    malformed/truncated structured-output response after the fact. Shared by every
+    BatchModel adapter (worker.py's LlamaBatchModel, modal_inference.py's
+    ModalBatchModel) via their generate_with_metadata() method -- currently consumed
+    only by authoring/review/reviewer.py's ModelBackedContentReviewer. Lives here,
+    not on either adapter module, so neither worker.py nor authoring/review/reviewer.py
+    has to import the other to share this shape."""
+
+    text: str
+    finish_reason: str
+    input_tokens: int
+    output_tokens: int
+    max_new_tokens: int
 
 
 class BatchConfig(BaseModel):
@@ -666,6 +684,7 @@ def generate_batch(
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     git_commit: str | None = None,
     resume: bool = False,
+    skip_question_indices: frozenset[int] = frozenset(),
 ) -> BatchResult:
     catalogue = load_skills(skills_path, references_path)
     known_skill_ids = {skill.skill_id for skill in catalogue.skills}
@@ -816,6 +835,12 @@ def generate_batch(
 
         for question_index in range(slot_count(config, pool)):
             if (skill_id, question_index) in accepted_slots:
+                continue
+            if question_index in skip_question_indices:
+                # Already fulfilled by an approved bank item outside this batch run
+                # (see authoring/replenishment/demand.py) -- the caller determined
+                # this before calling generate_batch, so no attempt is made here at
+                # all, not even one the reviewer would later reject as a duplicate.
                 continue
             intent = pool[question_index % len(pool)]
             if intent.intent_id in accepted_intent_ids and not config.allow_intent_reuse:

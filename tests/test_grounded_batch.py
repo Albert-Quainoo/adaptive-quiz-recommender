@@ -33,6 +33,9 @@ REFERENCE_IDS = {
     "AI-SRC-08": {
         "AI-SRC-08-a366da363e17",
         "AI-SRC-08-cbd77b22bcb9",
+        "AI-SRC-08-a3dd1384b5c5",
+        "AI-SRC-08-de5d3c2745e4",
+        "AI-SRC-08-ed5c35451650",
     },
 }
 

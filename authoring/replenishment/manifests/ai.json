@@ -1,0 +1,26 @@
+{
+  "course_id": "ai",
+  "title": "Introduction to Artificial Intelligence",
+  "version": "1",
+  "taxonomy_path": "taxonomy/data/ai",
+  "approved_bank_path": "outputs/approved_banks/pilot-approved-bank-38-v1.jsonl",
+  "candidate_store_path": "outputs/reference_candidates.json",
+  "review_store_path": "outputs/replenishment/ai/reviews",
+  "allowed_domains": [
+    "redblobgames.com",
+    "inst.eecs.berkeley.edu",
+    "ocw.mit.edu",
+    "cs50.harvard.edu",
+    "plato.stanford.edu",
+    "d2l.ai",
+    "deeplearningbook.org",
+    "aima.cs.berkeley.edu",
+    "scikit-learn.org",
+    "pytorch.org",
+    "ai.berkeley.edu"
+  ],
+  "low_supply_threshold": 3,
+  "target_supply": 6,
+  "default_bkt_model_version": "bkt-synthetic-v4",
+  "status": "active"
+}

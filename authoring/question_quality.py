@@ -19,6 +19,13 @@ def _normalise(text: str) -> str:
     return " ".join(text.casefold().split())
 
 
+# Matches text ending in a list conjunction (", and a ", "and an ", "or the ", etc.)
+# immediately before the answer: the stem is enumerating candidate terms (a common,
+# legitimate "which of these is missing/excluded" construction), not asserting the
+# answer outright.
+_ENUMERATION_PRECEDER = re.compile(r"(?:,|\band\b|\bor\b)\s*(?:a|an|the)?\s*$")
+
+
 def generic_quality_issues(
     question: QuizQuestion,
     *,
@@ -29,14 +36,19 @@ def generic_quality_issues(
     issues: list[QualityIssue] = []
     stem = question.question.strip()
     answer = _normalise(question.correct_answer)
+    normalised_stem = _normalise(stem)
     normalised_options = [_normalise(option) for option in question.options]
-    if len(answer) >= 4 and answer in _normalise(stem):
-        issues.append(
-            QualityIssue(
-                code="answer_revealed",
-                message="stem contains the correct answer verbatim",
+    if len(answer) >= 4 and answer in normalised_stem:
+        occurrences = [match.start() for match in re.finditer(re.escape(answer), normalised_stem)]
+        if any(
+            not _ENUMERATION_PRECEDER.search(normalised_stem[:start]) for start in occurrences
+        ):
+            issues.append(
+                QualityIssue(
+                    code="answer_revealed",
+                    message="stem contains the correct answer verbatim",
+                )
             )
-        )
     imperative = re.match(
         r"^(choose|select|identify|determine|calculate|compute|formulate|explain)\b",
         stem,
