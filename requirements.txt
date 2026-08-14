@@ -8,12 +8,12 @@ sentencepiece
 safetensors
 
 pandas
-numpy
+numpy==2.0.2
 scikit-learn==1.6.1
 pyyaml
 pyBKT==1.4.3
 
-streamlit
+streamlit==1.60.0
 fastapi
 uvicorn
 pydantic
