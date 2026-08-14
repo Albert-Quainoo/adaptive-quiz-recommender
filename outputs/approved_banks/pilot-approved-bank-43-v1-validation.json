@@ -1,0 +1,29 @@
+{
+  "bank_path": "outputs/approved_banks/pilot-approved-bank-43-v1.jsonl",
+  "difficulty_counts": {
+    "intermediate": 23,
+    "introductory": 20
+  },
+  "item_count": 43,
+  "missing_required_skill_ids": [],
+  "required_skill_ids": [
+    "AI-FND-01",
+    "AI-AGT-01",
+    "AI-SRC-01",
+    "AI-SRC-02",
+    "AI-SRC-03",
+    "AI-SRC-08"
+  ],
+  "skill_counts": {
+    "AI-AGT-01": 6,
+    "AI-FND-01": 6,
+    "AI-SRC-01": 9,
+    "AI-SRC-02": 7,
+    "AI-SRC-03": 6,
+    "AI-SRC-08": 9
+  },
+  "status": "ready",
+  "unique_item_ids": 43,
+  "unique_normalized_stems": 43,
+  "unknown_skill_ids": []
+}

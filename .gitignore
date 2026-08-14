@@ -66,8 +66,23 @@ kaggle.json
 !outputs/.gitkeep
 !logs/.gitkeep
 
+# Approved question bank: the one outputs/ artifact production runtime
+# actually depends on (QUIZ_APPROVED_BANK_PATH, the replenishment
+# active-bank pointer). Tracked so a fresh clone/deploy has it; everything
+# else under outputs/ (batches, reviews, models, DBs) stays ignored.
+!outputs/approved_banks/
+!outputs/approved_banks/*.jsonl
+!outputs/approved_banks/*-validation.json
+!outputs/approved_banks/*-active-bank.json
+
 # Misc
 .python-version
 
 # Taxonomy file
 TAXONOMY.docx
+
+#SQlite runtime paths
+data/adaptive_quiz.sqlite3
+data/adaptive_quiz.sqlite3-shm
+data/adaptive_quiz.sqlite3-wal
+
