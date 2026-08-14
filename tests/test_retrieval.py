@@ -776,7 +776,7 @@ def test_the_pilot_skills_carry_the_approved_canonical_references():
     } == {
         "AI-SRC-01": 3,
         "AI-SRC-02": 2,
-        "AI-SRC-08": 2,
+        "AI-SRC-08": 5,
     }
 
 

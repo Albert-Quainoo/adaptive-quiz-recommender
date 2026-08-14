@@ -78,6 +78,9 @@ PILOT_REFERENCE_IDS = {
     "AI-SRC-03-e7ed23f73259",
     "AI-SRC-08-a366da363e17",
     "AI-SRC-08-cbd77b22bcb9",
+    "AI-SRC-08-a3dd1384b5c5",
+    "AI-SRC-08-de5d3c2745e4",
+    "AI-SRC-08-ed5c35451650",
 }
 
 
@@ -167,7 +170,7 @@ def test_the_approved_pilot_skills_are_generation_ready():
         "AI-SRC-01": 3,
         "AI-SRC-02": 2,
         "AI-SRC-03": 3,
-        "AI-SRC-08": 2,
+        "AI-SRC-08": 5,
     }
 
 
