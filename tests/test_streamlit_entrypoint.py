@@ -147,6 +147,9 @@ def test_streamlit_submission_locks_question_and_shows_feedback(monkeypatch, tmp
     app.text_input[0].set_value("streamlit-submit-test")
     next(button for button in app.button if button.label == "Start").click()
     app.run(timeout=20)
+    app.text_input[0].set_value("AI")
+    next(button for button in app.button if button.label == "Continue").click()
+    app.run(timeout=20)
     app.radio[0].set_value(app.radio[0].options[0])
     next(button for button in app.button if button.label == "Submit").click()
     app.run(timeout=20)
@@ -174,18 +177,25 @@ def test_switch_button_returns_to_login_and_activates_a_new_learner(
     app.text_input[0].set_value("learner-a")
     next(button for button in app.button if button.label == "Start").click()
     app.run(timeout=20)
+    app.text_input[0].set_value("AI")
+    next(button for button in app.button if button.label == "Continue").click()
+    app.run(timeout=20)
 
     next(button for button in app.button if button.label == "Switch learner").click()
     app.run(timeout=20)
 
     session = app.session_state["adaptive_quiz_session"]
     assert session.learner_id is None
+    assert session.course_id is None
     assert session.question is None
     assert app.text_input[0].label == "Learner ID"
     assert any(button.label == "Start" for button in app.button)
 
     app.text_input[0].set_value("learner-b")
     next(button for button in app.button if button.label == "Start").click()
+    app.run(timeout=20)
+    app.text_input[0].set_value("AI")
+    next(button for button in app.button if button.label == "Continue").click()
     app.run(timeout=20)
 
     session = app.session_state["adaptive_quiz_session"]
@@ -194,6 +204,59 @@ def test_switch_button_returns_to_login_and_activates_a_new_learner(
     assert session.question is not None
     assert any(
         "Learner: learner-b" in markdown.value for markdown in app.markdown
+    )
+
+
+def test_course_selector_reports_being_prepared_for_a_registered_but_inactive_course(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("QUIZ_APPROVED_BANK_PATH", str(BANK_PATH))
+    monkeypatch.setenv("QUIZ_BKT_MODEL_PATH", "outputs/bkt_dev_model_v4.pkl")
+    monkeypatch.setenv("QUIZ_BKT_MODEL_VERSION", "bkt-synthetic-v4")
+    monkeypatch.setenv("QUIZ_INITIAL_MASTERY_PROBABILITY", "0.20")
+    monkeypatch.setenv("QUIZ_DATABASE_PATH", str(tmp_path / "being-prepared.sqlite3"))
+
+    app = AppTest.from_file("app/main.py").run(timeout=20)
+    app.text_input[0].set_value("being-prepared-test")
+    next(button for button in app.button if button.label == "Start").click()
+    app.run(timeout=20)
+
+    # dsa is registered (aliases include "DSA") but not yet active.
+    app.text_input[0].set_value("DSA")
+    next(button for button in app.button if button.label == "Continue").click()
+    app.run(timeout=20)
+
+    assert not app.exception
+    assert any(
+        "This course is being prepared and is not available for practice yet." in info.value
+        for info in app.info
+    )
+    # The selector form is still present -- the learner can retry immediately.
+    assert app.text_input[0].label == "Which course?"
+
+
+def test_course_selector_reports_a_distinct_error_for_an_unrecognized_course(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("QUIZ_APPROVED_BANK_PATH", str(BANK_PATH))
+    monkeypatch.setenv("QUIZ_BKT_MODEL_PATH", "outputs/bkt_dev_model_v4.pkl")
+    monkeypatch.setenv("QUIZ_BKT_MODEL_VERSION", "bkt-synthetic-v4")
+    monkeypatch.setenv("QUIZ_INITIAL_MASTERY_PROBABILITY", "0.20")
+    monkeypatch.setenv("QUIZ_DATABASE_PATH", str(tmp_path / "unrecognized.sqlite3"))
+
+    app = AppTest.from_file("app/main.py").run(timeout=20)
+    app.text_input[0].set_value("unrecognized-test")
+    next(button for button in app.button if button.label == "Start").click()
+    app.run(timeout=20)
+
+    app.text_input[0].set_value("Astrophysics")
+    next(button for button in app.button if button.label == "Continue").click()
+    app.run(timeout=20)
+
+    assert not app.exception
+    assert any("not a recognized course" in error.value for error in app.error)
+    assert not any(
+        "being prepared" in info.value for info in app.info
     )
 
 

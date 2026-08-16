@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 
-from app.bootstrap import AppSettings, BootstrapError, build_controller
+from app.bootstrap import AppSettings, BootstrapError
 from app.controller import (
     AllEligibleItemsAttemptedError,
     ApplicationError,
@@ -20,9 +20,11 @@ from app.controller import (
     NoApprovedItemError,
     NoRecommendationError,
 )
-from app.flow import activate_learner, ensure_question, submit_current_question
-from app.session import clear_learner, get_session_state, next_question
+from app.flow import activate_course, ensure_question, submit_current_question
+from app.multi_course import build_course_catalog
+from app.session import clear_learner, get_session_state, identify_learner, next_question
 from app.ui.content_gap import render_content_gap
+from app.ui.course_selector import render_course_selector
 from app.ui.feedback import render_feedback
 from app.ui.login import render_learner_switcher, render_login
 from app.ui.progress import render_progress
@@ -30,9 +32,9 @@ from app.ui.question import render_question
 from app.ui.theme import inject_theme
 
 
-@st.cache_resource(show_spinner="Loading approved questions and learner model…")
+@st.cache_resource(show_spinner="Loading approved questions and learner models…")
 def load_application(settings: AppSettings):
-    return build_controller(settings)
+    return build_course_catalog(settings)
 
 
 @st.cache_resource(show_spinner=False)
@@ -91,7 +93,7 @@ def main() -> None:
 
     try:
         settings = configured_settings()
-        controller = load_application(settings)
+        catalogue = load_application(settings)
     except (BootstrapError, ValueError) as error:
         st.title("Adaptive Quiz")
         st.error(str(error))
@@ -105,8 +107,13 @@ def main() -> None:
         learner_id = render_login()
         if learner_id is None:
             return
+        # Session-state identification only -- no course is known yet, so no
+        # course's controller (and therefore no bank/taxonomy/BKT-model I/O)
+        # is built at this point. The learner's row in the shared
+        # learner_sessions table is written once a course, and therefore a
+        # real controller, is selected (see activate_course, below).
         try:
-            activate_learner(controller, session, learner_id)
+            identify_learner(session, learner_id)
         except ValueError as error:
             st.error(str(error))
             return
@@ -115,6 +122,15 @@ def main() -> None:
     if render_learner_switcher(session.learner_id):
         clear_learner(session)
         st.rerun()
+
+    if session.course_id is None:
+        course_id = render_course_selector(catalogue)
+        if course_id is None:
+            return
+        activate_course(catalogue.resolve_active(course_id), session, course_id)
+        st.rerun()
+
+    controller = catalogue.resolve_active(session.course_id)
 
     st.title("Adaptive Quiz")
     st.caption("One question at a time · progress is saved automatically")

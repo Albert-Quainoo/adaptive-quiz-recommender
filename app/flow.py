@@ -6,6 +6,7 @@ from app.session import (
     begin_submission,
     identify_learner,
     retain_question,
+    select_course,
     submission_failed,
     submission_succeeded,
 )
@@ -19,8 +20,17 @@ def activate_learner(
 ) -> str:
     normalized = controller.start_learner_session(learner_id)
     identify_learner(session, normalized)
-    session.seen_item_ids = controller.answered_item_ids(normalized)
     return normalized
+
+
+def activate_course(
+    controller: ApplicationController,
+    session: LearnerSessionState,
+    course_id: str,
+) -> None:
+    normalized = controller.start_learner_session(session.learner_id or "")
+    select_course(session, course_id)
+    session.seen_item_ids = controller.answered_item_ids(normalized)
 
 
 def ensure_question(

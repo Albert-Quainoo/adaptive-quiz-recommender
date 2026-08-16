@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -11,6 +11,7 @@ from pyBKT.models import Model as PyBKTModel
 from pydantic import ValidationError
 
 from api.bank import BankItem
+from authoring.replenishment.manifest import active_bank_path
 from bkt.model import BKTModel
 from bkt.service import BKTService
 from recommendation.policy import RecommendationPolicyConfig
@@ -227,3 +228,29 @@ def build_controller(
     except Exception as exc:
         LOGGER.exception("Application bootstrap failed")
         raise BootstrapError("Application bootstrap failed") from exc
+
+
+def build_controller_for_course(settings: AppSettings, manifest) -> ApplicationController:
+    """Build the ApplicationController for exactly one course, deriving its
+    bank/model/taxonomy paths from that course's own manifest rather than
+    settings' single-course fields (those stay only as an explicit override
+    for local dev/tests/scripts that build one AppSettings directly, e.g.
+    scripts/replay_bkt_mastery.py).
+
+    This is the unit app/multi_course.py's CourseCatalogController calls
+    lazily, once per course, only when a learner actually selects that
+    course -- never eagerly for every active course at process startup.
+    Sharing settings.database_path across every call is what gives course
+    isolation for free (see authoring/course_catalog's design notes): each
+    controller's self._items/self._skills can only ever hold that course's
+    own bank/taxonomy, so cross-course leakage is structurally impossible."""
+
+    course_settings = replace(
+        settings,
+        approved_bank_path=active_bank_path(manifest),
+        bkt_model_path=manifest.bkt_model_path,
+        skills_path=manifest.skills_path(),
+        references_path=manifest.references_path(),
+        model_version=manifest.default_bkt_model_version,
+    )
+    return build_controller(course_settings, course_id=manifest.course_id)

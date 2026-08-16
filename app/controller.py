@@ -148,11 +148,16 @@ class ApplicationController:
 
     @_synchronized
     def answered_item_ids(self, learner_id: str) -> list[str]:
+        """Scoped to this controller's own course: attempt_events is a
+        shared table across every course's controller (see
+        app/multi_course.py), so an unfiltered read here would leak another
+        course's item_ids into this course's excluded-item/seen-item state."""
         learner_id = self._normalise_learner_id(learner_id)
         return list(
             dict.fromkeys(
                 attempt.item_id
                 for attempt in self.repository.list_attempts(learner_id=learner_id)
+                if attempt.item_id in self._items
             )
         )
 

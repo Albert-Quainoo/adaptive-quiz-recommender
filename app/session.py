@@ -15,6 +15,7 @@ class LearnerSessionState(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     learner_id: str | None = None
+    course_id: str | None = None
     question: QuestionViewModel | None = None
     presentation_id: str | None = None
     item_id: str | None = None
@@ -57,6 +58,20 @@ def clear_learner(session: LearnerSessionState) -> None:
     fresh = LearnerSessionState()
     for name, value in fresh.model_dump().items():
         setattr(session, name, value)
+
+
+def select_course(session: LearnerSessionState, course_id: str) -> None:
+    session.course_id = course_id
+    session.seen_item_ids = []
+    session.question = None
+    session.presentation_id = None
+    session.item_id = None
+    session.selected_option_id = None
+    session.attempt_id = None
+    session.submission_state = "not_submitted"
+    session.feedback_state = "hidden"
+    session.feedback = None
+    session.error_message = None
 
 
 def retain_question(session: LearnerSessionState, question: QuestionViewModel) -> None:

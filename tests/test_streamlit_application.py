@@ -18,7 +18,7 @@ from app.controller import (
     NoApprovedItemError,
     NoRecommendationError,
 )
-from app.flow import activate_learner, ensure_question, submit_current_question
+from app.flow import activate_course, activate_learner, ensure_question, submit_current_question
 from app.session import (
     begin_submission,
     get_session_state,
@@ -78,7 +78,7 @@ def build_controller(database, *, items=None, skills=None, token="token-1"):
         item("dependent-item", DEPENDENT),
     ]
     repository = SQLiteRecommendationRepository(
-        database, skills=skills, items=items
+        database, course_id="test-course", skills=skills, items=items
     )
     repository.initialize_schema()
     policy = RecommendationPolicyConfig(
@@ -86,11 +86,12 @@ def build_controller(database, *, items=None, skills=None, token="token-1"):
         policy_version="app-policy-v1",
     )
     controller = ApplicationController(
+        course_id="test-course",
         skills=skills,
         items=items,
         repository=repository,
         recommendation_service=RecommendationService(
-            repository, model_version="app-test-v1", config=policy
+            repository, course_id="test-course", model_version="app-test-v1", config=policy
         ),
         bkt_service=BKTService(
             DeterministicModel(), repository, clock=lambda: NOW
@@ -218,16 +219,19 @@ def test_switching_learner_clears_ui_state_and_restores_persisted_mastery(tmp_pa
     controller, _ = build_controller(tmp_path / "switch.sqlite3", token="token-1")
     session = get_session_state({})
     activate_learner(controller, session, "learner-1")
+    activate_course(controller, session, "test-course")
     question = ensure_question(controller, session)
     submit_current_question(controller, session, option(question, "Correct"))
 
     activate_learner(controller, session, "learner-2")
     assert session.learner_id == "learner-2"
+    assert session.course_id is None
     assert session.question is session.feedback is None
     assert session.seen_item_ids == []
     assert controller.get_progress("learner-2", FOUNDATION).attempt_count == 0
 
     activate_learner(controller, session, "learner-1")
+    activate_course(controller, session, "test-course")
     restored = controller.get_progress("learner-1", FOUNDATION)
     assert restored.attempt_count == 1
     assert restored.mastery_probability == 0.8
