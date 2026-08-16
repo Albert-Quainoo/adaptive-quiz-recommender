@@ -12,8 +12,10 @@ from sqlalchemy import text
 
 from bkt.sqlite_repository import (
     DEFAULT_MIGRATION_COURSE_ID,
+    SchemaStatus,
     SQLiteBKTRepository,
     migrate_course_ownership,
+    run_course_ownership_migration,
 )
 
 OLD_SCHEMA = """
@@ -211,9 +213,7 @@ def test_migration_preserves_every_row_exactly(legacy_database):
     path, counts = legacy_database
     before = _table_contents_excluding_course_id(path)
 
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     after = _table_contents_excluding_course_id(path)
     assert before == after
@@ -221,9 +221,7 @@ def test_migration_preserves_every_row_exactly(legacy_database):
 
 def test_migration_reports_correct_backfill_counts(legacy_database):
     path, counts = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    backfilled = repository.initialize_schema()
-    repository.close()
+    backfilled = run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     assert backfilled["attempt_events"] == counts["attempts"]
     assert backfilled["mastery_snapshots"] == counts["mastery"]
@@ -236,9 +234,7 @@ def test_migration_reports_correct_backfill_counts(legacy_database):
 
 def test_migration_backfills_every_row_to_the_same_course_id(legacy_database):
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     connection = sqlite3.connect(str(path))
     for table in ALL_TABLES:
@@ -249,22 +245,20 @@ def test_migration_backfills_every_row_to_the_same_course_id(legacy_database):
 
 def test_migration_is_idempotent(legacy_database):
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    first_run = repository.initialize_schema()
-    second_run = repository.initialize_schema()
-    repository.close()
+    first_run = run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
+    second_run = run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     assert first_run  # something was actually migrated the first time
     assert second_run == {}  # nothing left to migrate the second time
 
 
-def test_a_fresh_database_needs_no_migration(tmp_path):
+def test_a_fresh_database_initializes_directly_without_migration(tmp_path):
     path = tmp_path / "fresh.sqlite3"
     repository = SQLiteBKTRepository(path, course_id="dsa")
-    backfilled = repository.initialize_schema()
+    status = repository.initialize_schema()
     repository.close()
 
-    assert backfilled == {}
+    assert status is SchemaStatus.EMPTY
     connection = sqlite3.connect(str(path))
     for table in ALL_TABLES:
         columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -274,9 +268,7 @@ def test_a_fresh_database_needs_no_migration(tmp_path):
 
 def test_migrated_schema_has_expected_primary_keys_and_indexes(legacy_database):
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     connection = sqlite3.connect(str(path))
 
@@ -331,9 +323,7 @@ def test_migrate_course_ownership_is_dialect_explicit_not_inspector_based(legacy
 
 def test_migrated_foreign_keys_are_composite_and_course_scoped(legacy_database):
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     connection = sqlite3.connect(str(path))
     mastery_fks = {
@@ -354,26 +344,29 @@ def test_migrated_foreign_keys_are_composite_and_course_scoped(legacy_database):
 
 def test_migration_reports_zero_foreign_key_violations(legacy_database):
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     connection = sqlite3.connect(str(path))
     connection.execute("PRAGMA foreign_keys=ON")
     violations = connection.execute("PRAGMA foreign_key_check").fetchall()
     connection.close()
-    repository.close()
 
     assert violations == []
 
 
-def test_foreign_keys_are_re_enabled_on_the_repositorys_own_connection(legacy_database):
-    """The repository's own engine (StaticPool -- one persistent
-    connection) must come out of initialize_schema() with foreign_keys
-    back ON, since that connection is what every subsequent save_*/get_*
-    call reuses."""
+def test_runtime_works_after_migration_with_foreign_keys_enabled(legacy_database):
+    """After the explicit migration, a freshly constructed repository (the
+    same shape build_controller() constructs on every course selection)
+    must see SchemaStatus.CURRENT via the runtime-safe initialize_schema()
+    path, and its own engine's connection must have foreign_keys ON --
+    create_engine_for's connect listener sets this by default, and nothing
+    in the CURRENT/EMPTY paths ever needs to override it."""
     path, _ = legacy_database
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
+
     repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
+    status = repository.initialize_schema()
+    assert status is SchemaStatus.CURRENT
 
     with repository._engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).fetchone()[0] == 1
@@ -387,6 +380,7 @@ def test_orphan_mastery_snapshot_is_rejected(legacy_database):
     from datetime import datetime, timezone
 
     path, _ = legacy_database
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository.initialize_schema()
 
@@ -409,6 +403,7 @@ def test_orphan_question_presentation_is_rejected(legacy_database):
     from sqlalchemy.exc import IntegrityError
 
     path, _ = legacy_database
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository.initialize_schema()
 
@@ -442,9 +437,7 @@ def test_child_record_cannot_reference_a_parent_from_another_course(legacy_datab
     from datetime import datetime, timezone
 
     path, _ = legacy_database
-    repository = SQLiteBKTRepository(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(path, course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     other_course_repo = SQLiteBKTRepository(path, course_id="other-course")
     cross_course_snapshot = MasterySnapshot(

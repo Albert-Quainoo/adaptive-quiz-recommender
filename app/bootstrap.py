@@ -14,6 +14,7 @@ from api.bank import BankItem
 from authoring.replenishment.manifest import active_bank_path
 from bkt.model import BKTModel
 from bkt.service import BKTService
+from bkt.sqlite_repository import SchemaMigrationRequiredError
 from recommendation.policy import RecommendationPolicyConfig
 from recommendation.service import RecommendationService
 from recommendation.sqlite_repository import SQLiteRecommendationRepository
@@ -41,6 +42,7 @@ class AppSettings:
     initial_mastery_probability: float = 0.20
     prerequisite_mastery_threshold: float = 0.75
     admin_status_enabled: bool = False
+    maintenance_mode: bool = False
 
     @classmethod
     def from_sources(
@@ -90,6 +92,13 @@ class AppSettings:
             # must be explicitly opted into (never on by default in
             # production) -- see app/main.py's render_admin_status.
             admin_status_enabled=setting("QUIZ_ADMIN_STATUS_ENABLED", "false").strip().lower()
+            in ("1", "true", "yes", "on"),
+            # Defaults disabled: when enabled, prevents learner writes and
+            # shows a maintenance message while still allowing basic startup
+            # diagnostics -- see app/main.py's gate on this flag, set
+            # explicitly by an operator during a migration deployment (see
+            # RUNBOOK_course_id_migration.md), never automatically.
+            maintenance_mode=setting("QUIZ_MAINTENANCE_MODE", "false").strip().lower()
             in ("1", "true", "yes", "on"),
         )
 
@@ -203,13 +212,12 @@ def build_controller(
             skills=catalogue.skills,
             items=items,
         )
-        backfilled = repository.initialize_schema()
-        if backfilled:
-            LOGGER.info(
-                "course_id migration backfilled rows for course %s: %s",
-                course_id,
-                backfilled,
-            )
+        # Runtime-safe: never migrates. Creates the latest schema only when
+        # the database is genuinely empty, verifies the version otherwise,
+        # and raises SchemaMigrationRequiredError (caught below) rather than
+        # mutating an existing production schema. The explicit migration
+        # itself only ever runs via scripts/migrate_course_ownership.py.
+        repository.initialize_schema()
         policy = RecommendationPolicyConfig(
             initial_mastery_probability=settings.initial_mastery_probability,
             prerequisite_mastery_threshold=settings.prerequisite_mastery_threshold,
@@ -232,6 +240,9 @@ def build_controller(
     except BootstrapError:
         LOGGER.exception("Application bootstrap failed")
         raise
+    except SchemaMigrationRequiredError as exc:
+        LOGGER.error("Schema migration required for course %s: %s", course_id, exc)
+        raise BootstrapError(exc.user_message) from exc
     except Exception as exc:
         LOGGER.exception("Application bootstrap failed")
         raise BootstrapError("Application bootstrap failed") from exc

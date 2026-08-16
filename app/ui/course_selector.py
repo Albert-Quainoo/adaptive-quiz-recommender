@@ -1,5 +1,6 @@
 import streamlit as st
 
+from app.bootstrap import BootstrapError
 from app.multi_course import ActiveCourse, CourseCatalogController, UnavailableCourse
 
 BEING_PREPARED_MESSAGE = "This course is being prepared and is not available for practice yet."
@@ -33,7 +34,15 @@ def render_course_selector(
         st.error("Enter a course name to continue.")
         return None
 
-    result = catalogue.resolve_for_learner(query)
+    try:
+        result = catalogue.resolve_for_learner(query)
+    except BootstrapError as error:
+        # First lazy build of this course's controller can fail here
+        # (e.g. a pending schema migration, see SchemaMigrationRequiredError)
+        # -- fail safely with the same message a learner would see at
+        # startup, never a raw crash.
+        st.error(str(error))
+        return None
     if isinstance(result, ActiveCourse):
         return result.course_id
     if isinstance(result, UnavailableCourse):

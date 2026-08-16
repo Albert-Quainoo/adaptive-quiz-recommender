@@ -10,7 +10,12 @@ import os
 import pytest
 from sqlalchemy import text
 
-from bkt.sqlite_repository import DEFAULT_MIGRATION_COURSE_ID, SQLiteBKTRepository
+from bkt.sqlite_repository import (
+    DEFAULT_MIGRATION_COURSE_ID,
+    SchemaStatus,
+    SQLiteBKTRepository,
+    run_course_ownership_migration,
+)
 from database import create_engine_for
 from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
@@ -147,7 +152,7 @@ def _legacy_database():
             text(
                 "DROP TABLE IF EXISTS question_presentations, learner_sessions, "
                 "content_gap_events, recommendation_events, mastery_snapshots, "
-                "bkt_model_metadata, attempt_events CASCADE"
+                "bkt_model_metadata, attempt_events, schema_migrations CASCADE"
             )
         )
         for statement in OLD_SCHEMA.split(";"):
@@ -167,9 +172,7 @@ def test_migration_preserves_rows_and_backfills_course_id_on_postgres():
         }
     engine.dispose()
 
-    repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
-    backfilled = repository.initialize_schema()
-    repository.close()
+    backfilled = run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     assert backfilled == {
         "mastery_snapshots": 2,
@@ -198,19 +201,24 @@ def test_migration_preserves_rows_and_backfills_course_id_on_postgres():
 
 
 def test_migration_is_idempotent_on_postgres():
-    repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
-    first_run = repository.initialize_schema()
-    second_run = repository.initialize_schema()
-    repository.close()
+    first_run = run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
+    second_run = run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     assert first_run
     assert second_run == {}
 
 
-def test_migrated_primary_keys_on_postgres():
+def test_runtime_works_after_migration_with_foreign_keys_enabled_on_postgres():
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
+
     repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
+    status = repository.initialize_schema()
+    assert status is SchemaStatus.CURRENT
     repository.close()
+
+
+def test_migrated_primary_keys_on_postgres():
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     engine = create_engine_for(_dsn())
     with engine.connect() as connection:
@@ -232,9 +240,7 @@ def test_migrated_primary_keys_on_postgres():
 
 
 def test_migrated_foreign_keys_are_composite_on_postgres():
-    repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     engine = create_engine_for(_dsn())
     with engine.connect() as connection:
@@ -280,6 +286,7 @@ def test_orphan_mastery_snapshot_is_rejected_on_postgres():
 
     from bkt.schemas import MasterySnapshot
 
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository.initialize_schema()
 
@@ -301,6 +308,7 @@ def test_orphan_mastery_snapshot_is_rejected_on_postgres():
 def test_orphan_question_presentation_is_rejected_on_postgres():
     from sqlalchemy.exc import IntegrityError
 
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
     repository.initialize_schema()
 
@@ -329,9 +337,7 @@ def test_child_record_cannot_reference_a_parent_from_another_course_on_postgres(
 
     from bkt.schemas import MasterySnapshot
 
-    repository = SQLiteBKTRepository(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
-    repository.initialize_schema()
-    repository.close()
+    run_course_ownership_migration(_dsn(), course_id=DEFAULT_MIGRATION_COURSE_ID)
 
     other_course_repo = SQLiteBKTRepository(_dsn(), course_id="other-course")
     cross_course_snapshot = MasterySnapshot(

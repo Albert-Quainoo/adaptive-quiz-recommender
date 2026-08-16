@@ -127,6 +127,19 @@ def main() -> None:
     if settings.admin_status_enabled:
         render_admin_status(str(settings.database_path))
 
+    # Disabled by default (see AppSettings.maintenance_mode). An operator
+    # sets QUIZ_MAINTENANCE_MODE explicitly during a migration deployment
+    # (see RUNBOOK_course_id_migration.md) to block learner writes while
+    # still allowing the settings/catalogue load above -- basic startup
+    # diagnostics -- to run.
+    if settings.maintenance_mode:
+        st.title("Adaptive Quiz")
+        st.warning(
+            "The quiz service is temporarily in maintenance mode for a "
+            "scheduled database migration. Please try again shortly."
+        )
+        return
+
     session = get_session_state(st.session_state)
     if session.learner_id is None:
         learner_id = render_login()
@@ -152,10 +165,19 @@ def main() -> None:
         course_id = render_course_selector(catalogue)
         if course_id is None:
             return
-        activate_course(catalogue.resolve_active(course_id), session, course_id)
+        try:
+            controller = catalogue.resolve_active(course_id)
+        except BootstrapError as error:
+            st.error(str(error))
+            return
+        activate_course(controller, session, course_id)
         st.rerun()
 
-    controller = catalogue.resolve_active(session.course_id)
+    try:
+        controller = catalogue.resolve_active(session.course_id)
+    except BootstrapError as error:
+        st.error(str(error))
+        return
 
     st.title("Adaptive Quiz")
     st.caption("One question at a time · progress is saved automatically")

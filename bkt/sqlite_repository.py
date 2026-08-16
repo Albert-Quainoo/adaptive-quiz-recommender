@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,6 +18,59 @@ from database import create_engine_for, execute_schema_script
 # owns predates multi-course support, so every row that exists before a
 # database's first migration run belongs to this one course by definition.
 DEFAULT_MIGRATION_COURSE_ID = "intro-ai"
+
+# Bumped whenever SCHEMA's shape changes in a way that requires a migration
+# pass (not just an additive CREATE TABLE IF NOT EXISTS). Recorded in
+# schema_migrations by both a fresh CREATE (initialize_schema's EMPTY path)
+# and an explicit legacy migration (run_course_ownership_migration), so
+# readiness is always determined by reading this value back, never by
+# inferring from table shape or catching a generic database error.
+CURRENT_SCHEMA_VERSION = "course_id_v1"
+
+SCHEMA_MIGRATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL
+);
+"""
+
+_APPLICATION_TABLES = (
+    "attempt_events",
+    "learner_sessions",
+    "mastery_snapshots",
+    "question_presentations",
+    "recommendation_events",
+    "content_gap_events",
+    "bkt_model_metadata",
+)
+
+
+class SchemaStatus(Enum):
+    """What check_schema_status found, read-only. EMPTY: no application
+    tables exist yet -- safe to create the latest schema directly, nothing
+    to preserve. CURRENT: schema_migrations already records
+    CURRENT_SCHEMA_VERSION -- nothing to do. MIGRATION_REQUIRED: either a
+    legacy pre-course_id database (application tables exist but
+    schema_migrations does not) or a schema_migrations row for an older
+    version -- must not be touched except via the explicit, protected
+    run_course_ownership_migration()."""
+
+    EMPTY = "empty"
+    CURRENT = "current"
+    MIGRATION_REQUIRED = "migration_required"
+
+
+class SchemaMigrationRequiredError(RuntimeError):
+    """Raised by SQLiteBKTRepository.initialize_schema() -- never by
+    run_course_ownership_migration() -- when check_schema_status finds
+    MIGRATION_REQUIRED. Never mutates anything itself; the caller (see
+    app/bootstrap.py's build_controller) is expected to translate this into
+    a maintenance-mode-style message for the learner, not a raw crash."""
+
+    user_message = (
+        "The quiz service is in maintenance mode: a required database "
+        "migration has not been applied yet. Please try again later."
+    )
 
 
 # Final, course-scoped shape. A brand-new database gets this shape directly
@@ -182,6 +236,62 @@ def _table_has_column(connection: Connection, table: str, column: str) -> bool:
         ).first()
         return row is not None
     raise RuntimeError(f"unsupported dialect for migration: {dialect}")
+
+
+def _table_exists(connection: Connection, table: str) -> bool:
+    dialect = connection.dialect.name
+    if dialect == "sqlite":
+        row = connection.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :table"),
+            {"table": table},
+        ).first()
+        return row is not None
+    if dialect in ("postgresql", "postgres"):
+        row = connection.execute(
+            text("SELECT 1 FROM information_schema.tables WHERE table_name = :table"),
+            {"table": table},
+        ).first()
+        return row is not None
+    raise RuntimeError(f"unsupported dialect for schema check: {dialect}")
+
+
+def check_schema_status(connection: Connection) -> SchemaStatus:
+    """Read-only -- issues no DDL and no writes. The sole source of truth
+    for whether the application schema is ready to use, so runtime code
+    never has to infer readiness by catching a generic database error.
+
+    EMPTY is decided purely by whether any application table exists, never
+    by schema_migrations alone: schema_migrations is bookkeeping about the
+    application tables, not a substitute for them existing. Without this
+    ordering, a database where every application table was dropped but
+    schema_migrations happened to survive would misreport CURRENT and
+    initialize_schema() would then never recreate the tables it needs."""
+    if not any(_table_exists(connection, table) for table in _APPLICATION_TABLES):
+        return SchemaStatus.EMPTY
+    if _table_exists(connection, "schema_migrations"):
+        row = connection.execute(
+            text(
+                "SELECT version FROM schema_migrations "
+                "ORDER BY applied_at DESC LIMIT 1"
+            )
+        ).first()
+        version = row[0] if row is not None else None
+        if version == CURRENT_SCHEMA_VERSION:
+            return SchemaStatus.CURRENT
+    return SchemaStatus.MIGRATION_REQUIRED
+
+
+def _record_schema_version(
+    connection: Connection, *, version: str = CURRENT_SCHEMA_VERSION
+) -> None:
+    execute_schema_script(connection, SCHEMA_MIGRATIONS_TABLE)
+    connection.execute(
+        text(
+            "INSERT INTO schema_migrations (version, applied_at) "
+            "VALUES (:version, :applied_at) ON CONFLICT (version) DO NOTHING"
+        ),
+        {"version": version, "applied_at": _utc_iso(datetime.now(timezone.utc))},
+    )
 
 
 def _set_sqlite_foreign_keys(engine: Engine, *, enabled: bool) -> None:
@@ -485,6 +595,75 @@ def migrate_course_ownership(
     return backfilled
 
 
+def run_course_ownership_migration(
+    database: str | Path, *, course_id: str = DEFAULT_MIGRATION_COURSE_ID
+) -> dict[str, int]:
+    """The sole entry point that performs the legacy course_id migration --
+    the only function in this module allowed to rebuild tables and backfill
+    rows. Never called from application runtime code (build_controller(),
+    course selection, login, or any learner request all go through
+    SQLiteBKTRepository.initialize_schema() instead, which raises rather
+    than migrates). Intended to be invoked only from the protected CLI at
+    scripts/migrate_course_ownership.py, run manually and explicitly.
+
+    Idempotent and safe against every SchemaStatus: CURRENT is a no-op
+    (returns {}); EMPTY creates the latest schema directly (nothing to
+    migrate); MIGRATION_REQUIRED performs the full rebuild-and-backfill.
+    Constructs and disposes its own engine -- independent of any
+    already-open repository connection.
+
+    Failure safety: the entire rebuild-and-backfill runs inside one
+    transaction (`with engine.begin()`). Any failure partway rolls back
+    automatically -- both dialects leave the database in exactly its
+    pre-migration state, byte-for-byte, on a failed attempt."""
+    engine = create_engine_for(database)
+    try:
+        with engine.connect() as connection:
+            status = check_schema_status(connection)
+
+        if status is SchemaStatus.CURRENT:
+            return {}
+
+        is_sqlite = engine.dialect.name == "sqlite"
+
+        # Must happen before the migration transaction begins: PRAGMA
+        # foreign_keys is a no-op once a transaction is open, and dropping a
+        # table that's mid-swap (renamed away, not yet replaced) would
+        # otherwise fail against a still-live FK from an unmigrated sibling.
+        if is_sqlite:
+            _set_sqlite_foreign_keys(engine, enabled=False)
+
+        try:
+            with engine.begin() as connection:
+                execute_schema_script(connection, SCHEMA)
+                backfilled = migrate_course_ownership(
+                    connection, default_course_id=course_id
+                )
+                execute_schema_script(connection, INDEXES)
+                _record_schema_version(connection)
+        finally:
+            if is_sqlite:
+                _set_sqlite_foreign_keys(engine, enabled=True)
+
+        if is_sqlite:
+            violations = _sqlite_foreign_key_violations(engine)
+            if violations:
+                raise RuntimeError(
+                    "course_id migration left foreign-key violations, refusing to "
+                    f"report success: {violations}"
+                )
+        # PostgreSQL needs no equivalent post-check: every composite FK
+        # above is created as part of the same CREATE TABLE the
+        # INSERT ... SELECT then populates, inside migrate_course_ownership's
+        # single transaction -- Postgres validates each inserted row against
+        # its FK immediately, so an orphan already aborts (and rolls back)
+        # the migration transaction rather than needing a separate check.
+
+        return backfilled
+    finally:
+        engine.dispose()
+
+
 class SQLiteBKTRepository:
     """SQL persistence (SQLite or PostgreSQL) for immutable attempts and
     versioned mastery history, bound to exactly one course.
@@ -506,37 +685,46 @@ class SQLiteBKTRepository:
             raise ValueError("course_id is required")
         self._engine = create_engine_for(database)
 
-    def initialize_schema(self) -> dict[str, int]:
-        is_sqlite = self._engine.dialect.name == "sqlite"
+    def initialize_schema(self) -> SchemaStatus:
+        """Runtime-safe: called from build_controller() on every course
+        selection/login, so it must never mutate an existing production
+        schema and must never perform the legacy course_id migration --
+        that is the one job reserved for the explicit, protected
+        run_course_ownership_migration() below, invoked only from
+        scripts/migrate_course_ownership.py.
 
-        # Must happen before the migration transaction begins: PRAGMA
-        # foreign_keys is a no-op once a transaction is open, and dropping a
-        # table that's mid-swap (renamed away, not yet replaced) would
-        # otherwise fail against a still-live FK from an unmigrated sibling.
-        if is_sqlite:
-            _set_sqlite_foreign_keys(self._engine, enabled=False)
+        EMPTY: the database is genuinely empty (no application tables at
+        all) -- creates the latest schema directly. This is first-time
+        setup, not a migration: there is no pre-existing data to preserve,
+        so no table rebuild or foreign_keys pragma dance is needed.
+
+        CURRENT: schema_migrations already records CURRENT_SCHEMA_VERSION --
+        no-op.
+
+        MIGRATION_REQUIRED: a legacy pre-course_id database (or one on an
+        older recorded version). Raises SchemaMigrationRequiredError without
+        touching anything -- the caller must fail safely with a
+        maintenance/configuration message, never mutate."""
+        with self._engine.connect() as connection:
+            status = check_schema_status(connection)
+
+        if status is SchemaStatus.MIGRATION_REQUIRED:
+            raise SchemaMigrationRequiredError(
+                "database schema predates course_id support (or is on an "
+                "older version); run the explicit course ownership "
+                "migration (scripts/migrate_course_ownership.py) before "
+                "starting the application"
+            )
+
+        if status is SchemaStatus.CURRENT:
+            return status
 
         with self._engine.begin() as connection:
             execute_schema_script(connection, SCHEMA)
-            backfilled = migrate_course_ownership(connection)
             execute_schema_script(connection, INDEXES)
+            _record_schema_version(connection)
 
-        if is_sqlite:
-            _set_sqlite_foreign_keys(self._engine, enabled=True)
-            violations = _sqlite_foreign_key_violations(self._engine)
-            if violations:
-                raise RuntimeError(
-                    "course_id migration left foreign-key violations, refusing to "
-                    f"report success: {violations}"
-                )
-        # PostgreSQL needs no equivalent post-check: every composite FK
-        # above is created as part of the same CREATE TABLE the
-        # INSERT ... SELECT then populates, inside migrate_course_ownership's
-        # single transaction -- Postgres validates each inserted row against
-        # its FK immediately, so an orphan already aborts (and rolls back)
-        # the migration transaction rather than needing a separate check.
-
-        return backfilled
+        return status
 
     def close(self) -> None:
         self._engine.dispose()

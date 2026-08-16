@@ -44,7 +44,7 @@ def _clean_database():
             text(
                 "DROP TABLE IF EXISTS question_presentations, learner_sessions, "
                 "content_gap_events, recommendation_events, mastery_snapshots, "
-                "bkt_model_metadata, attempt_events CASCADE"
+                "bkt_model_metadata, attempt_events, schema_migrations CASCADE"
             )
         )
     engine_owner.close()
