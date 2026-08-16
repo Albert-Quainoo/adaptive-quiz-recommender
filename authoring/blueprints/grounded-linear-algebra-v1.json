@@ -623,7 +623,8 @@
         "LA-EIG-01-f6bd9c982ad5"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not ask the student to find the eigenvalues from scratch in this intent."
+        "Do not ask the student to find the eigenvalues from scratch in this intent.",
+        "Do not phrase the stem as an imperative beginning with 'Verify' -- it must be phrased as a question or begin with an imperative such as Determine."
       ],
       "prohibited_conflations": [
         "any nonzero vector is an eigenvector for any matrix"
@@ -635,7 +636,7 @@
       ],
       "required_question_characteristics": [
         "Give a small square matrix A, a candidate nonzero vector x, and a candidate scalar lambda.",
-        "Ask whether Ax = lambda*x holds for this candidate pair."
+        "Phrase the stem as a direct question ending in a question mark, or begin it with Determine (for example: 'Determine whether Ax = lambda x holds for this candidate pair.')."
       ],
       "skill_id": "LA-EIG-01"
     },
