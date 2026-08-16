@@ -1,0 +1,27 @@
+{
+  "created_at": "2026-08-16T21:37:49.238583+00:00",
+  "description": "Development model using a fixed, reviewed pilot parameter profile; it is not learner-trained or empirically calibrated.",
+  "included_skill_ids": [
+    "LA-DET-01",
+    "LA-EIG-01",
+    "LA-LTR-01",
+    "LA-MKV-01",
+    "LA-SLE-01",
+    "LA-VSP-01"
+  ],
+  "model_artifact_path": "outputs/bkt_linear_algebra_model_v1.pkl",
+  "model_version": "bkt-linear-algebra-v1",
+  "opportunity_count": 10,
+  "parameter_profile": "moderated-pilot",
+  "parameters": {
+    "forgets": 0.0,
+    "guesses": 0.4,
+    "learns": 0.04,
+    "prior": 0.2,
+    "slips": 0.2
+  },
+  "pybkt_version": "1.4.3",
+  "seed": 20260816,
+  "synthetic_learner_count": 8,
+  "training_source": "synthetic"
+}

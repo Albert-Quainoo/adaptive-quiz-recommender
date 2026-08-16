@@ -10,7 +10,7 @@
     "openstax.org",
     "math.libretexts.org"
   ],
-  "approved_bank_path": "outputs/approved_banks/linear-algebra-approved-bank-0-v1.jsonl",
+  "approved_bank_path": "outputs/approved_banks/linear-algebra-approved-bank-24-v1.jsonl",
   "auto_activate_when_ready": true,
   "bkt_model_path": "outputs/bkt_linear_algebra_model_v1.pkl",
   "candidate_store_path": "outputs/replenishment/linear-algebra/reference_candidates.json",

@@ -1,0 +1,29 @@
+{
+  "bank_path": "outputs/approved_banks/linear-algebra-approved-bank-24-v1.jsonl",
+  "difficulty_counts": {
+    "intermediate": 12,
+    "introductory": 12
+  },
+  "item_count": 24,
+  "missing_required_skill_ids": [],
+  "required_skill_ids": [
+    "LA-SLE-01",
+    "LA-VSP-01",
+    "LA-LTR-01",
+    "LA-DET-01",
+    "LA-EIG-01",
+    "LA-MKV-01"
+  ],
+  "skill_counts": {
+    "LA-DET-01": 4,
+    "LA-EIG-01": 4,
+    "LA-LTR-01": 4,
+    "LA-MKV-01": 4,
+    "LA-SLE-01": 4,
+    "LA-VSP-01": 4
+  },
+  "status": "ready",
+  "unique_item_ids": 24,
+  "unique_normalized_stems": 24,
+  "unknown_skill_ids": []
+}
