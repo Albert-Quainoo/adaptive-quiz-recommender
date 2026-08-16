@@ -7,7 +7,9 @@
   ],
   "allowed_domains": [
     "ocw.mit.edu",
-    "cs50.harvard.edu"
+    "cs50.harvard.edu",
+    "eng.libretexts.org",
+    "cs186berkeley.net"
   ],
   "approved_bank_path": "outputs/approved_banks/database-systems-approved-bank-0-v1.jsonl",
   "auto_activate_when_ready": true,

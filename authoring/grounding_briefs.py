@@ -236,6 +236,71 @@ PILOT_GROUNDING_BRIEFS = {
                 "The PageRank vector is the steady-state vector of the importance matrix's Markov chain -- an eigenvector of the (stochastic) importance matrix with eigenvalue 1 -- not simply the matrix's row or column of largest entries.",
             ],
         ),
+        CanonicalGroundingBrief(
+            skill_id="DB-ERM-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "In Chen notation, entity types are drawn as rectangles, relationship types as diamonds, and attributes as ovals connected by a line to the entity or relationship they describe.",
+                "Cardinality symbols (such as 1 and n) label the lines connecting a relationship diamond to its related entities, not the entities or attributes themselves.",
+                "An entity-relationship diagram gives an overview of a database's design -- its entities, attributes, and relationships -- built through an iterative modelling process, not SQL code or a physical storage layout.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-REL-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "In the relational model, a row of a relation (table) is called a tuple (or record), and a column is called an attribute (or field); a domain is the set of atomic values an attribute may take.",
+                "Entity integrity requires that every table have a primary key whose value is unique across rows and never null.",
+                "Referential integrity requires that a foreign-key value either matches an existing primary-key value in the referenced table, or is null; a foreign key matching no primary key violates referential integrity.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-ALG-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "The relational-algebra selection operator (sigma) filters the rows of a relation by a condition, keeping the same schema (same columns); it is equivalent to SQL's WHERE clause, not its SELECT clause.",
+                "The relational-algebra projection operator (pi) changes the schema by keeping only the specified columns; it does not filter rows by a condition the way selection does.",
+                "A single SQL query can correspond to more than one equivalent relational-algebra expression -- for example, applying selection before or after projection can give the same result -- as long as projection does not remove a column that selection still needs.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-SQL-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "SQL's core DML statements are SELECT (query data), INSERT (add rows), UPDATE (modify existing rows), and DELETE (remove rows); each performs a distinct task.",
+                "An inner join returns only the rows that have matching values in both joined tables; it does not include unmatched rows from either table.",
+                "A SELECT statement's WHERE clause filters which rows are returned; it does not determine which columns appear in the output.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-NRM-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A functional dependency X -> Y means that for every valid instance of X, that value of X uniquely determines the value of Y; X is the determinant and Y is the dependent, and the relationship is not symmetric.",
+                "A functional dependency X -> Y is violated by any two rows that share the same X value but have different Y values.",
+                "Normalization is the process of determining and reducing redundancy in a relational schema, not a process for encrypting or securing data.",
+                "A relation is in third normal form (3NF) only if it is already in second normal form and contains no transitive dependency -- no non-key attribute depending on another non-key attribute rather than directly on the primary key.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-TXN-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A transaction is a set of database operations treated as one undividable unit of work: it either succeeds and commits in its entirety, or fails and none of its operations take effect.",
+                "ACID stands for atomicity (all-or-nothing execution), consistency (only valid data is written), isolation (concurrent transactions do not see each other's incomplete effects), and durability (committed changes persist even after a failure).",
+                "Concurrency control coordinates transactions executing simultaneously on the same data so that mutual interference does not cause inconsistencies; it is not primarily about making transactions run faster.",
+                "When a transaction fails before committing, the transaction manager rolls back its partial changes using a log file, so none of those changes remain in the database.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DB-IDX-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A B-tree generalizes a binary search tree: instead of one value, each node holds a list of multiple values, which lets an index skip most of the table instead of scanning every row.",
+                "In a B+ tree, record data is stored only in the leaf nodes; internal nodes hold only keys and pointers used to guide the search, not the record data itself.",
+                "A B+ tree's wider fan-out per node keeps the tree shorter than an equivalent binary search tree over the same keys, so fewer levels must be traversed to reach a given key.",
+            ],
+        ),
     )
 }
 
