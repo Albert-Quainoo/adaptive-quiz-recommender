@@ -39,6 +39,7 @@ def main(argv=None) -> int:
     controller.repository.save_model_metadata(
         BKTModelMetadata(
             model_version=arguments.model_version,
+            course_id=controller.course_id,
             fitted_at=datetime.fromisoformat(metadata["created_at"]),
             training_attempt_count=(
                 metadata["synthetic_learner_count"]

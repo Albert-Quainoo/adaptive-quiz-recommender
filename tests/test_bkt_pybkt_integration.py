@@ -26,6 +26,7 @@ def training_event(
     suffix = f"{learner_id}-{skill_id}-{attempt_order}"
     return AttemptEvent(
         attempt_id=f"training-{suffix}",
+        course_id="test-course",
         presentation_id=f"training-presentation-{suffix}",
         learner_id=learner_id,
         item_id=f"item-{skill_id}",
@@ -55,7 +56,7 @@ def fitted_model():
         for attempt_order, correct in enumerate(sequences[learner_index % 2], start=1)
     ]
     engine = Model(seed=42, num_fits=1, parallel=False)
-    model = BKTModel(engine, model_version="synthetic-v1")
+    model = BKTModel(engine, course_id="test-course", model_version="synthetic-v1")
     model.fit(attempts)
     return model, engine
 
@@ -95,6 +96,7 @@ def submission(
     )
     event = AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=presentation.presentation_id,
         learner_id=learner_id,
         item_id=item.item_id,

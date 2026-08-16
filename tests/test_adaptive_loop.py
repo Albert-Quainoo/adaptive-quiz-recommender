@@ -24,6 +24,7 @@ FOUNDATIONAL_SKILL_ID = "AI-ALG-01"
 DEPENDENT_SKILL_ID = "AI-ALG-02"
 MODEL_VERSION = "adaptive-loop-synthetic-v1"
 POLICY_VERSION = "adaptive-loop-policy-v1"
+COURSE_ID = "adaptive-loop-test-course"
 MODEL_SEED = 17
 
 
@@ -64,6 +65,7 @@ def _training_attempts() -> list[AttemptEvent]:
     return [
         AttemptEvent(
             attempt_id=f"training-{skill_id}-{learner_index}-{attempt_order}",
+            course_id=COURSE_ID,
             presentation_id=(
                 f"training-presentation-{skill_id}-{learner_index}-{attempt_order}"
             ),
@@ -96,6 +98,7 @@ def test_end_to_end_adaptive_loop_unlocks_dependent_skill_after_mastery():
     bkt_repository = InMemoryBKTRepository()
     bkt_service = BKTService(
         BKTModel(
+            course_id=COURSE_ID,
             model_version=MODEL_VERSION,
             seed=MODEL_SEED,
             num_fits=1,
@@ -120,6 +123,7 @@ def test_end_to_end_adaptive_loop_unlocks_dependent_skill_after_mastery():
         )
         return RecommendationService(
             repository,
+            course_id=COURSE_ID,
             model_version=MODEL_VERSION,
             config=policy,
         ).recommend(
@@ -153,6 +157,7 @@ def test_end_to_end_adaptive_loop_unlocks_dependent_skill_after_mastery():
         )
         submitted_event = AttemptEvent(
             attempt_id=attempt_id,
+            course_id=COURSE_ID,
             presentation_id=presentation.presentation_id,
             learner_id=LEARNER_ID,
             item_id=item.item_id,

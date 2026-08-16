@@ -213,13 +213,17 @@ def build_pybkt_variant_model(bank_items, skills, seed: int, parameters: dict) -
         for skill_id in skill_ids
     }
     model.fit(data=training_frame, fixed=True)
-    return BKTModel(model, model_version="sensitivity-sweep", fitted=True)
+    return BKTModel(
+        model, course_id="sensitivity-sweep", model_version="sensitivity-sweep", fitted=True
+    )
 
 
 def build_manual_controller(
     bank_items, skills, database_path: Path, *, threshold: float, initial_mastery: float, bkt_model: BKTModel
 ) -> ApplicationController:
-    repository = SQLiteRecommendationRepository(database_path, skills=skills, items=bank_items)
+    repository = SQLiteRecommendationRepository(
+        database_path, course_id="sensitivity-sweep", skills=skills, items=bank_items
+    )
     repository.initialize_schema()
     policy = RecommendationPolicyConfig(
         initial_mastery_probability=initial_mastery,
@@ -227,11 +231,12 @@ def build_manual_controller(
         policy_version="sensitivity-sweep",
     )
     return ApplicationController(
+        course_id="sensitivity-sweep",
         skills=skills,
         items=bank_items,
         repository=repository,
         recommendation_service=RecommendationService(
-            repository, model_version="sensitivity-sweep", config=policy
+            repository, course_id="sensitivity-sweep", model_version="sensitivity-sweep", config=policy
         ),
         bkt_service=BKTService(bkt_model, repository),
     )

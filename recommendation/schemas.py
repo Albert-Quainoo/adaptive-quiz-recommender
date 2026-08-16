@@ -43,6 +43,7 @@ class RecommendationResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     learner_id: str = Field(min_length=1)
+    course_id: str = Field(min_length=1)
     skill_id: str = Field(min_length=1)
     item_id: str = Field(min_length=1)
     difficulty: difficulty_level
@@ -67,6 +68,7 @@ class ContentGapResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     learner_id: str = Field(min_length=1)
+    course_id: str = Field(min_length=1)
     completed_skill_id: str = Field(min_length=1)
     completed_skill_name: str = Field(min_length=1)
     newly_unlocked_skill_id: str = Field(min_length=1)

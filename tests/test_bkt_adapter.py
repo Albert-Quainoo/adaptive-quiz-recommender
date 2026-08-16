@@ -5,6 +5,7 @@ def test_adapter_preserves_attempt_order_and_uses_pybkt_columns():
     attempts = [
         AttemptEvent(
             attempt_id="later",
+            course_id="test-course",
             presentation_id="presentation-later",
             attempt_order=2,
             learner_id="learner",
@@ -15,6 +16,7 @@ def test_adapter_preserves_attempt_order_and_uses_pybkt_columns():
         ),
         AttemptEvent(
             attempt_id="earlier",
+            course_id="test-course",
             presentation_id="presentation-earlier",
             attempt_order=1,
             learner_id="learner",

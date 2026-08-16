@@ -49,6 +49,7 @@ def _attempt(
 ) -> AttemptEvent:
     return AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=f"presentation-{attempt_id}",
         learner_id=learner_id,
         item_id=f"item-{skill_id}",
@@ -69,6 +70,7 @@ def _snapshot(
 ) -> MasterySnapshot:
     return MasterySnapshot(
         learner_id=attempt.learner_id,
+        course_id=attempt.course_id,
         skill_id=attempt.skill_id,
         mastery_probability=probability,
         attempt_count=attempt.attempt_order,
@@ -119,6 +121,7 @@ def _submission(attempt_id: str, *, order: int = 1):
     )
     event = AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=presentation.presentation_id,
         learner_id="learner-1",
         item_id=item.item_id,
@@ -135,7 +138,7 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     tmp_path,
 ):
     database = tmp_path / "adaptive.sqlite3"
-    repository = SQLiteBKTRepository(database)
+    repository = SQLiteBKTRepository(database, course_id="test-course")
 
     with repository._engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).fetchone()[0] == 1
@@ -147,6 +150,7 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     repository.save_attempt_and_mastery(event, _snapshot(event))
     metadata = BKTModelMetadata(
         model_version="sqlite-model-v1",
+        course_id="test-course",
         fitted_at=NOW,
         training_attempt_count=10,
         skill_ids=["AI-SQL-01"],
@@ -154,7 +158,7 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     repository.save_model_metadata(metadata)
     repository.close()
 
-    reopened = SQLiteBKTRepository(database)
+    reopened = SQLiteBKTRepository(database, course_id="test-course")
     with reopened._engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).fetchone()[0] == 1
     loaded_attempt = reopened.get_attempt(event.attempt_id)
@@ -168,6 +172,10 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
     with pytest.raises(ValidationError, match="frozen"):
         loaded_attempt.correct = False
 
+    # mastery_snapshots(course_id, source_attempt_id) FKs
+    # attempt_events(course_id, attempt_id) -- composite, so a snapshot
+    # cannot reference an attempt from a different course either, not just
+    # a nonexistent one.
     missing_attempt = _attempt("missing")
     with pytest.raises(IntegrityError, match="FOREIGN KEY"):
         reopened.save_mastery(_snapshot(missing_attempt))
@@ -177,7 +185,7 @@ def test_schema_is_explicit_foreign_keys_are_enabled_and_data_survives_reopen(
 def test_sqlite_processing_is_idempotent_and_conflicting_attempts_are_rejected(
     tmp_path,
 ):
-    repository = SQLiteBKTRepository(tmp_path / "idempotency.sqlite3")
+    repository = SQLiteBKTRepository(tmp_path / "idempotency.sqlite3", course_id="test-course")
     repository.initialize_schema()
     service = BKTService(DeterministicModel(), repository, clock=lambda: NOW)
     event, item, presentation = _submission("attempt-1")
@@ -204,7 +212,7 @@ def test_sqlite_processing_is_idempotent_and_conflicting_attempts_are_rejected(
 
 
 def test_atomic_failure_rolls_back_both_attempt_and_mastery(tmp_path, monkeypatch):
-    repository = SQLiteBKTRepository(tmp_path / "rollback.sqlite3")
+    repository = SQLiteBKTRepository(tmp_path / "rollback.sqlite3", course_id="test-course")
     repository.initialize_schema()
     event = _attempt("rolled-back")
     snapshot = _snapshot(event)
@@ -223,7 +231,7 @@ def test_atomic_failure_rolls_back_both_attempt_and_mastery(tmp_path, monkeypatc
 
 
 def test_attempt_order_latest_mastery_and_learner_skill_isolation(tmp_path):
-    repository = SQLiteBKTRepository(tmp_path / "ordering.sqlite3")
+    repository = SQLiteBKTRepository(tmp_path / "ordering.sqlite3", course_id="test-course")
     repository.initialize_schema()
     attempts = [
         _attempt("learner-1-skill-1-order-2", order=2),
@@ -289,7 +297,7 @@ def test_attempt_order_latest_mastery_and_learner_skill_isolation(tmp_path):
 
 
 def test_replay_reconstructs_mastery_from_ordered_sqlite_attempts(tmp_path):
-    repository = SQLiteBKTRepository(tmp_path / "replay.sqlite3")
+    repository = SQLiteBKTRepository(tmp_path / "replay.sqlite3", course_id="test-course")
     repository.initialize_schema()
     service = BKTService(DeterministicModel(), repository, clock=lambda: NOW)
     submissions = [_submission(f"attempt-{order}", order=order) for order in range(1, 4)]
@@ -318,6 +326,7 @@ def test_recommendations_are_persisted_with_versions_and_learners_are_isolated(
     dependent = _skill("AI-SQL-02", [foundational.skill_id])
     repository = SQLiteRecommendationRepository(
         tmp_path / "recommendations.sqlite3",
+        course_id="test-course",
         skills=[foundational, dependent],
         items=[_item(foundational.skill_id), _item(dependent.skill_id)],
     )
@@ -329,6 +338,7 @@ def test_recommendations_are_persisted_with_versions_and_learners_are_isolated(
     )
     service = RecommendationService(
         repository,
+        course_id="test-course",
         model_version="sqlite-model-v1",
         config=RecommendationPolicyConfig(policy_version="sqlite-policy-v1"),
     )
@@ -348,6 +358,7 @@ def test_recommendations_are_persisted_with_versions_and_learners_are_isolated(
 
     reopened = SQLiteRecommendationRepository(
         tmp_path / "recommendations.sqlite3",
+        course_id="test-course",
         skills=[foundational, dependent],
         items=[_item(foundational.skill_id), _item(dependent.skill_id)],
     )
@@ -371,12 +382,14 @@ def test_content_gap_result_is_persisted_with_mastery_and_threshold(tmp_path):
     database = tmp_path / "content-gaps.sqlite3"
     repository = SQLiteRecommendationRepository(
         database,
+        course_id="test-course",
         skills=[_skill("AI-SQL-01")],
         items=[_item("AI-SQL-01")],
     )
     repository.initialize_schema()
     result = ContentGapResult(
         learner_id="learner-1",
+        course_id="test-course",
         completed_skill_id="AI-SQL-01",
         completed_skill_name="SQL foundation",
         newly_unlocked_skill_id="AI-SQL-02",
@@ -391,6 +404,7 @@ def test_content_gap_result_is_persisted_with_mastery_and_threshold(tmp_path):
 
     reopened = SQLiteRecommendationRepository(
         database,
+        course_id="test-course",
         skills=[_skill("AI-SQL-01")],
         items=[_item("AI-SQL-01")],
     )

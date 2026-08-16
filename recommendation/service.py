@@ -37,12 +37,16 @@ class RecommendationService:
         self,
         repository: RecommendationRepository,
         *,
+        course_id: str,
         model_version: str,
         config: RecommendationPolicyConfig | None = None,
     ) -> None:
         if not model_version.strip():
             raise ValueError("model_version cannot be empty")
+        if not course_id.strip():
+            raise ValueError("course_id cannot be empty")
         self.repository = repository
+        self.course_id = course_id
         self.model_version = model_version
         self.config = config or RecommendationPolicyConfig()
 
@@ -168,6 +172,7 @@ class RecommendationService:
 
         result = RecommendationResult(
             learner_id=request.learner_id,
+            course_id=self.course_id,
             skill_id=skill_selection.skill.skill_id,
             item_id=item_selection.item.item_id,
             difficulty=item_selection.item.question.difficulty,
@@ -223,6 +228,7 @@ class RecommendationService:
             completed = by_id[completed_skill_id]
             return ContentGapResult(
                 learner_id=learner_id,
+                course_id=self.course_id,
                 completed_skill_id=completed_skill_id,
                 completed_skill_name=completed.name,
                 newly_unlocked_skill_id=skill.skill_id,

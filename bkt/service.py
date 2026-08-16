@@ -61,9 +61,9 @@ class BKTService:
     def replay(self, *, learner_id: str | None = None) -> list[MasterySnapshot]:
         """Recompute stored snapshots from immutable attempts after a model change."""
 
-        grouped: dict[tuple[str, str], list[AttemptEvent]] = defaultdict(list)
+        grouped: dict[tuple[str, str, str], list[AttemptEvent]] = defaultdict(list)
         for attempt in self.repository.list_attempts(learner_id=learner_id):
-            grouped[(attempt.learner_id, attempt.skill_id)].append(attempt)
+            grouped[(attempt.learner_id, attempt.course_id, attempt.skill_id)].append(attempt)
 
         snapshots: list[MasterySnapshot] = []
         for attempts in grouped.values():
@@ -81,6 +81,7 @@ class BKTService:
     ) -> MasterySnapshot:
         return MasterySnapshot(
             learner_id=attempt.learner_id,
+            course_id=attempt.course_id,
             skill_id=attempt.skill_id,
             mastery_probability=probability,
             attempt_count=attempt_count,

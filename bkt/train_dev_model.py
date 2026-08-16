@@ -41,10 +41,17 @@ def generate_synthetic_attempts(
     skill_ids: Sequence[str],
     *,
     seed: int,
+    course_id: str = "synthetic",
     learner_count: int = SYNTHETIC_LEARNER_COUNT,
     opportunity_count: int = OPPORTUNITY_COUNT,
 ) -> list[AttemptEvent]:
-    """Create ordered, reproducible response histories with an improving trend."""
+    """Create ordered, reproducible response histories with an improving trend.
+
+    course_id defaults safely here (unlike BKTModel's, which is a real audit
+    field): these attempts are only ever fed through PyBKTAdapter.to_dataframe,
+    which reads order_id/user_id/skill_name/correct and ignores course_id --
+    they are never persisted, so there is nothing for a wrong default to
+    silently mislabel."""
 
     if learner_count < 2:
         raise ValueError("synthetic training requires at least two learners")
@@ -77,6 +84,7 @@ def generate_synthetic_attempts(
                 attempts.append(
                     AttemptEvent(
                         attempt_id=f"synthetic-attempt-{suffix}",
+                        course_id=course_id,
                         presentation_id=f"synthetic-presentation-{suffix}",
                         learner_id=learner_id,
                         item_id=f"synthetic-item-{skill_id}",

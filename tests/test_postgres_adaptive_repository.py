@@ -38,7 +38,7 @@ def _clean_database():
     """Each test gets a schema reset -- one shared Postgres instance/database
     is reused across tests rather than creating a new database per test."""
     require_safe_postgres_target(_dsn())
-    engine_owner = SQLiteBKTRepository(_dsn())
+    engine_owner = SQLiteBKTRepository(_dsn(), course_id="test-course")
     with engine_owner._engine.begin() as connection:
         connection.execute(
             text(
@@ -54,6 +54,7 @@ def _clean_database():
 def _attempt(attempt_id: str, *, order: int = 1, correct: bool = True) -> AttemptEvent:
     return AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=f"presentation-{attempt_id}",
         learner_id="learner-1",
         item_id="item-AI-PG-01",
@@ -68,6 +69,7 @@ def _attempt(attempt_id: str, *, order: int = 1, correct: bool = True) -> Attemp
 def _snapshot(attempt: AttemptEvent, *, probability: float = 0.5) -> MasterySnapshot:
     return MasterySnapshot(
         learner_id=attempt.learner_id,
+        course_id=attempt.course_id,
         skill_id=attempt.skill_id,
         mastery_probability=probability,
         attempt_count=attempt.attempt_order,
@@ -118,7 +120,7 @@ EXPECTED_TABLES = {
 
 
 def test_schema_creation_succeeds_on_an_empty_database_and_repeated_init_is_safe():
-    repository = SQLiteBKTRepository(_dsn())
+    repository = SQLiteBKTRepository(_dsn(), course_id="test-course")
     repository.initialize_schema()
     repository.initialize_schema()  # idempotent, must not raise
     with repository._engine.connect() as connection:
@@ -133,7 +135,7 @@ def test_schema_creation_succeeds_on_an_empty_database_and_repeated_init_is_safe
 
 
 def test_a_learner_can_be_created_and_retrieved():
-    repository = SQLiteRecommendationRepository(_dsn(), skills=[], items=[])
+    repository = SQLiteRecommendationRepository(_dsn(), course_id="test-course", skills=[], items=[])
     repository.initialize_schema()
     repository.save_learner("learner-pg-1", created_at=NOW)
     assert repository.learner_exists("learner-pg-1") is True
@@ -145,7 +147,7 @@ def test_a_learner_can_be_created_and_retrieved():
 
 def test_a_quiz_session_survives_repository_reconstruction():
     dsn = _dsn()
-    repository = SQLiteRecommendationRepository(dsn, skills=[], items=[])
+    repository = SQLiteRecommendationRepository(dsn, course_id="test-course", skills=[], items=[])
     repository.initialize_schema()
     repository.save_learner("learner-1", created_at=NOW)
     repository.save_presentation(
@@ -158,7 +160,7 @@ def test_a_quiz_session_survives_repository_reconstruction():
     )
     repository.close()
 
-    reopened = SQLiteRecommendationRepository(dsn, skills=[], items=[])
+    reopened = SQLiteRecommendationRepository(dsn, course_id="test-course", skills=[], items=[])
     row = reopened.get_presentation("presentation-1")
     assert row["learner_id"] == "learner-1"
     assert row["item_id"] == "item-AI-PG-01"
@@ -166,24 +168,24 @@ def test_a_quiz_session_survives_repository_reconstruction():
 
 
 def test_submitted_responses_persist():
-    repository = SQLiteBKTRepository(_dsn())
+    repository = SQLiteBKTRepository(_dsn(), course_id="test-course")
     repository.initialize_schema()
     attempt = _attempt("pg-response-1")
     repository.save_attempt_and_mastery(attempt, _snapshot(attempt))
 
-    reopened = SQLiteBKTRepository(_dsn())
+    reopened = SQLiteBKTRepository(_dsn(), course_id="test-course")
     assert reopened.get_attempt("pg-response-1") == attempt
     assert reopened.list_attempts(learner_id="learner-1") == [attempt]
     reopened.close()
 
 
 def test_bkt_mastery_persists():
-    repository = SQLiteBKTRepository(_dsn())
+    repository = SQLiteBKTRepository(_dsn(), course_id="test-course")
     repository.initialize_schema()
     attempt = _attempt("pg-mastery-1")
     repository.save_attempt_and_mastery(attempt, _snapshot(attempt, probability=0.73))
 
-    reopened = SQLiteBKTRepository(_dsn())
+    reopened = SQLiteBKTRepository(_dsn(), course_id="test-course")
     mastery = reopened.get_mastery("learner-1", "AI-PG-01")
     assert mastery.mastery_probability == pytest.approx(0.73)
     reopened.close()
@@ -194,6 +196,7 @@ def test_next_question_recommendation_works():
     dependent = _skill("AI-PG-02", [foundational.skill_id])
     repository = SQLiteRecommendationRepository(
         _dsn(),
+        course_id="test-course",
         skills=[foundational, dependent],
         items=[_item(foundational.skill_id), _item(dependent.skill_id)],
     )
@@ -203,6 +206,7 @@ def test_next_question_recommendation_works():
 
     service = RecommendationService(
         repository,
+        course_id="test-course",
         model_version="postgres-model-v1",
         config=RecommendationPolicyConfig(policy_version="postgres-policy-v1"),
     )
@@ -223,7 +227,7 @@ def test_next_question_recommendation_works():
 def test_duplicate_selection_remains_prevented():
     """The UNIQUE (learner_id, skill_id, attempt_order) constraint is the
     DB-level guard against crediting the same slot twice."""
-    repository = SQLiteBKTRepository(_dsn())
+    repository = SQLiteBKTRepository(_dsn(), course_id="test-course")
     repository.initialize_schema()
     first = _attempt("pg-dup-1", order=1)
     repository.save_attempt_and_mastery(first, _snapshot(first))
@@ -244,12 +248,12 @@ def test_data_written_by_one_process_is_readable_by_a_separate_process():
     instances against the same Postgres DSN, standing in for the Streamlit
     process and the replenishment worker CLI process."""
     dsn = _dsn()
-    writer = SQLiteBKTRepository(dsn)
+    writer = SQLiteBKTRepository(dsn, course_id="test-course")
     writer.initialize_schema()
     attempt = _attempt("pg-cross-process-1")
     writer.save_attempt_and_mastery(attempt, _snapshot(attempt))
 
-    reader = SQLiteBKTRepository(dsn)
+    reader = SQLiteBKTRepository(dsn, course_id="test-course")
     assert reader.get_attempt("pg-cross-process-1") == attempt
     assert reader.get_mastery("learner-1", "AI-PG-01") == _snapshot(attempt)
     writer.close()

@@ -61,6 +61,7 @@ def submitted_attempt(
     )
     attempt = AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=presentation.presentation_id,
         learner_id="one",
         item_id="item-1",

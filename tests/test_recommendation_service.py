@@ -50,6 +50,7 @@ def item(item_id: str, skill_id: str, difficulty: str) -> BankItem:
 def mastery(learner_id: str, skill_id: str, probability: float) -> MasterySnapshot:
     return MasterySnapshot(
         learner_id=learner_id,
+        course_id="test-course",
         skill_id=skill_id,
         mastery_probability=probability,
         attempt_count=1,
@@ -62,6 +63,7 @@ def mastery(learner_id: str, skill_id: str, probability: float) -> MasterySnapsh
 def attempt(learner_id: str, item_id: str, order: int = 1) -> AttemptEvent:
     return AttemptEvent(
         attempt_id=f"attempt-{learner_id}-{item_id}",
+        course_id="test-course",
         presentation_id=f"presentation-{learner_id}-{item_id}",
         learner_id=learner_id,
         item_id=item_id,
@@ -76,6 +78,7 @@ def attempt(learner_id: str, item_id: str, order: int = 1) -> AttemptEvent:
 def service(repository: InMemoryRecommendationRepository) -> RecommendationService:
     return RecommendationService(
         repository,
+        course_id="test-course",
         model_version="bkt-v3",
         config=RecommendationPolicyConfig(policy_version="policy-v1"),
     )

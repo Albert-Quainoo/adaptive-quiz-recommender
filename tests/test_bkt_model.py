@@ -35,6 +35,7 @@ def attempt(
 ) -> AttemptEvent:
     return AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=f"presentation-{attempt_id}",
         attempt_order=attempt_order,
         learner_id=learner_id,
@@ -49,7 +50,7 @@ def attempt(
 def test_model_delegates_fit_and_prediction_to_pybkt():
     engine = FakePyBKTModel()
     model = BKTModel(
-        engine, model_version="v1", clock=lambda: NOW
+        engine, course_id="test-course", model_version="v1", clock=lambda: NOW
     )
     attempts = [
         attempt("a-1", True, attempt_order=1),
@@ -66,7 +67,7 @@ def test_model_delegates_fit_and_prediction_to_pybkt():
 
 
 def test_model_rejects_prediction_before_fit():
-    model = BKTModel(FakePyBKTModel())
+    model = BKTModel(FakePyBKTModel(), course_id="test-course")
     with pytest.raises(RuntimeError, match="must be fitted"):
         model.predict([attempt("a-1", True)])
 
@@ -79,7 +80,7 @@ def test_model_rejects_prediction_before_fit():
     ],
 )
 def test_update_mastery_rejects_mixed_histories(attempts):
-    model = BKTModel(FakePyBKTModel())
+    model = BKTModel(FakePyBKTModel(), course_id="test-course")
     model.fit([attempt("training", True)])
 
     with pytest.raises(ValueError, match="exactly one learner and one skill"):
@@ -99,7 +100,7 @@ def test_update_mastery_matches_a_directly_constructed_pybkt_roster():
         )
     ]
     engine = Model(seed=42, num_fits=1)
-    model = BKTModel(engine, model_version="v1")
+    model = BKTModel(engine, course_id="test-course", model_version="v1")
     model.fit(training_attempts)
     history = [
         attempt("a-3", True, attempt_order=3),

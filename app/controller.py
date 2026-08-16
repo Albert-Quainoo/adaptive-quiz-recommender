@@ -101,6 +101,7 @@ class ApplicationController:
     def __init__(
         self,
         *,
+        course_id: str,
         skills: Sequence[SkillDefinition],
         items: Sequence[BankItem],
         repository,
@@ -110,6 +111,9 @@ class ApplicationController:
         presentation_token_factory: Callable[[], str] | None = None,
         low_supply_reporter: Callable[[str], None] | None = None,
     ) -> None:
+        if not course_id.strip():
+            raise ValueError("course_id cannot be empty")
+        self.course_id = course_id
         self._skills = {skill.skill_id: skill.model_copy(deep=True) for skill in skills}
         self._items = {
             item.item_id: item.model_copy(deep=True)
@@ -278,6 +282,7 @@ class ApplicationController:
         )
         attempt = AttemptEvent(
             attempt_id=attempt_id,
+            course_id=self.course_id,
             presentation_id=presentation_id,
             learner_id=learner_id,
             item_id=item.item_id,

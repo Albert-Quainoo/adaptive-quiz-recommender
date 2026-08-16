@@ -19,16 +19,22 @@ from taxonomy.schemas import SkillDefinition
 
 class SQLiteRecommendationRepository(SQLiteBKTRepository):
     """SQL adaptive-loop repository (SQLite or PostgreSQL) with an
-    in-memory taxonomy and item bank."""
+    in-memory taxonomy and item bank, bound to exactly one course (see
+    SQLiteBKTRepository's course_id binding). skills/items are already
+    that course's own -- they are never loaded from a shared, unfiltered
+    source -- so course isolation here is enforced twice over: once by the
+    in-memory catalogue this instance was constructed with, once by every
+    query filtering on self.course_id."""
 
     def __init__(
         self,
         database: str | Path,
         *,
+        course_id: str,
         skills: Sequence[SkillDefinition],
         items: Sequence[BankItem],
     ) -> None:
-        super().__init__(database)
+        super().__init__(database, course_id=course_id)
         self._skills = [skill.model_copy(deep=True) for skill in skills]
         self._items = [item.model_copy(deep=True) for item in items]
 
@@ -43,10 +49,12 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                         """
                         SELECT * FROM mastery_snapshots AS candidate
                         WHERE candidate.learner_id = :learner_id
+                          AND candidate.course_id = :course_id
                           AND candidate.snapshot_id = (
                               SELECT latest.snapshot_id
                               FROM mastery_snapshots AS latest
                               WHERE latest.learner_id = candidate.learner_id
+                                AND latest.course_id = candidate.course_id
                                 AND latest.skill_id = candidate.skill_id
                               ORDER BY latest.updated_at DESC,
                                        latest.source_attempt_id DESC,
@@ -57,7 +65,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                         ORDER BY candidate.skill_id
                         """
                     ),
-                    {"learner_id": learner_id},
+                    {"learner_id": learner_id, "course_id": self.course_id},
                 )
                 .mappings()
                 .all()
@@ -72,19 +80,28 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             connection.execute(
                 text(
                     """
-                    INSERT INTO learner_sessions (learner_id, created_at)
-                    VALUES (:learner_id, :created_at)
-                    ON CONFLICT (learner_id) DO NOTHING
+                    INSERT INTO learner_sessions (learner_id, course_id, created_at)
+                    VALUES (:learner_id, :course_id, :created_at)
+                    ON CONFLICT (learner_id, course_id) DO NOTHING
                     """
                 ),
-                {"learner_id": learner_id, "created_at": _utc_iso(created_at)},
+                {
+                    "learner_id": learner_id,
+                    "course_id": self.course_id,
+                    "created_at": _utc_iso(created_at),
+                },
             )
 
     def learner_exists(self, learner_id: str) -> bool:
         with self._engine.connect() as connection:
             row = connection.execute(
-                text("SELECT 1 FROM learner_sessions WHERE learner_id = :learner_id"),
-                {"learner_id": learner_id},
+                text(
+                    """
+                    SELECT 1 FROM learner_sessions
+                    WHERE learner_id = :learner_id AND course_id = :course_id
+                    """
+                ),
+                {"learner_id": learner_id, "course_id": self.course_id},
             ).first()
         return row is not None
 
@@ -103,16 +120,17 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 text(
                     """
                     INSERT INTO question_presentations (
-                        presentation_id, learner_id, item_id, presentation_seed,
-                        recommendation_reason, created_at
+                        presentation_id, course_id, learner_id, item_id,
+                        presentation_seed, recommendation_reason, created_at
                     ) VALUES (
-                        :presentation_id, :learner_id, :item_id, :presentation_seed,
-                        :recommendation_reason, :created_at
+                        :presentation_id, :course_id, :learner_id, :item_id,
+                        :presentation_seed, :recommendation_reason, :created_at
                     )
                     """
                 ),
                 {
                     "presentation_id": presentation_id,
+                    "course_id": self.course_id,
                     "learner_id": learner_id,
                     "item_id": item_id,
                     "presentation_seed": str(presentation_seed),
@@ -126,9 +144,12 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             return (
                 connection.execute(
                     text(
-                        "SELECT * FROM question_presentations WHERE presentation_id = :presentation_id"
+                        """
+                        SELECT * FROM question_presentations
+                        WHERE presentation_id = :presentation_id AND course_id = :course_id
+                        """
                     ),
-                    {"presentation_id": presentation_id},
+                    {"presentation_id": presentation_id, "course_id": self.course_id},
                 )
                 .mappings()
                 .first()
@@ -142,6 +163,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
     def save_recommendation(
         self, recommendation: RecommendationResult
     ) -> RecommendationEvent:
+        self._require_own_course(recommendation.course_id, what="recommendation")
         event = RecommendationEvent(
             **recommendation.model_dump(),
             recommendation_id=str(uuid4()),
@@ -152,11 +174,11 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 text(
                     """
                     INSERT INTO recommendation_events (
-                        recommendation_id, learner_id, skill_id, item_id,
+                        recommendation_id, course_id, learner_id, skill_id, item_id,
                         difficulty, mastery_probability, reason, model_version,
                         policy_version, created_at
                     ) VALUES (
-                        :recommendation_id, :learner_id, :skill_id, :item_id,
+                        :recommendation_id, :course_id, :learner_id, :skill_id, :item_id,
                         :difficulty, :mastery_probability, :reason, :model_version,
                         :policy_version, :created_at
                     )
@@ -164,6 +186,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 ),
                 {
                     "recommendation_id": event.recommendation_id,
+                    "course_id": event.course_id,
                     "learner_id": event.learner_id,
                     "skill_id": event.skill_id,
                     "item_id": event.item_id,
@@ -180,38 +203,28 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
     def list_recommendations(
         self, *, learner_id: str | None = None
     ) -> list[RecommendationEvent]:
+        clauses = ["course_id = :course_id"]
+        parameters: dict[str, str] = {"course_id": self.course_id}
+        if learner_id is not None:
+            clauses.append("learner_id = :learner_id")
+            parameters["learner_id"] = learner_id
+        where = f" WHERE {' AND '.join(clauses)}"
         with self._engine.connect() as connection:
-            if learner_id is None:
-                rows = (
-                    connection.execute(
-                        text(
-                            """
-                            SELECT * FROM recommendation_events
-                            ORDER BY created_at, recommendation_id
-                            """
-                        )
-                    )
-                    .mappings()
-                    .all()
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT * FROM recommendation_events"
+                        f"{where} ORDER BY created_at, recommendation_id"
+                    ),
+                    parameters,
                 )
-            else:
-                rows = (
-                    connection.execute(
-                        text(
-                            """
-                            SELECT * FROM recommendation_events
-                            WHERE learner_id = :learner_id
-                            ORDER BY created_at, recommendation_id
-                            """
-                        ),
-                        {"learner_id": learner_id},
-                    )
-                    .mappings()
-                    .all()
-                )
+                .mappings()
+                .all()
+            )
         return [
             RecommendationEvent(
                 recommendation_id=row["recommendation_id"],
+                course_id=row["course_id"],
                 learner_id=row["learner_id"],
                 skill_id=row["skill_id"],
                 item_id=row["item_id"],
@@ -226,6 +239,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
         ]
 
     def save_content_gap(self, gap: ContentGapResult) -> ContentGapEvent:
+        self._require_own_course(gap.course_id, what="content gap")
         event = ContentGapEvent(
             **gap.model_dump(),
             content_gap_id=str(uuid4()),
@@ -236,13 +250,13 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 text(
                     """
                     INSERT INTO content_gap_events (
-                        content_gap_id, learner_id, completed_skill_id,
+                        content_gap_id, course_id, learner_id, completed_skill_id,
                         completed_skill_name, newly_unlocked_skill_id,
                         newly_unlocked_skill_name, missing_approved_content,
                         current_mastery_probability, prerequisite_mastery_threshold,
                         reason, model_version, policy_version, created_at
                     ) VALUES (
-                        :content_gap_id, :learner_id, :completed_skill_id,
+                        :content_gap_id, :course_id, :learner_id, :completed_skill_id,
                         :completed_skill_name, :newly_unlocked_skill_id,
                         :newly_unlocked_skill_name, :missing_approved_content,
                         :current_mastery_probability, :prerequisite_mastery_threshold,
@@ -252,6 +266,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 ),
                 {
                     "content_gap_id": event.content_gap_id,
+                    "course_id": event.course_id,
                     "learner_id": event.learner_id,
                     "completed_skill_id": event.completed_skill_id,
                     "completed_skill_name": event.completed_skill_name,
@@ -271,35 +286,28 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
     def list_content_gaps(
         self, *, learner_id: str | None = None
     ) -> list[ContentGapEvent]:
+        clauses = ["course_id = :course_id"]
+        parameters: dict[str, str] = {"course_id": self.course_id}
+        if learner_id is not None:
+            clauses.append("learner_id = :learner_id")
+            parameters["learner_id"] = learner_id
+        where = f" WHERE {' AND '.join(clauses)}"
         with self._engine.connect() as connection:
-            if learner_id is None:
-                rows = (
-                    connection.execute(
-                        text(
-                            "SELECT * FROM content_gap_events ORDER BY created_at, content_gap_id"
-                        )
-                    )
-                    .mappings()
-                    .all()
+            rows = (
+                connection.execute(
+                    text(
+                        "SELECT * FROM content_gap_events"
+                        f"{where} ORDER BY created_at, content_gap_id"
+                    ),
+                    parameters,
                 )
-            else:
-                rows = (
-                    connection.execute(
-                        text(
-                            """
-                            SELECT * FROM content_gap_events
-                            WHERE learner_id = :learner_id
-                            ORDER BY created_at, content_gap_id
-                            """
-                        ),
-                        {"learner_id": learner_id},
-                    )
-                    .mappings()
-                    .all()
-                )
+                .mappings()
+                .all()
+            )
         return [
             ContentGapEvent(
                 content_gap_id=row["content_gap_id"],
+                course_id=row["course_id"],
                 learner_id=row["learner_id"],
                 completed_skill_id=row["completed_skill_id"],
                 completed_skill_name=row["completed_skill_name"],

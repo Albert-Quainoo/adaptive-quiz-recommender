@@ -108,23 +108,24 @@ def load_approved_bank(path: Path) -> list[BankItem]:
     return items
 
 
-def load_fitted_bkt_model(path: Path, *, model_version: str) -> BKTModel:
+def load_fitted_bkt_model(path: Path, *, model_version: str, course_id: str) -> BKTModel:
     """Load a trusted offline-fitted pyBKT artifact; never fit in app startup."""
 
     engine = PyBKTModel(parallel=False)
     engine.load(str(path))
     if engine.fit_model is None:
         raise BootstrapError("The configured BKT artifact is not fitted")
-    return BKTModel(engine, model_version=model_version, fitted=True)
+    return BKTModel(engine, course_id=course_id, model_version=model_version, fitted=True)
 
 
-def _build_low_supply_reporter(settings: AppSettings) -> Callable[[str], None] | None:
+def _build_low_supply_reporter(
+    settings: AppSettings, *, course_id: str
+) -> Callable[[str], None] | None:
     """An idempotent, DB-only enqueue -- never network or model calls, and
     never allowed to block or fail application startup."""
     try:
         from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
 
-        course_id = os.getenv("QUIZ_COURSE", "ai")
         job_repository = SQLiteReplenishmentJobRepository(settings.database_path)
         job_repository.initialize_schema()
     except Exception:
@@ -140,8 +141,16 @@ def _build_low_supply_reporter(settings: AppSettings) -> Callable[[str], None] |
     return report
 
 
-def build_controller(settings: AppSettings) -> ApplicationController:
-    """Build shared, learner-agnostic services and initialize durable storage."""
+def build_controller(
+    settings: AppSettings, *, course_id: str = "intro-ai"
+) -> ApplicationController:
+    """Build shared, learner-agnostic services and initialize durable storage
+    for one course. Defaults to "intro-ai" -- the catalog id the original
+    single-course "ai" deployment was migrated to (see
+    authoring/replenishment/manifests/intro-ai.json and the course_id
+    backfill migration) -- so a single-course caller that omits course_id
+    stays consistent with that migration's backfilled data instead of
+    silently writing a different, unmigrated "ai" course_id going forward."""
 
     try:
         if not settings.approved_bank_path.is_file():
@@ -157,7 +166,9 @@ def build_controller(settings: AppSettings) -> ApplicationController:
                 "Approved bank contains unknown skills: " + ", ".join(unknown)
             )
         model = load_fitted_bkt_model(
-            settings.bkt_model_path, model_version=settings.model_version
+            settings.bkt_model_path,
+            model_version=settings.model_version,
+            course_id=course_id,
         )
         model_parameters = model.get_parameters()
         model_skill_ids = set(model_parameters.index.get_level_values("skill"))
@@ -179,23 +190,36 @@ def build_controller(settings: AppSettings) -> ApplicationController:
         if isinstance(settings.database_path, Path):
             settings.database_path.parent.mkdir(parents=True, exist_ok=True)
         repository = SQLiteRecommendationRepository(
-            settings.database_path, skills=catalogue.skills, items=items
+            settings.database_path,
+            course_id=course_id,
+            skills=catalogue.skills,
+            items=items,
         )
-        repository.initialize_schema()
+        backfilled = repository.initialize_schema()
+        if backfilled:
+            LOGGER.info(
+                "course_id migration backfilled rows for course %s: %s",
+                course_id,
+                backfilled,
+            )
         policy = RecommendationPolicyConfig(
             initial_mastery_probability=settings.initial_mastery_probability,
             prerequisite_mastery_threshold=settings.prerequisite_mastery_threshold,
             policy_version=settings.policy_version,
         )
         return ApplicationController(
+            course_id=course_id,
             skills=catalogue.skills,
             items=items,
             repository=repository,
             recommendation_service=RecommendationService(
-                repository, model_version=settings.model_version, config=policy
+                repository,
+                course_id=course_id,
+                model_version=settings.model_version,
+                config=policy,
             ),
             bkt_service=BKTService(model, repository),
-            low_supply_reporter=_build_low_supply_reporter(settings),
+            low_supply_reporter=_build_low_supply_reporter(settings, course_id=course_id),
         )
     except BootstrapError:
         LOGGER.exception("Application bootstrap failed")

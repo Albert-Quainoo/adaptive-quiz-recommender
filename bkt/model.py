@@ -16,6 +16,7 @@ class BKTModel:
         self,
         model: Any | None = None,
         *,
+        course_id: str,
         model_version: str = "unversioned",
         seed: int = 42,
         num_fits: int = 1,
@@ -23,7 +24,14 @@ class BKTModel:
         clock: Callable[[], datetime] | None = None,
         fitted: bool = False,
     ) -> None:
+        # No default: unlike model_version, an unnoticed placeholder here
+        # would mislabel BKTModelMetadata.course_id -- the audit record of
+        # which course a fitted model actually belongs to -- so every
+        # caller must say explicitly which course this model is for.
         self._model = model if model is not None else self._create_model(seed, num_fits)
+        self.course_id = course_id.strip()
+        if not self.course_id:
+            raise ValueError("course_id is required")
         self.model_version = model_version.strip()
         if not self.model_version:
             raise ValueError("model_version is required")
@@ -53,6 +61,7 @@ class BKTModel:
         self._model.fit(data=frame)
         self._fitted = True
         return BKTModelMetadata(
+            course_id=self.course_id,
             model_version=self.model_version,
             fitted_at=self._clock(),
             training_attempt_count=len(attempts),

@@ -251,11 +251,13 @@ def prove_learner_app_still_works() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         database_path = Path(tmp) / "learner-demo.sqlite3"
         repository = SQLiteRecommendationRepository(
-            database_path, skills=catalogue.skills, items=items
+            database_path, course_id="intro-ai", skills=catalogue.skills, items=items
         )
         repository.initialize_schema()
         policy = RecommendationPolicyConfig(policy_version="demo-policy-v1")
-        service = RecommendationService(repository, model_version="demo-model-v1", config=policy)
+        service = RecommendationService(
+            repository, course_id="intro-ai", model_version="demo-model-v1", config=policy
+        )
         available_skill_ids = sorted({item.skill_id for item in items})
         result = service.recommend(
             RecommendationRequest(

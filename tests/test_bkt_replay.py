@@ -17,6 +17,7 @@ def test_replay_rebuilds_each_snapshot_without_duplicating_attempts():
         repository.save_attempt(
             AttemptEvent(
                 attempt_id=f"a-{index}",
+                course_id="test-course",
                 presentation_id=f"p-{index}",
                 attempt_order=index,
                 learner_id="learner",
@@ -43,6 +44,7 @@ def test_replay_preserves_existing_snapshot_history():
         repository.save_attempt(
             AttemptEvent(
                 attempt_id=f"a-{index}",
+                course_id="test-course",
                 presentation_id=f"p-{index}",
                 attempt_order=index,
                 learner_id="learner",

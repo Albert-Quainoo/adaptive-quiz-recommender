@@ -17,6 +17,7 @@ NOW = datetime(2026, 8, 7, tzinfo=timezone.utc)
 def attempt(attempt_id: str, *, order: int, occurred_at: datetime) -> AttemptEvent:
     return AttemptEvent(
         attempt_id=attempt_id,
+        course_id="test-course",
         presentation_id=f"p-{attempt_id}",
         attempt_order=order,
         learner_id="one",
@@ -33,6 +34,7 @@ def test_in_memory_repository_filters_attempts_and_returns_latest_mastery():
     repository.save_attempt(
         AttemptEvent(
             attempt_id="a-1",
+        course_id="test-course",
             presentation_id="p-1",
             attempt_order=2,
             learner_id="one",
@@ -46,6 +48,7 @@ def test_in_memory_repository_filters_attempts_and_returns_latest_mastery():
     repository.save_attempt(
         AttemptEvent(
             attempt_id="a-2",
+        course_id="test-course",
             presentation_id="p-2",
             attempt_order=1,
             learner_id="two",
@@ -59,6 +62,7 @@ def test_in_memory_repository_filters_attempts_and_returns_latest_mastery():
     repository.save_attempt(
         AttemptEvent(
             attempt_id="a-3",
+        course_id="test-course",
             presentation_id="p-3",
             attempt_order=1,
             learner_id="one",
@@ -72,6 +76,7 @@ def test_in_memory_repository_filters_attempts_and_returns_latest_mastery():
     repository.save_mastery(
         MasterySnapshot(
             learner_id="one",
+            course_id="test-course",
             skill_id="skill",
             mastery_probability=0.3,
             attempt_count=1,
@@ -82,6 +87,7 @@ def test_in_memory_repository_filters_attempts_and_returns_latest_mastery():
     repository.save_mastery(
         MasterySnapshot(
             learner_id="one",
+            course_id="test-course",
             skill_id="skill",
             mastery_probability=0.7,
             attempt_count=2,
@@ -132,6 +138,7 @@ def test_mastery_snapshots_are_appended_as_history():
     snapshots = [
         MasterySnapshot(
             learner_id="one",
+            course_id="test-course",
             skill_id="skill",
             mastery_probability=probability,
             attempt_count=index,
