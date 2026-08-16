@@ -1,10 +1,10 @@
 {
-  "bank_path": "outputs/approved_banks/database-systems-approved-bank-27-v1.jsonl",
+  "bank_path": "outputs/approved_banks/database-systems-approved-bank-28-v1.jsonl",
   "difficulty_counts": {
-    "intermediate": 13,
+    "intermediate": 14,
     "introductory": 14
   },
-  "item_count": 27,
+  "item_count": 28,
   "missing_required_skill_ids": [],
   "required_skill_ids": [
     "DB-ERM-01",
@@ -17,7 +17,7 @@
   ],
   "skill_counts": {
     "DB-ALG-01": 4,
-    "DB-ERM-01": 3,
+    "DB-ERM-01": 4,
     "DB-IDX-01": 4,
     "DB-NRM-01": 4,
     "DB-REL-01": 4,
@@ -25,7 +25,7 @@
     "DB-TXN-01": 4
   },
   "status": "ready",
-  "unique_item_ids": 27,
-  "unique_normalized_stems": 27,
+  "unique_item_ids": 28,
+  "unique_normalized_stems": 28,
   "unknown_skill_ids": []
 }

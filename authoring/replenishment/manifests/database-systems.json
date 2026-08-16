@@ -11,7 +11,7 @@
     "eng.libretexts.org",
     "cs186berkeley.net"
   ],
-  "approved_bank_path": "outputs/approved_banks/database-systems-approved-bank-27-v1.jsonl",
+  "approved_bank_path": "outputs/approved_banks/database-systems-approved-bank-28-v1.jsonl",
   "auto_activate_when_ready": true,
   "bkt_model_path": "outputs/bkt_database_systems_model_v1.pkl",
   "candidate_store_path": "outputs/replenishment/database-systems/reference_candidates.json",
