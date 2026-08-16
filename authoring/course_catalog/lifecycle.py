@@ -94,6 +94,72 @@ def reject_course_definition(
     )
 
 
+def begin_preparation(
+    manifest: CourseManifest,
+    repository: SQLiteCourseApprovalRepository,
+    *,
+    approver: str,
+    notes: str | None = None,
+    clock: Clock = _default_clock,
+) -> tuple[CourseManifest, CourseApprovalRecord]:
+    """approved_for_preparation -> preparing. Marks that content authoring
+    (taxonomy, references, blueprints, generation, review) is actively under
+    way for this course -- distinct from the one-time definition approval
+    that preceded it."""
+
+    if manifest.status != "approved_for_preparation":
+        raise LifecycleError(
+            f"{manifest.course_id} is {manifest.status!r}; only an "
+            "'approved_for_preparation' course can begin preparation"
+        )
+    updated = manifest.model_copy(update={"status": "preparing"})
+    record = repository.append(
+        course_id=manifest.course_id,
+        lifecycle_status="preparing",
+        course_profile_version=manifest.version,
+        decision="preparation_started",
+        approver_identity=approver,
+        decided_at=clock(),
+        auto_activate_when_ready=manifest.auto_activate_when_ready,
+        notes=notes,
+    )
+    return updated, record
+
+
+def advance_to_content_approval(
+    manifest: CourseManifest,
+    repository: SQLiteCourseApprovalRepository,
+    *,
+    approver: str,
+    notes: str | None = None,
+    clock: Clock = _default_clock,
+) -> tuple[CourseManifest, CourseApprovalRecord]:
+    """preparing -> awaiting_content_approval. Marks that this course's
+    content preparation (taxonomy, references, generation, review) is
+    complete and the course is parked for a human's consolidated
+    content-approval decision -- readiness/auto-activation
+    (advance_to_ready_and_activate) is a separate, later step this
+    function never triggers."""
+
+    if manifest.status != "preparing":
+        raise LifecycleError(
+            f"{manifest.course_id} is {manifest.status!r}; only a "
+            "'preparing' course can advance to awaiting_content_approval"
+        )
+    updated = manifest.model_copy(update={"status": "awaiting_content_approval"})
+    record = repository.append(
+        course_id=manifest.course_id,
+        lifecycle_status="awaiting_content_approval",
+        course_profile_version=manifest.version,
+        decision="content_prepared",
+        approver_identity=approver,
+        decided_at=clock(),
+        auto_activate_when_ready=manifest.auto_activate_when_ready,
+        notes=notes,
+    )
+    return updated, record
+
+
 def advance_to_ready_and_activate(
     manifest: CourseManifest,
     readiness: ReadinessReport,

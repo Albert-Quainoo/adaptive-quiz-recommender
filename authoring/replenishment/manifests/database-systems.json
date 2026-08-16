@@ -16,5 +16,6 @@
   "default_bkt_model_version": "bkt-database-systems-v1",
   "status": "approved_for_preparation",
   "aliases": ["DB", "Databases", "Database Systems", "DBMS"],
-  "auto_activate_when_ready": true
+  "auto_activate_when_ready": true,
+  "max_session_questions": 20
 }

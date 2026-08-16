@@ -48,6 +48,10 @@ class CourseManifest(BaseModel):
     status: ManifestStatus
     aliases: tuple[str, ...] = Field(default_factory=tuple)
     auto_activate_when_ready: bool = True
+    # Unset (the default, and every pre-existing manifest's value) preserves
+    # today's unbounded-session behaviour exactly -- only a course that sets
+    # this explicitly gets a session length cap.
+    max_session_questions: int | None = Field(default=None, gt=0)
 
     @field_validator("course_id", mode="before")
     @classmethod

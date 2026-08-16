@@ -4,9 +4,11 @@ import pytest
 
 from authoring.course_catalog.lifecycle import (
     LifecycleError,
+    advance_to_content_approval,
     advance_to_ready_and_activate,
     approve_course_definition,
     archive_course,
+    begin_preparation,
     reject_course_definition,
 )
 from authoring.course_catalog.readiness import ReadinessReport
@@ -83,6 +85,43 @@ def test_reject_course_definition_rejects_non_proposed_courses(repository):
         )
 
 
+def test_begin_preparation_moves_approved_for_preparation_to_preparing(repository):
+    manifest = manifest_with_status("approved_for_preparation")
+    updated, record = begin_preparation(
+        manifest, repository, approver="op", clock=clock_at()
+    )
+    assert updated.status == "preparing"
+    assert record.decision == "preparation_started"
+    assert record.lifecycle_status == "preparing"
+    assert record.sequence_number == 1
+
+
+def test_begin_preparation_rejects_non_approved_for_preparation_courses(repository):
+    manifest = manifest_with_status("proposed")
+    with pytest.raises(LifecycleError):
+        begin_preparation(manifest, repository, approver="op", clock=clock_at())
+    assert repository.list_for_course("x") == []
+
+
+def test_advance_to_content_approval_moves_preparing_to_awaiting_content_approval(
+    repository,
+):
+    manifest = manifest_with_status("preparing")
+    updated, record = advance_to_content_approval(
+        manifest, repository, approver="op", clock=clock_at()
+    )
+    assert updated.status == "awaiting_content_approval"
+    assert record.decision == "content_prepared"
+    assert record.lifecycle_status == "awaiting_content_approval"
+
+
+def test_advance_to_content_approval_rejects_non_preparing_courses(repository):
+    manifest = manifest_with_status("approved_for_preparation")
+    with pytest.raises(LifecycleError):
+        advance_to_content_approval(manifest, repository, approver="op", clock=clock_at())
+    assert repository.list_for_course("x") == []
+
+
 def test_advance_to_ready_and_activate_noops_when_not_ready(repository):
     manifest = manifest_with_status("awaiting_content_approval")
     report = ReadinessReport(course_id="x", is_ready=False, blockers=["missing bank"])
@@ -146,7 +185,10 @@ def test_full_lifecycle_produces_an_append_only_audit_trail(repository):
     manifest, _ = approve_course_definition(
         manifest, repository, approver="op", clock=clock_at()
     )
-    manifest = manifest.model_copy(update={"status": "awaiting_content_approval"})
+    manifest, _ = begin_preparation(manifest, repository, approver="op", clock=clock_at())
+    manifest, _ = advance_to_content_approval(
+        manifest, repository, approver="op", clock=clock_at()
+    )
     report = ReadinessReport(course_id="x", is_ready=True, blockers=[])
     manifest, _ = advance_to_ready_and_activate(
         manifest, report, repository, clock=clock_at()
@@ -155,8 +197,8 @@ def test_full_lifecycle_produces_an_append_only_audit_trail(repository):
     archive_course(manifest, repository, approver="op", clock=clock_at())
     after_archive = repository.list_for_course("x")
 
-    assert len(after_archive) == 3
-    assert [record.sequence_number for record in after_archive] == [1, 2, 3]
+    assert len(after_archive) == 5
+    assert [record.sequence_number for record in after_archive] == [1, 2, 3, 4, 5]
     # every record present before archiving is unchanged after it
     for record in before_archive:
         assert record in after_archive

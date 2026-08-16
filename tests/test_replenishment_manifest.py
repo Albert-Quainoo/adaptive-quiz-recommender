@@ -73,3 +73,23 @@ def test_thresholds_must_be_positive():
 def test_allowed_domains_cannot_be_empty():
     with pytest.raises(ValidationError):
         CourseManifest(**_fields(allowed_domains=()))
+
+
+def test_max_session_questions_defaults_to_unset():
+    manifest = CourseManifest(**_fields())
+    assert manifest.max_session_questions is None
+
+
+def test_max_session_questions_must_be_positive():
+    with pytest.raises(ValidationError):
+        CourseManifest(**_fields(max_session_questions=0))
+
+
+def test_max_session_questions_can_be_set_explicitly():
+    manifest = CourseManifest(**_fields(max_session_questions=20))
+    assert manifest.max_session_questions == 20
+
+
+def test_intro_ai_manifest_leaves_session_length_unbounded():
+    manifest = load_course_manifest("intro-ai")
+    assert manifest.max_session_questions is None

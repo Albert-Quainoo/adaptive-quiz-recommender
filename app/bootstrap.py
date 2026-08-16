@@ -44,6 +44,7 @@ class AppSettings:
     prerequisite_mastery_threshold: float = 0.75
     admin_status_enabled: bool = False
     maintenance_mode: bool = False
+    max_session_questions: int | None = None
 
     @classmethod
     def from_sources(
@@ -255,6 +256,7 @@ def build_controller(
             ),
             bkt_service=BKTService(model, repository),
             low_supply_reporter=_build_low_supply_reporter(settings, course_id=course_id),
+            max_session_questions=settings.max_session_questions,
         )
     except BootstrapError:
         LOGGER.exception("Application bootstrap failed")
@@ -291,6 +293,7 @@ def build_controller_for_course(
         skills_path=manifest.skills_path(),
         references_path=manifest.references_path(),
         model_version=manifest.default_bkt_model_version,
+        max_session_questions=manifest.max_session_questions,
     )
     return build_controller(
         course_settings, course_id=manifest.course_id, correlation_id=correlation_id

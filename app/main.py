@@ -19,6 +19,7 @@ from app.controller import (
     ContentGapError,
     NoApprovedItemError,
     NoRecommendationError,
+    SessionLimitReachedError,
 )
 from app.flow import activate_course, ensure_question, submit_current_question
 from app.multi_course import build_course_catalog
@@ -99,7 +100,10 @@ def render_recommendation_error(error: ApplicationError, *, has_seen: bool) -> N
         st.info("You have completed all currently available questions for this learner.")
     elif isinstance(error, NoRecommendationError):
         st.info("No eligible question is available for this learner right now.")
-    elif isinstance(error, (BankExhaustedBelowMasteryError, AllEligibleItemsAttemptedError)):
+    elif isinstance(
+        error,
+        (BankExhaustedBelowMasteryError, AllEligibleItemsAttemptedError, SessionLimitReachedError),
+    ):
         st.info(error.user_message)
     else:
         st.error(error.user_message)
@@ -208,6 +212,7 @@ def main() -> None:
             NoRecommendationError,
             BankExhaustedBelowMasteryError,
             AllEligibleItemsAttemptedError,
+            SessionLimitReachedError,
         ) as error:
             render_recommendation_error(error, has_seen=bool(session.seen_item_ids))
             return

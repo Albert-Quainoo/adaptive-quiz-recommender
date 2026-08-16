@@ -13,7 +13,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ApprovalDecision = Literal["approved", "rejected", "archived", "activated"]
+ApprovalDecision = Literal[
+    "approved", "rejected", "archived", "activated",
+    "preparation_started", "content_prepared",
+]
 
 
 class CourseApprovalRecord(BaseModel):

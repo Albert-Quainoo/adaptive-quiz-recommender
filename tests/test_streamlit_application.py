@@ -17,6 +17,7 @@ from app.controller import (
     InvalidOptionError,
     NoApprovedItemError,
     NoRecommendationError,
+    SessionLimitReachedError,
 )
 from app.flow import activate_course, activate_learner, ensure_question, submit_current_question
 from app.session import (
@@ -71,7 +72,9 @@ def item(item_id, skill_id):
     )
 
 
-def build_controller(database, *, items=None, skills=None, token="token-1"):
+def build_controller(
+    database, *, items=None, skills=None, token="token-1", max_session_questions=None
+):
     skills = skills or [skill(FOUNDATION), skill(DEPENDENT, [FOUNDATION])]
     items = items if items is not None else [
         item("foundation-item", FOUNDATION),
@@ -98,6 +101,7 @@ def build_controller(database, *, items=None, skills=None, token="token-1"):
         ),
         clock=lambda: NOW,
         presentation_token_factory=lambda: token,
+        max_session_questions=max_session_questions,
     )
     return controller, repository
 
@@ -127,6 +131,34 @@ def test_question_view_is_safe_and_contains_display_options(tmp_path):
     assert payload["question_text"]
     assert all(set(choice) == {"option_id", "text"} for choice in payload["options"])
     assert question.recommendation_reason.endswith(".")
+
+
+def test_session_limit_is_unbounded_by_default(tmp_path):
+    controller, _ = build_controller(tmp_path / "app.sqlite3")
+
+    # Excludes every real item in the bank -- proves the bank, not an unset
+    # session cap, is why no further question is available.
+    with pytest.raises(BankExhaustedBelowMasteryError):
+        controller.recommend_question(
+            "learner-1", ["foundation-item", "dependent-item"]
+        )
+
+
+def test_session_limit_raises_once_the_cap_is_reached(tmp_path):
+    database = tmp_path / "app.sqlite3"
+    # Separate controller instances (distinct presentation tokens) only to
+    # avoid a presentation_id collision from reusing one fixed test token
+    # across repeated recommend_question calls for the same unmastered
+    # skill -- the cap check itself is a pure function of excluded_item_ids
+    # length, independent of any persisted state.
+    below_cap, _ = build_controller(database, max_session_questions=2, token="t1")
+    still_below_cap, _ = build_controller(database, max_session_questions=2, token="t2")
+    at_cap, _ = build_controller(database, max_session_questions=2, token="t3")
+
+    below_cap.recommend_question("learner-1", [])
+    still_below_cap.recommend_question("learner-1", ["one-seen-item"])
+    with pytest.raises(SessionLimitReachedError):
+        at_cap.recommend_question("learner-1", ["seen-1", "seen-2"])
 
 
 @pytest.mark.parametrize(

@@ -93,3 +93,6 @@ data/adaptive_quiz.sqlite3
 data/adaptive_quiz.sqlite3-shm
 data/adaptive_quiz.sqlite3-wal
 
+# Local Playwright CLI scratch output (screenshots/page snapshots)
+.playwright-cli/
+

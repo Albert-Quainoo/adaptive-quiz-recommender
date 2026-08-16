@@ -21,9 +21,11 @@ from pathlib import Path
 
 from authoring.course_catalog.lifecycle import (
     LifecycleError,
+    advance_to_content_approval,
     advance_to_ready_and_activate,
     approve_course_definition,
     archive_course,
+    begin_preparation,
     reject_course_definition,
 )
 from authoring.course_catalog.readiness import inspect_readiness
@@ -89,6 +91,48 @@ def approve_course(arguments: argparse.Namespace) -> int:
     _write_manifest(updated_manifest)
     print(
         f"{manifest.course_id}: approved for preparation "
+        f"(record {record.record_id}, sequence {record.sequence_number})"
+    )
+    return 0
+
+
+def begin_preparation_command(arguments: argparse.Namespace) -> int:
+    manifest = load_course_manifest(arguments.course_id)
+    repository = _open_repository(arguments)
+    try:
+        updated_manifest, record = begin_preparation(
+            manifest,
+            repository,
+            approver=arguments.approver,
+            notes=arguments.notes,
+        )
+    except LifecycleError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    _write_manifest(updated_manifest)
+    print(
+        f"{manifest.course_id}: preparing "
+        f"(record {record.record_id}, sequence {record.sequence_number})"
+    )
+    return 0
+
+
+def advance_to_content_approval_command(arguments: argparse.Namespace) -> int:
+    manifest = load_course_manifest(arguments.course_id)
+    repository = _open_repository(arguments)
+    try:
+        updated_manifest, record = advance_to_content_approval(
+            manifest,
+            repository,
+            approver=arguments.approver,
+            notes=arguments.notes,
+        )
+    except LifecycleError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    _write_manifest(updated_manifest)
+    print(
+        f"{manifest.course_id}: awaiting_content_approval "
         f"(record {record.record_id}, sequence {record.sequence_number})"
     )
     return 0
@@ -163,6 +207,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="require a further manual step instead of activating automatically",
     )
     approve_command.set_defaults(handler=approve_course)
+
+    begin_preparation_parser = commands.add_parser(
+        "begin-preparation", help="move an approved-for-preparation course into preparing"
+    )
+    begin_preparation_parser.add_argument("course_id")
+    begin_preparation_parser.add_argument("--approver", required=True)
+    begin_preparation_parser.add_argument("--notes", default=None)
+    begin_preparation_parser.set_defaults(handler=begin_preparation_command)
+
+    advance_to_content_approval_parser = commands.add_parser(
+        "advance-to-content-approval",
+        help="move a preparing course to awaiting_content_approval",
+    )
+    advance_to_content_approval_parser.add_argument("course_id")
+    advance_to_content_approval_parser.add_argument("--approver", required=True)
+    advance_to_content_approval_parser.add_argument("--notes", default=None)
+    advance_to_content_approval_parser.set_defaults(
+        handler=advance_to_content_approval_command
+    )
 
     reject_command = commands.add_parser(
         "reject-course", help="record a rejection of a proposed course definition"

@@ -77,6 +77,13 @@ class AllEligibleItemsAttemptedError(ApplicationError):
     )
 
 
+class SessionLimitReachedError(ApplicationError):
+    user_message = (
+        "You've reached this session's question limit. Great work -- come "
+        "back soon for more practice."
+    )
+
+
 class ContentGapError(ApplicationError):
     user_message = (
         "You unlocked the next skill, but approved practice content is not available yet."
@@ -116,10 +123,12 @@ class ApplicationController:
         clock: Callable[[], datetime] | None = None,
         presentation_token_factory: Callable[[], str] | None = None,
         low_supply_reporter: Callable[[str], None] | None = None,
+        max_session_questions: int | None = None,
     ) -> None:
         if not course_id.strip():
             raise ValueError("course_id cannot be empty")
         self.course_id = course_id
+        self._max_session_questions = max_session_questions
         self._skills = {skill.skill_id: skill.model_copy(deep=True) for skill in skills}
         self._items = {
             item.item_id: item.model_copy(deep=True)
@@ -171,6 +180,11 @@ class ApplicationController:
     def recommend_question(
         self, learner_id: str, excluded_item_ids: Sequence[str]
     ) -> QuestionViewModel:
+        if (
+            self._max_session_questions is not None
+            and len(excluded_item_ids) >= self._max_session_questions
+        ):
+            raise SessionLimitReachedError
         # Deliberately not wrapped in self.repository.unit_of_work(): the
         # content-gap branch below calls self.repository.save_content_gap
         # (inside recommendation_service.recommend()) and then raises

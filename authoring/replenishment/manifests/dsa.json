@@ -16,5 +16,6 @@
   "default_bkt_model_version": "bkt-dsa-v1",
   "status": "approved_for_preparation",
   "aliases": ["DSA", "Data Structures", "Algorithms", "Data Structures and Algorithms"],
-  "auto_activate_when_ready": true
+  "auto_activate_when_ready": true,
+  "max_session_questions": 20
 }
