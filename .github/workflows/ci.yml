@@ -68,7 +68,7 @@ jobs:
         run: |
           python -c "
           from app.bootstrap import load_fitted_bkt_model
-          model = load_fitted_bkt_model('outputs/bkt_dev_model_v4.pkl', model_version='bkt-synthetic-v4')
+          model = load_fitted_bkt_model('outputs/bkt_dev_model_v4.pkl', model_version='bkt-synthetic-v4', course_id='intro-ai')
           skills = sorted(set(model.get_parameters().index.get_level_values('skill')))
           print('BKT model loaded, skills:', skills)
           assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']
