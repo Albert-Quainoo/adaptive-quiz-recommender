@@ -1,2 +1,8 @@
 skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids
-DSA-PLC-01,Placeholder,Placeholder,Placeholder skill,Placeholder until real DSA content is authored.,remember,hand_authored,,
+DSA-CPX-01,Algorithm Analysis,Asymptotic Complexity,Algorithm Analysis and Asymptotic Complexity,Describe and compare the running time of algorithms using asymptotic (Big-O) notation as a function of input size.,understand,generated,,
+DSA-LST-01,Linear Data Structures,Arrays and Linked Lists,Arrays and Linked Lists,Compare array-based and linked-list-based storage in terms of memory layout access time and insertion or deletion cost.,understand,generated,,
+DSA-STK-01,Linear Data Structures,Stacks and Queues,Stacks and Queues,Explain the LIFO and FIFO access restrictions of stacks and queues and identify appropriate use cases for each.,understand,generated,,DSA-LST-01
+DSA-SRC-01,Searching,Linear and Binary Search,Searching,Trace and compare linear search and binary search and explain why binary search requires sorted data.,apply,generated,,DSA-CPX-01;DSA-LST-01
+DSA-SRT-01,Sorting,Comparison-Based Sorting Algorithms,"Bubble, Selection, Insertion, Merge, and Quick Sort",Trace bubble insertion selection merge and quick sort on a small input and compare their asymptotic running times.,apply,generated,,DSA-CPX-01;DSA-LST-01
+DSA-HSH-01,Hashing,Hash Tables and Collision Handling,Hashing and Collision Handling,Explain how a hash function maps keys to table positions and how collisions are detected and resolved.,understand,generated,,DSA-LST-01;DSA-CPX-01
+DSA-TGR-01,Trees Heaps and Graphs,Fundamental Structures and Traversals,"Trees, Heaps, Graphs, and Fundamental Traversals",Explain the structural properties of binary search trees and heaps and trace fundamental graph traversal order.,apply,generated,,DSA-STK-01;DSA-SRC-01

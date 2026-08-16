@@ -1,0 +1,953 @@
+{
+  "base_seed": 20260816,
+  "batch_id": "grounded-dsa-v1",
+  "intents": [
+    {
+      "assessment_focus": "Recognize what asymptotic (Big-O) notation describes about an algorithm's running time.",
+      "cognitive_demand": "Recognize the meaning of a stated Big-O bound for a simple algorithm.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should confuse Big-O with exact running time, memory usage, or correctness."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-CPX-01-INT-01",
+      "learning_objective": "Describe and compare the running time of algorithms using asymptotic (Big-O) notation as a function of input size.",
+      "preferred_reference_ids": [
+        "DSA-CPX-01-9c65314949c2"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for a precise operation count.",
+        "Do not require deriving the bound from code."
+      ],
+      "prohibited_conflations": [
+        "Big-O measures exact running time",
+        "Big-O measures memory usage"
+      ],
+      "question_archetype": "Big-O meaning recognition",
+      "required_concepts": [
+        "asymptotic notation",
+        "growth rate with input size"
+      ],
+      "required_question_characteristics": [
+        "State a simple algorithm or loop and its Big-O bound.",
+        "Ask what the bound describes about growth as input size increases."
+      ],
+      "skill_id": "DSA-CPX-01"
+    },
+    {
+      "assessment_focus": "Recognize why constant factors are ignored when comparing asymptotic growth rates.",
+      "cognitive_demand": "Recognize the stated reason constants are dropped from an asymptotic comparison.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim a constant factor changes which function eventually grows faster."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-CPX-01-INT-02",
+      "learning_objective": "Describe and compare the running time of algorithms using asymptotic (Big-O) notation as a function of input size.",
+      "preferred_reference_ids": [
+        "DSA-CPX-01-9c65314949c2"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing an exact crossover input size."
+      ],
+      "prohibited_conflations": [
+        "a larger constant changes the asymptotic winner",
+        "asymptotic comparison is about small input sizes"
+      ],
+      "question_archetype": "constant-factor irrelevance recognition",
+      "required_concepts": [
+        "constant factor",
+        "asymptotic growth comparison"
+      ],
+      "required_question_characteristics": [
+        "Reference two running-time expressions differing only by a constant factor.",
+        "Ask what changing the constant does or does not change about which grows faster."
+      ],
+      "skill_id": "DSA-CPX-01"
+    },
+    {
+      "assessment_focus": "Apply Big-O reasoning to compare linear-time and logarithmic-time search on large input.",
+      "cognitive_demand": "Apply the O(n) versus O(log n) comparison to judge which search is more efficient for large n.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim linear search is always as fast, or that binary search works on unsorted data."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-CPX-01-INT-03",
+      "learning_objective": "Describe and compare the running time of algorithms using asymptotic (Big-O) notation as a function of input size.",
+      "preferred_reference_ids": [
+        "DSA-CPX-01-80a1eb976a56"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not omit that the data must be sorted for binary search.",
+        "Do not ask for exact comparison counts."
+      ],
+      "prohibited_conflations": [
+        "binary search works on unsorted data",
+        "O(n) and O(log n) grow at the same rate"
+      ],
+      "question_archetype": "linear-versus-logarithmic comparison",
+      "required_concepts": [
+        "O(n) linear search",
+        "O(log n) binary search",
+        "sorted precondition"
+      ],
+      "required_question_characteristics": [
+        "State that linear search is O(n) and binary search is O(log n) on sorted data.",
+        "Ask which is more efficient for a large sorted input, or why."
+      ],
+      "skill_id": "DSA-CPX-01"
+    },
+    {
+      "assessment_focus": "Diagnose why a described algorithm change would or would not alter its asymptotic growth rate.",
+      "cognitive_demand": "Interpret a described change to an algorithm and determine its effect on asymptotic growth rate.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim a faster computer or constant-factor speedup changes the asymptotic growth rate."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-CPX-01-INT-04",
+      "learning_objective": "Describe and compare the running time of algorithms using asymptotic (Big-O) notation as a function of input size.",
+      "preferred_reference_ids": [
+        "DSA-CPX-01-9c65314949c2"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a change to the algorithm's structure or number of operations performed as a function of input size."
+      ],
+      "prohibited_conflations": [
+        "a faster computer changes the algorithm's asymptotic complexity"
+      ],
+      "question_archetype": "asymptotic-impact diagnosis",
+      "required_concepts": [
+        "asymptotic growth rate",
+        "constant-factor change versus structural change"
+      ],
+      "required_question_characteristics": [
+        "Describe one concrete change (e.g. a faster computer, or a constant-factor code optimization).",
+        "Ask whether the change affects the asymptotic growth rate."
+      ],
+      "skill_id": "DSA-CPX-01"
+    },
+    {
+      "assessment_focus": "Recognize that an array stores elements contiguously and supports constant-time indexed access.",
+      "cognitive_demand": "Recognize the stated memory layout and access-time property of an array.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim indexed array access requires scanning from the start."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-LST-01-INT-01",
+      "learning_objective": "Compare array-based and linked-list-based storage in terms of memory layout, access time, and insertion or deletion cost.",
+      "preferred_reference_ids": [
+        "DSA-LST-01-f177e09f7946"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask about insertion or deletion cost in this intent."
+      ],
+      "prohibited_conflations": [
+        "array indexing requires sequential scanning"
+      ],
+      "question_archetype": "array property recognition",
+      "required_concepts": [
+        "contiguous memory",
+        "constant-time indexed access"
+      ],
+      "required_question_characteristics": [
+        "State that array elements occupy contiguous memory.",
+        "Ask what this layout enables for reading an element by index."
+      ],
+      "skill_id": "DSA-LST-01"
+    },
+    {
+      "assessment_focus": "Recognize that a linked-list node stores an element and a pointer to the next node.",
+      "cognitive_demand": "Recognize the stated structure of a singly linked list node.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the next field stores a copy of the following element's value, or an index."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-LST-01-INT-02",
+      "learning_objective": "Compare array-based and linked-list-based storage in terms of memory layout, access time, and insertion or deletion cost.",
+      "preferred_reference_ids": [
+        "DSA-LST-01-1c0221412f01"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for insertion-cost comparison in this intent."
+      ],
+      "prohibited_conflations": [
+        "the next field stores a value rather than a reference to the next node"
+      ],
+      "question_archetype": "linked-node structure recognition",
+      "required_concepts": [
+        "linked-list node",
+        "next pointer"
+      ],
+      "required_question_characteristics": [
+        "Describe a node with an element field and a next-pointer field.",
+        "Ask what the next-pointer field holds."
+      ],
+      "skill_id": "DSA-LST-01"
+    },
+    {
+      "assessment_focus": "Apply the contiguous-memory property to diagnose why inserting into the middle of an array is costlier than inserting into a linked list.",
+      "cognitive_demand": "Apply the array's contiguous layout to explain the cost of a middle insertion.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the array insertion requires no shifting, or that a linked list also requires shifting elements."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Keep every factual claim within the mapped references."
+      ],
+      "intent_id": "DSA-LST-01-INT-03",
+      "learning_objective": "Compare array-based and linked-list-based storage in terms of memory layout, access time, and insertion or deletion cost.",
+      "preferred_reference_ids": [
+        "DSA-LST-01-f177e09f7946",
+        "DSA-LST-01-1c0221412f01"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe inserting at the very end of the array."
+      ],
+      "prohibited_conflations": [
+        "linked-list insertion requires shifting elements the way array insertion does"
+      ],
+      "question_archetype": "array-versus-list insertion-cost diagnosis",
+      "required_concepts": [
+        "contiguous memory",
+        "element shifting on insertion"
+      ],
+      "required_question_characteristics": [
+        "Describe inserting one new element into the middle of a populated array-based list.",
+        "Ask what the array-based implementation must do to complete the insertion."
+      ],
+      "skill_id": "DSA-LST-01"
+    },
+    {
+      "assessment_focus": "Apply linked-list traversal reasoning to diagnose why a linked list cannot be randomly indexed like an array.",
+      "cognitive_demand": "Apply the node-and-pointer structure to explain why reaching the k-th node requires traversal.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim a linked list supports direct indexed access like an array."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "DSA-LST-01-INT-04",
+      "learning_objective": "Compare array-based and linked-list-based storage in terms of memory layout, access time, and insertion or deletion cost.",
+      "preferred_reference_ids": [
+        "DSA-LST-01-1c0221412f01",
+        "DSA-LST-01-f177e09f7946"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask about insertion or deletion cost in this intent."
+      ],
+      "prohibited_conflations": [
+        "a linked list supports constant-time indexed access"
+      ],
+      "question_archetype": "random-access limitation diagnosis",
+      "required_concepts": [
+        "sequential traversal",
+        "no random indexed access"
+      ],
+      "required_question_characteristics": [
+        "Describe wanting to reach the k-th node of a singly linked list.",
+        "Ask what must happen to reach it, in contrast with indexed array access."
+      ],
+      "skill_id": "DSA-LST-01"
+    },
+    {
+      "assessment_focus": "Recognize that a stack removes elements in Last-In, First-Out order.",
+      "cognitive_demand": "Recognize which element a stack returns next given a sequence of pushes.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should return the first-pushed element or an arbitrary element instead of the most recently pushed one."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-STK-01-INT-01",
+      "learning_objective": "Explain the LIFO and FIFO access restrictions of stacks and queues and identify appropriate use cases for each.",
+      "preferred_reference_ids": [
+        "DSA-STK-01-fea869da3f7b"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not mix push and pop operations within the described sequence."
+      ],
+      "prohibited_conflations": [
+        "a stack returns elements in the order they were pushed"
+      ],
+      "question_archetype": "LIFO order recognition",
+      "required_concepts": [
+        "stack",
+        "LIFO",
+        "push",
+        "pop"
+      ],
+      "required_question_characteristics": [
+        "Describe a short sequence of push operations onto an empty stack.",
+        "Ask which element a pop returns."
+      ],
+      "skill_id": "DSA-STK-01"
+    },
+    {
+      "assessment_focus": "Recognize that a queue removes elements in First-In, First-Out order.",
+      "cognitive_demand": "Recognize which element a queue returns next given a sequence of enqueues.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should return the most-recently-enqueued element instead of the earliest one."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-STK-01-INT-02",
+      "learning_objective": "Explain the LIFO and FIFO access restrictions of stacks and queues and identify appropriate use cases for each.",
+      "preferred_reference_ids": [
+        "DSA-STK-01-8a882e51b71e"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not mix enqueue and dequeue operations within the described sequence."
+      ],
+      "prohibited_conflations": [
+        "a queue returns the most recently added element first"
+      ],
+      "question_archetype": "FIFO order recognition",
+      "required_concepts": [
+        "queue",
+        "FIFO",
+        "enqueue",
+        "dequeue"
+      ],
+      "required_question_characteristics": [
+        "Describe a short sequence of enqueue operations onto an empty queue.",
+        "Ask which element a dequeue returns."
+      ],
+      "skill_id": "DSA-STK-01"
+    },
+    {
+      "assessment_focus": "Apply LIFO/FIFO reasoning to trace the final output order of a mixed sequence of stack operations.",
+      "cognitive_demand": "Apply LIFO ordering to trace a mixed sequence of push and pop operations.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present the FIFO order or an arbitrary reordering instead of the correct LIFO trace."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-STK-01-INT-03",
+      "learning_objective": "Explain the LIFO and FIFO access restrictions of stacks and queues and identify appropriate use cases for each.",
+      "preferred_reference_ids": [
+        "DSA-STK-01-fea869da3f7b"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not include an operation on an empty stack."
+      ],
+      "prohibited_conflations": [
+        "interleaved stack operations return values in FIFO order"
+      ],
+      "question_archetype": "mixed-operation stack trace",
+      "required_concepts": [
+        "LIFO",
+        "interleaved push and pop"
+      ],
+      "required_question_characteristics": [
+        "Describe an interleaved sequence of at least three push and pop operations on an initially empty stack.",
+        "Ask for the sequence of values returned by the pops, in order."
+      ],
+      "skill_id": "DSA-STK-01"
+    },
+    {
+      "assessment_focus": "Apply the LIFO versus FIFO distinction to select the appropriate structure for a described scenario.",
+      "cognitive_demand": "Apply the LIFO/FIFO distinction to judge which structure fits a described real-world scenario.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should select the structure with the opposite release order."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "DSA-STK-01-INT-04",
+      "learning_objective": "Explain the LIFO and FIFO access restrictions of stacks and queues and identify appropriate use cases for each.",
+      "preferred_reference_ids": [
+        "DSA-STK-01-fea869da3f7b",
+        "DSA-STK-01-8a882e51b71e"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a scenario compatible with both LIFO and FIFO release order."
+      ],
+      "prohibited_conflations": [
+        "stacks and queues are interchangeable for any release-order scenario"
+      ],
+      "question_archetype": "structure-selection scenario",
+      "required_concepts": [
+        "LIFO use case",
+        "FIFO use case"
+      ],
+      "required_question_characteristics": [
+        "Describe one scenario whose natural release order is clearly LIFO or clearly FIFO (e.g. undo history versus a print queue).",
+        "Ask which structure fits the scenario."
+      ],
+      "skill_id": "DSA-STK-01"
+    },
+    {
+      "assessment_focus": "Recognize how linear search examines elements to find a target.",
+      "cognitive_demand": "Recognize the stated left-to-right examination order of linear search.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe halving the search space instead of scanning sequentially."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-SRC-01-INT-01",
+      "learning_objective": "Trace and compare linear search and binary search and explain why binary search requires sorted data.",
+      "preferred_reference_ids": [
+        "DSA-SRC-01-9dcf7f3eccf9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require counting exact comparisons."
+      ],
+      "prohibited_conflations": [
+        "linear search requires sorted data",
+        "linear search halves the search space"
+      ],
+      "question_archetype": "linear search mechanics recognition",
+      "required_concepts": [
+        "linear search",
+        "sequential examination"
+      ],
+      "required_question_characteristics": [
+        "Describe a short unsorted list and a target value.",
+        "Ask how linear search locates the target."
+      ],
+      "skill_id": "DSA-SRC-01"
+    },
+    {
+      "assessment_focus": "Recognize that binary search requires the input to be sorted.",
+      "cognitive_demand": "Recognize the stated precondition for binary search to work correctly.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim binary search works on any unsorted list, or requires a linked list."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-SRC-01-INT-02",
+      "learning_objective": "Trace and compare linear search and binary search and explain why binary search requires sorted data.",
+      "preferred_reference_ids": [
+        "DSA-SRC-01-9dcf7f3eccf9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for a full trace of binary search in this intent."
+      ],
+      "prohibited_conflations": [
+        "binary search works correctly on unsorted data"
+      ],
+      "question_archetype": "binary-search precondition recognition",
+      "required_concepts": [
+        "binary search precondition",
+        "sorted data"
+      ],
+      "required_question_characteristics": [
+        "Ask what property a list must have before binary search can be applied correctly."
+      ],
+      "skill_id": "DSA-SRC-01"
+    },
+    {
+      "assessment_focus": "Apply binary search's halving rule to trace which half of a sorted list is searched next.",
+      "cognitive_demand": "Apply the less-than/greater-than comparison rule to trace one step of binary search.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should pick the wrong half or claim both halves must still be searched."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-SRC-01-INT-03",
+      "learning_objective": "Trace and compare linear search and binary search and explain why binary search requires sorted data.",
+      "preferred_reference_ids": [
+        "DSA-SRC-01-9dcf7f3eccf9"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not make the target equal to the middle element (that terminates the search)."
+      ],
+      "prohibited_conflations": [
+        "binary search must still examine the eliminated half"
+      ],
+      "question_archetype": "binary-search step trace",
+      "required_concepts": [
+        "binary search halving",
+        "less-than/greater-than comparison"
+      ],
+      "required_question_characteristics": [
+        "Give a short sorted list, a target value, and the current middle element.",
+        "Ask which half of the list binary search continues searching in."
+      ],
+      "skill_id": "DSA-SRC-01"
+    },
+    {
+      "assessment_focus": "Apply the running-time comparison between linear and binary search to judge which is more efficient on a large sorted list.",
+      "cognitive_demand": "Apply the O(n) versus O(log n) comparison to a large-input scenario.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim linear search is equally or more efficient than binary search on large sorted input."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison task.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "DSA-SRC-01-INT-04",
+      "learning_objective": "Trace and compare linear search and binary search and explain why binary search requires sorted data.",
+      "preferred_reference_ids": [
+        "DSA-SRC-01-9dcf7f3eccf9",
+        "DSA-SRC-01-8901467cd840"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe an unsorted list in this intent."
+      ],
+      "prohibited_conflations": [
+        "linear search is as efficient as binary search on large sorted input"
+      ],
+      "question_archetype": "search-efficiency comparison",
+      "required_concepts": [
+        "O(n) linear search",
+        "O(log n) binary search"
+      ],
+      "required_question_characteristics": [
+        "Describe searching a large sorted list of n elements.",
+        "Ask which search algorithm is more efficient and why."
+      ],
+      "skill_id": "DSA-SRC-01"
+    },
+    {
+      "assessment_focus": "Recognize how bubble sort compares and swaps adjacent elements to move the largest element toward the end of one pass.",
+      "cognitive_demand": "Recognize the result of one bubble-sort pass over a short list.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should show the fully sorted list, or a pass that swaps non-adjacent elements."
+      ],
+      "generation_constraints": [
+        "Use an introductory single-pass trace.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-SRT-01-INT-01",
+      "learning_objective": "Trace bubble, insertion, selection, merge, and quick sort on a small input and compare their asymptotic running times.",
+      "preferred_reference_ids": [
+        "DSA-SRT-01-7e815542e750"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for the fully sorted list."
+      ],
+      "prohibited_conflations": [
+        "one bubble-sort pass fully sorts the list"
+      ],
+      "question_archetype": "bubble-sort single-pass recognition",
+      "required_concepts": [
+        "bubble sort",
+        "adjacent swap"
+      ],
+      "required_question_characteristics": [
+        "Give a short unsorted list of 4-5 numbers.",
+        "Ask for the list's order after exactly one bubble-sort pass (comparing and swapping each adjacent pair once, left to right)."
+      ],
+      "skill_id": "DSA-SRT-01"
+    },
+    {
+      "assessment_focus": "Recognize how selection sort repeatedly selects the smallest remaining element and places it at the front of the unsorted portion.",
+      "cognitive_demand": "Recognize which element selection sort places next given a short unsorted list.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should select the largest remaining element or the first element instead of the smallest."
+      ],
+      "generation_constraints": [
+        "Use an introductory single-step trace.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-SRT-01-INT-02",
+      "learning_objective": "Trace bubble, insertion, selection, merge, and quick sort on a small input and compare their asymptotic running times.",
+      "preferred_reference_ids": [
+        "DSA-SRT-01-7e815542e750"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for the fully sorted list."
+      ],
+      "prohibited_conflations": [
+        "selection sort places the largest remaining element first"
+      ],
+      "question_archetype": "selection-sort step recognition",
+      "required_concepts": [
+        "selection sort",
+        "smallest-remaining-element selection"
+      ],
+      "required_question_characteristics": [
+        "Give a short unsorted list of 4-5 numbers.",
+        "Ask which element selection sort places into position on its first pass."
+      ],
+      "skill_id": "DSA-SRT-01"
+    },
+    {
+      "assessment_focus": "Apply insertion sort's mechanism to trace where a newly considered element is inserted among the already-sorted elements.",
+      "cognitive_demand": "Apply the insertion rule to place one element correctly among an already-sorted prefix.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should insert the element at the wrong position or append it unconditionally to the end."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-SRT-01-INT-03",
+      "learning_objective": "Trace bubble, insertion, selection, merge, and quick sort on a small input and compare their asymptotic running times.",
+      "preferred_reference_ids": [
+        "DSA-SRT-01-7704118bf097"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask about elements past the current insertion point."
+      ],
+      "prohibited_conflations": [
+        "insertion sort always appends the next element to the end without comparison"
+      ],
+      "question_archetype": "insertion-sort step trace",
+      "required_concepts": [
+        "insertion sort",
+        "sorted prefix"
+      ],
+      "required_question_characteristics": [
+        "Give a short list where a sorted prefix already exists and state the next element to insert.",
+        "Ask where that element is inserted among the sorted prefix."
+      ],
+      "skill_id": "DSA-SRT-01"
+    },
+    {
+      "assessment_focus": "Apply the divide-and-conquer structure of merge sort and quicksort to compare how each partitions the sorting problem.",
+      "cognitive_demand": "Apply understanding of divide-and-conquer to contrast merge sort's split with quicksort's pivot-based partition.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap which algorithm uses a pivot versus a fixed midpoint split, or claim neither is divide-and-conquer."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison task.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "DSA-SRT-01-INT-04",
+      "learning_objective": "Trace bubble, insertion, selection, merge, and quick sort on a small input and compare their asymptotic running times.",
+      "preferred_reference_ids": [
+        "DSA-SRT-01-5798451c6ce8",
+        "DSA-SRT-01-44c48f164ddd"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for exact running-time constants."
+      ],
+      "prohibited_conflations": [
+        "merge sort partitions around a pivot",
+        "quicksort always splits the list exactly in half"
+      ],
+      "question_archetype": "merge-sort-versus-quicksort partitioning comparison",
+      "required_concepts": [
+        "merge sort split",
+        "quicksort pivot partition",
+        "divide-and-conquer"
+      ],
+      "required_question_characteristics": [
+        "State that both are divide-and-conquer sorts.",
+        "Ask what distinguishes how each divides the problem (fixed midpoint split versus pivot-based partition)."
+      ],
+      "skill_id": "DSA-SRT-01"
+    },
+    {
+      "assessment_focus": "Recognize the role of a hash function in locating a record's position in a hash table.",
+      "cognitive_demand": "Recognize what a hash function computes from a search key.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the hash function sorts the table or stores the key itself as the position."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-HSH-01-INT-01",
+      "learning_objective": "Explain how a hash function maps keys to table positions and how collisions are detected and resolved.",
+      "preferred_reference_ids": [
+        "DSA-HSH-01-b47868204347"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask about collision handling in this intent."
+      ],
+      "prohibited_conflations": [
+        "a hash function sorts the records"
+      ],
+      "question_archetype": "hash-function role recognition",
+      "required_concepts": [
+        "hash function",
+        "hash table position"
+      ],
+      "required_question_characteristics": [
+        "Describe storing records in a hash table keyed by a search key.",
+        "Ask what the hash function produces from the key."
+      ],
+      "skill_id": "DSA-HSH-01"
+    },
+    {
+      "assessment_focus": "Recognize that a collision occurs when two keys hash to the same table position.",
+      "cognitive_demand": "Recognize the definition of a hash collision.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe this as an error state, a duplicate key, or a hash-function failure rather than a collision."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-HSH-01-INT-02",
+      "learning_objective": "Explain how a hash function maps keys to table positions and how collisions are detected and resolved.",
+      "preferred_reference_ids": [
+        "DSA-HSH-01-a15ab46be9fd"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask how the collision is resolved in this intent."
+      ],
+      "prohibited_conflations": [
+        "a collision means the hash function failed"
+      ],
+      "question_archetype": "collision definition recognition",
+      "required_concepts": [
+        "hash collision"
+      ],
+      "required_question_characteristics": [
+        "Describe two different keys hashing to the same index.",
+        "Ask what this situation is called."
+      ],
+      "skill_id": "DSA-HSH-01"
+    },
+    {
+      "assessment_focus": "Apply chaining to trace how a colliding key is stored relative to an already-occupied index.",
+      "cognitive_demand": "Apply the chaining collision-resolution rule to a described insertion.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the new key overwrites the existing entry or is rejected."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-HSH-01-INT-03",
+      "learning_objective": "Explain how a hash function maps keys to table positions and how collisions are detected and resolved.",
+      "preferred_reference_ids": [
+        "DSA-HSH-01-a15ab46be9fd"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe open-addressing/probing behaviour in this intent."
+      ],
+      "prohibited_conflations": [
+        "chaining overwrites the existing entry at that index"
+      ],
+      "question_archetype": "chaining collision-resolution trace",
+      "required_concepts": [
+        "chaining",
+        "collision resolution"
+      ],
+      "required_question_characteristics": [
+        "Describe inserting a new key that hashes to an index already holding one linked-list node.",
+        "Ask what happens to the new key under chaining."
+      ],
+      "skill_id": "DSA-HSH-01"
+    },
+    {
+      "assessment_focus": "Apply open-addressing probe-sequence reasoning to determine where a colliding key is placed.",
+      "cognitive_demand": "Apply the probe-sequence rule to find the next candidate slot when the home position is occupied.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the insertion fails outright or overwrites the occupying record."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-HSH-01-INT-04",
+      "learning_objective": "Explain how a hash function maps keys to table positions and how collisions are detected and resolved.",
+      "preferred_reference_ids": [
+        "DSA-HSH-01-c03f5382f656"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe chaining behaviour in this intent."
+      ],
+      "prohibited_conflations": [
+        "an occupied home position causes the insertion to fail rather than probing for a free slot"
+      ],
+      "question_archetype": "probe-sequence trace",
+      "required_concepts": [
+        "probe sequence",
+        "home position",
+        "open addressing"
+      ],
+      "required_question_characteristics": [
+        "Describe a key whose home position (hashed slot) is already occupied under an open-addressing scheme.",
+        "Ask what the collision resolution policy does next."
+      ],
+      "skill_id": "DSA-HSH-01"
+    },
+    {
+      "assessment_focus": "Recognize the binary search tree property relating a node's key to its left and right subtrees.",
+      "cognitive_demand": "Recognize which subtree a value belongs in given the BST property.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should reverse the left/right placement rule."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-TGR-01-INT-01",
+      "learning_objective": "Explain the structural properties of binary search trees and heaps and trace fundamental graph traversal order.",
+      "preferred_reference_ids": [
+        "DSA-TGR-01-cb1593a92685"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not use a value equal to K."
+      ],
+      "prohibited_conflations": [
+        "smaller keys are stored in the right subtree"
+      ],
+      "question_archetype": "BST property recognition",
+      "required_concepts": [
+        "binary search tree property",
+        "left/right subtree ordering"
+      ],
+      "required_question_characteristics": [
+        "Give a node's key value K and a comparison value.",
+        "Ask which subtree (left or right) a value smaller (or larger) than K must be stored in."
+      ],
+      "skill_id": "DSA-TGR-01"
+    },
+    {
+      "assessment_focus": "Recognize the max-heap property relating a parent node's value to its children's values.",
+      "cognitive_demand": "Recognize whether a described parent-child value relationship satisfies the max-heap property.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should apply the min-heap rule or a BST-style ordering instead of the max-heap rule."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-TGR-01-INT-02",
+      "learning_objective": "Explain the structural properties of binary search trees and heaps and trace fundamental graph traversal order.",
+      "preferred_reference_ids": [
+        "DSA-TGR-01-452f76cc4055"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require a full heap array to be given."
+      ],
+      "prohibited_conflations": [
+        "a heap requires every left descendant to be smaller and every right descendant larger, like a BST"
+      ],
+      "question_archetype": "max-heap property recognition",
+      "required_concepts": [
+        "max-heap property",
+        "complete binary tree"
+      ],
+      "required_question_characteristics": [
+        "Give a parent node's value and its children's values.",
+        "Ask whether the max-heap property is satisfied."
+      ],
+      "skill_id": "DSA-TGR-01"
+    },
+    {
+      "assessment_focus": "Apply the binary search tree property to trace which nodes an inorder traversal visits, in order.",
+      "cognitive_demand": "Apply the inorder traversal rule to a small binary search tree.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present the preorder or postorder sequence, or an unsorted order, instead of the ascending inorder sequence."
+      ],
+      "generation_constraints": [
+        "Use an intermediate trace task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DSA-TGR-01-INT-03",
+      "learning_objective": "Explain the structural properties of binary search trees and heaps and trace fundamental graph traversal order.",
+      "preferred_reference_ids": [
+        "DSA-TGR-01-cb1593a92685"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for a preorder or postorder trace in this intent."
+      ],
+      "prohibited_conflations": [
+        "an inorder traversal of a BST does not yield ascending order"
+      ],
+      "question_archetype": "inorder traversal trace",
+      "required_concepts": [
+        "inorder traversal",
+        "sorted output of a BST"
+      ],
+      "required_question_characteristics": [
+        "Describe a small binary search tree by its node values and structure.",
+        "Ask for the order an inorder traversal visits its nodes."
+      ],
+      "skill_id": "DSA-TGR-01"
+    },
+    {
+      "assessment_focus": "Apply the property that a graph traversal visits every vertex exactly once to diagnose whether a described visiting order is a valid traversal.",
+      "cognitive_demand": "Apply the visit-each-vertex-once property to judge a described traversal order.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should accept an order that skips or repeats a vertex as valid."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DSA-TGR-01-INT-04",
+      "learning_objective": "Explain the structural properties of binary search trees and heaps and trace fundamental graph traversal order.",
+      "preferred_reference_ids": [
+        "DSA-TGR-01-6bdec61227dd"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask to name the specific traversal algorithm (BFS or DFS) in this intent."
+      ],
+      "prohibited_conflations": [
+        "a valid graph traversal may skip or revisit vertices"
+      ],
+      "question_archetype": "graph-traversal validity diagnosis",
+      "required_concepts": [
+        "graph traversal",
+        "visit each vertex exactly once"
+      ],
+      "required_question_characteristics": [
+        "Describe a small graph and one candidate visiting order, either omitting a vertex, repeating a vertex, or visiting each vertex exactly once.",
+        "Ask whether the candidate order could be a valid graph traversal."
+      ],
+      "skill_id": "DSA-TGR-01"
+    }
+  ],
+  "prompt_version": "v3.3",
+  "questions_per_intent": 1,
+  "review_status": "blueprint-approved",
+  "reviewed_at": "2026-08-16T21:00:00Z",
+  "reviewer_id": "claude (three-course preparation wave, delegated blueprint authoring by Albert)",
+  "skill_conventions": {}
+}

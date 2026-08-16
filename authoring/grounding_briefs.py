@@ -105,6 +105,78 @@ PILOT_GROUNDING_BRIEFS = {
                 "Manhattan distance must only be used for an appropriate grid setting.",
             ],
         ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-CPX-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "Asymptotic (Big-O) notation describes how an algorithm's running time grows as input size increases, not its exact running time.",
+                "Changing a constant factor in a running-time expression shifts where two growth curves cross, but does not change which one eventually grows faster.",
+                "A faster computer or a constant-factor code optimization does not change an algorithm's asymptotic growth rate.",
+                "Linear search is O(n); binary search on sorted data is O(log n) and is more efficient for large inputs.",
+                "Binary search requires the data to already be sorted; it does not work correctly on unsorted data.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-LST-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "An array stores its elements in contiguous memory, which allows any element to be read directly by index in constant time.",
+                "Inserting into or deleting from the middle of an array-based list requires shifting the surrounding elements.",
+                "A linked-list node stores an element together with a pointer (the next field) to the following node, not a copy of the following element's value.",
+                "A singly linked list must be traversed node by node from the head to reach a given position; it does not support constant-time indexed access like an array.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-STK-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A stack is Last-In, First-Out (LIFO): elements are pushed onto and popped from the same end, called the top.",
+                "A queue is First-In, First-Out (FIFO): elements are enqueued at the back and dequeued from the front.",
+                "A stack pop always returns the most recently pushed remaining element, never the earliest one.",
+                "A queue dequeue always returns the earliest remaining enqueued element, never the most recent one.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-SRC-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "Linear search examines elements one at a time, in order, until it finds the target or exhausts the list; its running time is O(n).",
+                "Binary search only works on sorted data: it compares the target to the middle element and continues searching only the half of the list that could still contain the target.",
+                "Binary search's running time is O(log n), which is more efficient than linear search's O(n) for large sorted inputs.",
+                "Binary search must discard, not continue searching, the half of the list that cannot contain the target.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-SRT-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "Bubble sort repeatedly compares adjacent elements and swaps them if out of order; one pass does not fully sort the list.",
+                "Selection sort repeatedly finds the smallest element in the unsorted portion and moves it to the front of that portion.",
+                "Insertion sort inserts each next element into its correct position among the already-sorted elements that precede it.",
+                "Merge sort is divide-and-conquer: it splits the list in half, recursively sorts each half, then merges the two sorted halves.",
+                "Quicksort is divide-and-conquer: it selects a pivot, partitions the remaining elements into those less than and greater than the pivot, and recursively sorts each partition -- it does not split the list at a fixed midpoint the way merge sort does.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-HSH-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A hash function maps a search key to a position (index) in the hash table; it does not sort the table.",
+                "A collision occurs when two different keys hash to the same table position; a collision is a normal, expected event, not a hash-function failure.",
+                "Under chaining, a colliding key is appended to the linked list already stored at that index rather than overwriting the existing entry.",
+                "Under open addressing, when a key's home position is already occupied, the collision resolution policy probes a sequence of other slots until it finds a free one, rather than failing the insertion.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="DSA-TGR-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "In a binary search tree, every node in the left subtree of a node with key K has a key less than or equal to K, and every node in the right subtree has a key greater than K.",
+                "An inorder traversal of a binary search tree visits its nodes in ascending sorted order.",
+                "In a max-heap, every node's value is greater than or equal to the values of its children; a heap is not ordered the way a binary search tree is.",
+                "A graph traversal (such as breadth-first or depth-first search) visits every vertex exactly once; a visiting order that skips or repeats a vertex is not a valid traversal.",
+            ],
+        ),
     )
 }
 
