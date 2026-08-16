@@ -22,6 +22,7 @@ from app.controller import (
 )
 from app.flow import activate_course, ensure_question, submit_current_question
 from app.multi_course import build_course_catalog
+from app.perf import new_correlation_id, phase
 from app.session import clear_learner, get_session_state, identify_learner, next_question
 from app.ui.content_gap import render_content_gap
 from app.ui.course_selector import render_course_selector
@@ -105,16 +106,20 @@ def render_recommendation_error(error: ApplicationError, *, has_seen: bool) -> N
 
 
 def main() -> None:
-    st.set_page_config(
-        page_title="Adaptive Quiz",
-        page_icon=None,
-        layout="centered",
-    )
-    inject_theme()
+    correlation_id = new_correlation_id()
+    with phase("bootstrap_initialization", correlation_id=correlation_id):
+        st.set_page_config(
+            page_title="Adaptive Quiz",
+            page_icon=None,
+            layout="centered",
+        )
+        inject_theme()
 
     try:
-        settings = configured_settings()
-        catalogue = load_application(settings)
+        with phase("settings_loading", correlation_id=correlation_id):
+            settings = configured_settings()
+        with phase("catalog_loading", correlation_id=correlation_id):
+            catalogue = load_application(settings)
     except (BootstrapError, ValueError) as error:
         st.title("Adaptive Quiz")
         st.error(str(error))
@@ -151,7 +156,8 @@ def main() -> None:
         # learner_sessions table is written once a course, and therefore a
         # real controller, is selected (see activate_course, below).
         try:
-            identify_learner(session, learner_id)
+            with phase("learner_identification", correlation_id=correlation_id):
+                identify_learner(session, learner_id)
         except ValueError as error:
             st.error(str(error))
             return
@@ -166,15 +172,18 @@ def main() -> None:
         if course_id is None:
             return
         try:
-            controller = catalogue.resolve_active(course_id)
+            controller = catalogue.resolve_active(course_id, correlation_id=correlation_id)
         except BootstrapError as error:
             st.error(str(error))
             return
-        activate_course(controller, session, course_id)
+        with phase("course_selection", correlation_id=correlation_id, course_id=course_id):
+            activate_course(controller, session, course_id)
         st.rerun()
 
     try:
-        controller = catalogue.resolve_active(session.course_id)
+        controller = catalogue.resolve_active(
+            session.course_id, correlation_id=correlation_id
+        )
     except BootstrapError as error:
         st.error(str(error))
         return
@@ -183,8 +192,14 @@ def main() -> None:
     st.caption("One question at a time · progress is saved automatically")
 
     if session.question is None:
+        question_phase = (
+            "first_question_retrieval" if not session.seen_item_ids else "next_question_retrieval"
+        )
         try:
-            ensure_question(controller, session)
+            with phase(
+                question_phase, correlation_id=correlation_id, course_id=session.course_id
+            ):
+                ensure_question(controller, session)
         except ContentGapError as error:
             render_content_gap(error.content_gap)
             return
@@ -219,7 +234,10 @@ def main() -> None:
 
     if submitted and session.submission_state != "submitted":
         try:
-            submit_current_question(controller, session, selected)
+            with phase(
+                "total_submit_rerun", correlation_id=correlation_id, course_id=session.course_id
+            ):
+                submit_current_question(controller, session, selected)
             st.rerun()
         except ValueError as error:
             st.warning(str(error))

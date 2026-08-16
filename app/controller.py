@@ -17,6 +17,7 @@ from recommendation.schemas import RecommendationRequest
 from recommendation.service import RecommendationService, RecommendationUnavailable
 from taxonomy.schemas import SkillDefinition
 
+from app.perf import phase
 from app.session import attempt_id_for
 from app.view_models import (
     ContentGapViewModel,
@@ -180,13 +181,14 @@ class ApplicationController:
             )
             raise NoApprovedItemError
         try:
-            recommendation = self.recommendation_service.recommend(
-                RecommendationRequest(
-                    learner_id=learner_id,
-                    available_skill_ids=available_skill_ids,
-                    excluded_item_ids=list(excluded_item_ids),
+            with phase("recommendation_calculation", course_id=self.course_id):
+                recommendation = self.recommendation_service.recommend(
+                    RecommendationRequest(
+                        learner_id=learner_id,
+                        available_skill_ids=available_skill_ids,
+                        excluded_item_ids=list(excluded_item_ids),
+                    )
                 )
-            )
         except RecommendationUnavailable as exc:
             LOGGER.info(
                 "Recommendation unavailable for learner %s: %s", learner_id, exc.reason
@@ -226,14 +228,15 @@ class ApplicationController:
             learner_id=learner_id,
             attempt_id=self._presentation_token_factory(),
         )
-        self.repository.save_presentation(
-            presentation_id=presentation.presentation_id,
-            learner_id=learner_id,
-            item_id=item.item_id,
-            presentation_seed=presentation.presentation_seed,
-            recommendation_reason=recommendation.reason,
-            created_at=self._clock(),
-        )
+        with phase("question_persistence", course_id=self.course_id):
+            self.repository.save_presentation(
+                presentation_id=presentation.presentation_id,
+                learner_id=learner_id,
+                item_id=item.item_id,
+                presentation_seed=presentation.presentation_seed,
+                recommendation_reason=recommendation.reason,
+                created_at=self._clock(),
+            )
         return QuestionViewModel(
             presentation_id=presentation.presentation_id,
             item_id=item.item_id,
@@ -256,47 +259,50 @@ class ApplicationController:
         self, learner_id: str, presentation_id: str, selected_option_id: str
     ) -> SubmissionResultViewModel:
         learner_id = self._normalise_learner_id(learner_id)
-        row = self.repository.get_presentation(presentation_id)
-        if row is None or row["learner_id"] != learner_id:
-            raise PresentationNotFoundError
-        item = self._items.get(row["item_id"])
-        if item is None:
-            raise PresentationNotFoundError
-        presentation = presentation_from_seed(item, int(row["presentation_seed"]))
-        valid_option_ids = {choice.option_id for choice in presentation.presented_options}
-        if selected_option_id not in valid_option_ids:
-            raise InvalidOptionError
+        with phase("answer_persistence", course_id=self.course_id):
+            row = self.repository.get_presentation(presentation_id)
+            if row is None or row["learner_id"] != learner_id:
+                raise PresentationNotFoundError
+            item = self._items.get(row["item_id"])
+            if item is None:
+                raise PresentationNotFoundError
+            presentation = presentation_from_seed(item, int(row["presentation_seed"]))
+            valid_option_ids = {
+                choice.option_id for choice in presentation.presented_options
+            }
+            if selected_option_id not in valid_option_ids:
+                raise InvalidOptionError
 
-        attempt_id = attempt_id_for(learner_id, presentation_id)
-        existing = self.repository.get_attempt(attempt_id)
-        if existing is not None:
-            if (
-                existing.learner_id != learner_id
-                or existing.presentation_id != presentation_id
-                or existing.selected_option_id != selected_option_id
-            ):
-                raise ConflictingAttemptError
-            snapshot = self.repository.get_mastery_for_attempt(attempt_id)
-            if snapshot is None:
-                LOGGER.error("Attempt %s has no mastery snapshot", attempt_id)
-                raise BKTUpdateError
-            return self._submission_result(item, existing, snapshot)
+            attempt_id = attempt_id_for(learner_id, presentation_id)
+            existing = self.repository.get_attempt(attempt_id)
+            if existing is not None:
+                if (
+                    existing.learner_id != learner_id
+                    or existing.presentation_id != presentation_id
+                    or existing.selected_option_id != selected_option_id
+                ):
+                    raise ConflictingAttemptError
+                snapshot = self.repository.get_mastery_for_attempt(attempt_id)
+                if snapshot is None:
+                    LOGGER.error("Attempt %s has no mastery snapshot", attempt_id)
+                    raise BKTUpdateError
+                return self._submission_result(item, existing, snapshot)
 
-        history = self.repository.list_attempts(
-            learner_id=learner_id, skill_id=item.skill_id
-        )
-        attempt = AttemptEvent(
-            attempt_id=attempt_id,
-            course_id=self.course_id,
-            presentation_id=presentation_id,
-            learner_id=learner_id,
-            item_id=item.item_id,
-            skill_id=item.skill_id,
-            selected_option_id=selected_option_id,
-            correct=False,
-            attempt_order=len(history) + 1,
-            occurred_at=self._clock(),
-        )
+            history = self.repository.list_attempts(
+                learner_id=learner_id, skill_id=item.skill_id
+            )
+            attempt = AttemptEvent(
+                attempt_id=attempt_id,
+                course_id=self.course_id,
+                presentation_id=presentation_id,
+                learner_id=learner_id,
+                item_id=item.item_id,
+                skill_id=item.skill_id,
+                selected_option_id=selected_option_id,
+                correct=False,
+                attempt_order=len(history) + 1,
+                occurred_at=self._clock(),
+            )
         try:
             snapshot = self.bkt_service.process_attempt(
                 attempt, item=item, presentation=presentation
@@ -308,7 +314,8 @@ class ApplicationController:
             LOGGER.exception("BKT update failed for attempt %s", attempt_id)
             raise BKTUpdateError from exc
 
-        scored_attempt = self.repository.get_attempt(attempt_id)
+        with phase("answer_persistence_verify", course_id=self.course_id):
+            scored_attempt = self.repository.get_attempt(attempt_id)
         if scored_attempt is None:
             LOGGER.error("BKT update returned without storing attempt %s", attempt_id)
             raise BKTUpdateError

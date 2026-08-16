@@ -21,6 +21,7 @@ from recommendation.sqlite_repository import SQLiteRecommendationRepository
 from taxonomy.loader import course_paths, load_skills
 
 from app.controller import ApplicationController
+from app.perf import phase
 
 
 LOGGER = logging.getLogger(__name__)
@@ -159,7 +160,10 @@ def _build_low_supply_reporter(
 
 
 def build_controller(
-    settings: AppSettings, *, course_id: str = "intro-ai"
+    settings: AppSettings,
+    *,
+    course_id: str = "intro-ai",
+    correlation_id: str | None = None,
 ) -> ApplicationController:
     """Build shared, learner-agnostic services and initialize durable storage
     for one course. Defaults to "intro-ai" -- the catalog id the original
@@ -167,7 +171,12 @@ def build_controller(
     authoring/replenishment/manifests/intro-ai.json and the course_id
     backfill migration) -- so a single-course caller that omits course_id
     stays consistent with that migration's backfilled data instead of
-    silently writing a different, unmigrated "ai" course_id going forward."""
+    silently writing a different, unmigrated "ai" course_id going forward.
+
+    Runs once per course_id per process (see app/multi_course.py's
+    CourseCatalogController, which caches the returned controller) -- the
+    database_engine_acquisition/schema_status_check phases below never
+    repeat for a course after this first cold build."""
 
     try:
         if not settings.approved_bank_path.is_file():
@@ -206,18 +215,28 @@ def build_controller(
             )
         if isinstance(settings.database_path, Path):
             settings.database_path.parent.mkdir(parents=True, exist_ok=True)
-        repository = SQLiteRecommendationRepository(
-            settings.database_path,
+        with phase(
+            "database_engine_acquisition",
+            correlation_id=correlation_id,
             course_id=course_id,
-            skills=catalogue.skills,
-            items=items,
-        )
+        ):
+            repository = SQLiteRecommendationRepository(
+                settings.database_path,
+                course_id=course_id,
+                skills=catalogue.skills,
+                items=items,
+            )
         # Runtime-safe: never migrates. Creates the latest schema only when
         # the database is genuinely empty, verifies the version otherwise,
         # and raises SchemaMigrationRequiredError (caught below) rather than
         # mutating an existing production schema. The explicit migration
         # itself only ever runs via scripts/migrate_course_ownership.py.
-        repository.initialize_schema()
+        # This is also this repository's first real connection/round trip
+        # to the database (engine acquisition above is lazy).
+        with phase(
+            "schema_status_check", correlation_id=correlation_id, course_id=course_id
+        ):
+            repository.initialize_schema()
         policy = RecommendationPolicyConfig(
             initial_mastery_probability=settings.initial_mastery_probability,
             prerequisite_mastery_threshold=settings.prerequisite_mastery_threshold,
@@ -248,7 +267,9 @@ def build_controller(
         raise BootstrapError("Application bootstrap failed") from exc
 
 
-def build_controller_for_course(settings: AppSettings, manifest) -> ApplicationController:
+def build_controller_for_course(
+    settings: AppSettings, manifest, *, correlation_id: str | None = None
+) -> ApplicationController:
     """Build the ApplicationController for exactly one course, deriving its
     bank/model/taxonomy paths from that course's own manifest rather than
     settings' single-course fields (those stay only as an explicit override
@@ -271,4 +292,6 @@ def build_controller_for_course(settings: AppSettings, manifest) -> ApplicationC
         references_path=manifest.references_path(),
         model_version=manifest.default_bkt_model_version,
     )
-    return build_controller(course_settings, course_id=manifest.course_id)
+    return build_controller(
+        course_settings, course_id=manifest.course_id, correlation_id=correlation_id
+    )

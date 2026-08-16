@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from app.bootstrap import AppSettings, BootstrapError, build_controller_for_course
 from app.controller import ApplicationController
+from app.perf import phase
 from authoring.course_catalog.registry import resolve_course
 from authoring.replenishment.manifest import (
     CourseManifest,
@@ -61,18 +62,22 @@ class CourseCatalogController:
         self._controllers: dict[str, ApplicationController] = {}
         self._lock = threading.Lock()
 
-    def resolve_for_learner(self, query: str) -> CourseSelectionResult:
+    def resolve_for_learner(
+        self, query: str, *, correlation_id: str | None = None
+    ) -> CourseSelectionResult:
         manifest = resolve_course(query, load_all_manifests())
         if manifest is None:
             return UnrecognizedCourse()
         if manifest.status != "active":
             return UnavailableCourse(course_id=manifest.course_id, manifest=manifest)
-        controller = self.resolve_active(manifest.course_id)
+        controller = self.resolve_active(manifest.course_id, correlation_id=correlation_id)
         return ActiveCourse(
             course_id=manifest.course_id, controller=controller, manifest=manifest
         )
 
-    def resolve_active(self, course_id: str) -> ApplicationController:
+    def resolve_active(
+        self, course_id: str, *, correlation_id: str | None = None
+    ) -> ApplicationController:
         """Builds this course's controller on first call, from a cold read
         of its bank/taxonomy/BKT model; every call after that for the same
         course_id returns the cached instance instead. Raises if the course
@@ -82,15 +87,29 @@ class CourseCatalogController:
         with self._lock:
             cached = self._controllers.get(course_id)
             if cached is not None:
-                return cached
+                with phase(
+                    "controller_resolution",
+                    correlation_id=correlation_id,
+                    course_id=course_id,
+                    cache_hit=True,
+                ):
+                    return cached
 
-            manifest = load_course_manifest(course_id)
-            if manifest.status != "active":
-                raise KeyError(f"{course_id!r} is not an active course")
+            with phase(
+                "controller_resolution",
+                correlation_id=correlation_id,
+                course_id=course_id,
+                cache_hit=False,
+            ):
+                manifest = load_course_manifest(course_id)
+                if manifest.status != "active":
+                    raise KeyError(f"{course_id!r} is not an active course")
 
-            controller = build_controller_for_course(self._settings, manifest)
-            self._controllers[course_id] = controller
-            return controller
+                controller = build_controller_for_course(
+                    self._settings, manifest, correlation_id=correlation_id
+                )
+                self._controllers[course_id] = controller
+                return controller
 
     def list_active_courses(self) -> list[tuple[str, str]]:
         """Reads manifests only -- never touches a course's bank/model, so
