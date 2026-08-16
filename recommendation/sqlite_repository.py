@@ -1,13 +1,15 @@
+import threading
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from api.bank import BankItem
 from bkt.schemas import MasterySnapshot
 from bkt.sqlite_repository import SQLiteBKTRepository, _aware_datetime, _utc_iso
+from database import connection_scope
 from recommendation.schemas import (
     ContentGapEvent,
     ContentGapResult,
@@ -37,12 +39,14 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
         super().__init__(database, course_id=course_id)
         self._skills = [skill.model_copy(deep=True) for skill in skills]
         self._items = [item.model_copy(deep=True) for item in items]
+        self._confirmed_learners: set[str] = set()
+        self._confirmed_learners_lock = threading.Lock()
 
     def list_skills(self) -> list[SkillDefinition]:
         return [skill.model_copy(deep=True) for skill in self._skills]
 
     def list_latest_mastery(self, learner_id: str) -> list[MasterySnapshot]:
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             rows = (
                 connection.execute(
                     text(
@@ -76,7 +80,34 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
         return [item.model_copy(deep=True) for item in self._items]
 
     def save_learner(self, learner_id: str, *, created_at: datetime) -> None:
-        with self._engine.begin() as connection:
+        """Already idempotent at the database level (ON CONFLICT DO
+        NOTHING) even without the in-memory check below -- but a
+        learner_sessions row, once *committed*, is never deleted or
+        modified for the lifetime of this repository instance (this
+        repository, and this set, persist across many learner actions over
+        the whole process's lifetime -- see app/multi_course.py's
+        CourseCatalogController caching), so remembering "already
+        confirmed" here safely skips the round trip on every call after
+        the first for the same learner, not just within one request.
+
+        Marking a learner confirmed is deferred to this connection's own
+        "commit" event rather than done right after the INSERT executes:
+        when this call is participating in a caller's unit_of_work (see
+        database.py), that shared connection's transaction can still be
+        rolled back later by something *else* that fails further down the
+        same action -- if this cache were updated immediately, a later
+        rollback would leave the row NOT actually in the database while
+        this process still believed it was, permanently skipping the
+        write (until process restart) and breaking every future
+        foreign-key-dependent write for that learner. The "commit" event
+        never fires on rollback (verified), so the cache can never drift
+        ahead of what is actually durably stored. Not a caller-supplied
+        flag: nothing external can mark a learner "confirmed" except this
+        method's own write actually having committed."""
+        with self._confirmed_learners_lock:
+            if learner_id in self._confirmed_learners:
+                return
+        with connection_scope(self._engine, write=True) as connection:
             connection.execute(
                 text(
                     """
@@ -92,8 +123,14 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
                 },
             )
 
+            def _mark_confirmed(_connection: object) -> None:
+                with self._confirmed_learners_lock:
+                    self._confirmed_learners.add(learner_id)
+
+            event.listen(connection, "commit", _mark_confirmed, once=True)
+
     def learner_exists(self, learner_id: str) -> bool:
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             row = connection.execute(
                 text(
                     """
@@ -115,7 +152,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
         recommendation_reason: str,
         created_at: datetime,
     ) -> None:
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             connection.execute(
                 text(
                     """
@@ -140,7 +177,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             )
 
     def get_presentation(self, presentation_id: str):
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             return (
                 connection.execute(
                     text(
@@ -169,7 +206,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             recommendation_id=str(uuid4()),
             created_at=datetime.now(timezone.utc),
         )
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             connection.execute(
                 text(
                     """
@@ -209,7 +246,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             clauses.append("learner_id = :learner_id")
             parameters["learner_id"] = learner_id
         where = f" WHERE {' AND '.join(clauses)}"
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             rows = (
                 connection.execute(
                     text(
@@ -245,7 +282,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             content_gap_id=str(uuid4()),
             created_at=datetime.now(timezone.utc),
         )
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             connection.execute(
                 text(
                     """
@@ -292,7 +329,7 @@ class SQLiteRecommendationRepository(SQLiteBKTRepository):
             clauses.append("learner_id = :learner_id")
             parameters["learner_id"] = learner_id
         where = f" WHERE {' AND '.join(clauses)}"
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             rows = (
                 connection.execute(
                     text(

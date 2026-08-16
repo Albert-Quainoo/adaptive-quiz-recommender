@@ -8,7 +8,12 @@ from threading import RLock
 from uuid import uuid4
 
 from api.bank import BankItem
-from api.presentation import option_id, present_bank_item, presentation_from_seed
+from api.presentation import (
+    option_id,
+    present_bank_item,
+    presentation_from_seed,
+    score_response,
+)
 from bkt.repository import AttemptConflictError
 from bkt.schemas import AttemptEvent, MasterySnapshot
 from bkt.service import BKTService
@@ -166,6 +171,16 @@ class ApplicationController:
     def recommend_question(
         self, learner_id: str, excluded_item_ids: Sequence[str]
     ) -> QuestionViewModel:
+        # Deliberately not wrapped in self.repository.unit_of_work(): the
+        # content-gap branch below calls self.repository.save_content_gap
+        # (inside recommendation_service.recommend()) and then raises
+        # ContentGapError -- that write must persist despite the raise, it
+        # is the intended record of the detected gap, not a failure to
+        # undo. A single all-or-nothing transaction around this whole
+        # method would roll it back, which is wrong (see the exact
+        # regression this caused, caught by
+        # tests/test_streamlit_application.py::
+        # test_unlocked_missing_content_has_a_specific_application_result).
         learner_id = self.start_learner_session(learner_id)
         available_skill_ids = sorted(
             {
@@ -259,67 +274,76 @@ class ApplicationController:
         self, learner_id: str, presentation_id: str, selected_option_id: str
     ) -> SubmissionResultViewModel:
         learner_id = self._normalise_learner_id(learner_id)
-        with phase("answer_persistence", course_id=self.course_id):
-            row = self.repository.get_presentation(presentation_id)
-            if row is None or row["learner_id"] != learner_id:
-                raise PresentationNotFoundError
-            item = self._items.get(row["item_id"])
-            if item is None:
-                raise PresentationNotFoundError
-            presentation = presentation_from_seed(item, int(row["presentation_seed"]))
-            valid_option_ids = {
-                choice.option_id for choice in presentation.presented_options
-            }
-            if selected_option_id not in valid_option_ids:
-                raise InvalidOptionError
+        with self.repository.unit_of_work():
+            with phase("answer_persistence", course_id=self.course_id):
+                row = self.repository.get_presentation(presentation_id)
+                if row is None or row["learner_id"] != learner_id:
+                    raise PresentationNotFoundError
+                item = self._items.get(row["item_id"])
+                if item is None:
+                    raise PresentationNotFoundError
+                presentation = presentation_from_seed(item, int(row["presentation_seed"]))
+                valid_option_ids = {
+                    choice.option_id for choice in presentation.presented_options
+                }
+                if selected_option_id not in valid_option_ids:
+                    raise InvalidOptionError
 
-            attempt_id = attempt_id_for(learner_id, presentation_id)
-            existing = self.repository.get_attempt(attempt_id)
-            if existing is not None:
-                if (
-                    existing.learner_id != learner_id
-                    or existing.presentation_id != presentation_id
-                    or existing.selected_option_id != selected_option_id
-                ):
-                    raise ConflictingAttemptError
-                snapshot = self.repository.get_mastery_for_attempt(attempt_id)
-                if snapshot is None:
-                    LOGGER.error("Attempt %s has no mastery snapshot", attempt_id)
-                    raise BKTUpdateError
-                return self._submission_result(item, existing, snapshot)
+                attempt_id = attempt_id_for(learner_id, presentation_id)
+                existing = self.repository.get_attempt(attempt_id)
+                if existing is not None:
+                    if (
+                        existing.learner_id != learner_id
+                        or existing.presentation_id != presentation_id
+                        or existing.selected_option_id != selected_option_id
+                    ):
+                        raise ConflictingAttemptError
+                    snapshot = self.repository.get_mastery_for_attempt(attempt_id)
+                    if snapshot is None:
+                        LOGGER.error("Attempt %s has no mastery snapshot", attempt_id)
+                        raise BKTUpdateError
+                    return self._submission_result(item, existing, snapshot)
 
-            history = self.repository.list_attempts(
-                learner_id=learner_id, skill_id=item.skill_id
-            )
-            attempt = AttemptEvent(
-                attempt_id=attempt_id,
-                course_id=self.course_id,
-                presentation_id=presentation_id,
-                learner_id=learner_id,
-                item_id=item.item_id,
-                skill_id=item.skill_id,
-                selected_option_id=selected_option_id,
-                correct=False,
-                attempt_order=len(history) + 1,
-                occurred_at=self._clock(),
-            )
-        try:
-            snapshot = self.bkt_service.process_attempt(
-                attempt, item=item, presentation=presentation
-            )
-        except AttemptConflictError as exc:
-            LOGGER.warning("Conflicting duplicate attempt %s", attempt_id, exc_info=True)
-            raise ConflictingAttemptError from exc
-        except Exception as exc:
-            LOGGER.exception("BKT update failed for attempt %s", attempt_id)
-            raise BKTUpdateError from exc
+                history = self.repository.list_attempts(
+                    learner_id=learner_id, skill_id=item.skill_id
+                )
+                # Computed locally (pure, no DB) instead of the old
+                # post-write get_attempt re-fetch: score_response is
+                # exactly what BKTService.process_attempt's own
+                # _score_attempt uses internally to set this same field,
+                # deterministic given item + presentation + the selected
+                # option, so there is nothing left to "verify" by reading
+                # it back from storage.
+                correct = score_response(
+                    item, presentation, submitted_option_id=selected_option_id
+                )
+                attempt = AttemptEvent(
+                    attempt_id=attempt_id,
+                    course_id=self.course_id,
+                    presentation_id=presentation_id,
+                    learner_id=learner_id,
+                    item_id=item.item_id,
+                    skill_id=item.skill_id,
+                    selected_option_id=selected_option_id,
+                    correct=correct,
+                    attempt_order=len(history) + 1,
+                    occurred_at=self._clock(),
+                )
 
-        with phase("answer_persistence_verify", course_id=self.course_id):
-            scored_attempt = self.repository.get_attempt(attempt_id)
-        if scored_attempt is None:
-            LOGGER.error("BKT update returned without storing attempt %s", attempt_id)
-            raise BKTUpdateError
-        return self._submission_result(item, scored_attempt, snapshot)
+            try:
+                snapshot = self.bkt_service.process_attempt(
+                    attempt, item=item, presentation=presentation, history=history
+                )
+            except AttemptConflictError as exc:
+                LOGGER.warning(
+                    "Conflicting duplicate attempt %s", attempt_id, exc_info=True
+                )
+                raise ConflictingAttemptError from exc
+            except Exception as exc:
+                LOGGER.exception("BKT update failed for attempt %s", attempt_id)
+                raise BKTUpdateError from exc
+
+            return self._submission_result(item, attempt, snapshot)
 
     @_synchronized
     def get_progress(self, learner_id: str, skill_id: str) -> ProgressViewModel:

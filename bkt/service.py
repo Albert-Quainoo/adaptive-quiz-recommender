@@ -35,16 +35,25 @@ class BKTService:
         *,
         item: BankItem,
         presentation: QuestionPresentation,
+        history: Sequence[AttemptEvent] | None = None,
     ) -> MasterySnapshot:
+        """Still pre-checks whether attempt_id already exists -- kept
+        exactly as before (not just an optimization to skip if convenient):
+        a genuine duplicate resubmission must return the original snapshot
+        *without* calling self.model.update_mastery again, since a model
+        update is not idempotent to call redundantly against, and some
+        callers (e.g. tests/test_bkt_service.py's duplicate-submission
+        test) explicitly assert it is called exactly once per real
+        attempt.
+
+        history: pass the caller's already-fetched attempt history (same
+        learner_id/skill_id) to skip this method's own list_attempts call
+        when the caller already has it (see app/controller.py). Omit it
+        (the default) to self-fetch exactly as before -- unchanged for any
+        other caller, including every existing test that calls this
+        directly."""
         attempt = self._score_attempt(attempt, item, presentation)
-        # Named separately from app/controller.py's own answer_persistence
-        # phase (which already ruled out an existing attempt/history for
-        # this same attempt_id): this re-check exists so BKTService.
-        # process_attempt stays independently safe to call directly (its
-        # public contract), but when called via the normal learner path it
-        # is a duplicate get_attempt/list_attempts round trip -- visible
-        # here as this phase's own db_queries count.
-        with phase("bkt_existing_attempt_recheck", course_id=attempt.course_id):
+        with phase("bkt_existing_attempt_check", course_id=attempt.course_id):
             existing = self.repository.get_attempt(attempt.attempt_id)
             if existing is not None:
                 if existing != attempt:
@@ -55,10 +64,10 @@ class BKTService:
                 if snapshot is None:
                     raise RuntimeError("stored attempt is missing its mastery snapshot")
                 return snapshot
-
-            history = self.repository.list_attempts(
-                learner_id=attempt.learner_id, skill_id=attempt.skill_id
-            )
+            if history is None:
+                history = self.repository.list_attempts(
+                    learner_id=attempt.learner_id, skill_id=attempt.skill_id
+                )
 
         with phase("bkt_mastery_calculation", course_id=attempt.course_id):
             ordered_history = sorted([*history, attempt], key=self._attempt_sort_key)

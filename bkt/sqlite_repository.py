@@ -10,7 +10,8 @@ from sqlalchemy.exc import IntegrityError
 
 from bkt.repository import AttemptConflictError
 from bkt.schemas import AttemptEvent, BKTModelMetadata, MasterySnapshot
-from database import create_engine_for, execute_schema_script
+from database import connection_scope, create_engine_for, execute_schema_script
+from database import unit_of_work as _unit_of_work
 
 # The course_id every pre-migration row is backfilled to: the catalog id the
 # original single-course "ai" deployment was migrated to (see
@@ -713,7 +714,7 @@ class SQLiteBKTRepository:
         older recorded version). Raises SchemaMigrationRequiredError without
         touching anything -- the caller must fail safely with a
         maintenance/configuration message, never mutate."""
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             status = check_schema_status(connection)
 
         if status is SchemaStatus.MIGRATION_REQUIRED:
@@ -727,7 +728,7 @@ class SQLiteBKTRepository:
         if status is SchemaStatus.CURRENT:
             return status
 
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             execute_schema_script(connection, SCHEMA)
             execute_schema_script(connection, INDEXES)
             _record_schema_version(connection)
@@ -736,6 +737,14 @@ class SQLiteBKTRepository:
 
     def close(self) -> None:
         self._engine.dispose()
+
+    def unit_of_work(self):
+        """One connection, one transaction, for the duration of the with
+        block -- every read/write this repository (or any repository
+        sharing this thread, e.g. via app/controller.py calling into
+        bkt/service.py) performs inside it participates instead of opening
+        its own. See database.unit_of_work() for the full contract."""
+        return _unit_of_work(self._engine)
 
     def __enter__(self) -> "SQLiteBKTRepository":
         return self
@@ -752,7 +761,7 @@ class SQLiteBKTRepository:
 
     def save_attempt(self, attempt: AttemptEvent) -> None:
         self._require_own_course(attempt.course_id, what="attempt")
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             existing = self._select_attempt(connection, attempt.attempt_id)
         if existing is not None:
             if existing == attempt:
@@ -762,13 +771,13 @@ class SQLiteBKTRepository:
             )
 
         try:
-            with self._engine.begin() as connection:
+            with connection_scope(self._engine, write=True) as connection:
                 self._insert_attempt(connection, attempt)
         except IntegrityError as exc:
             raise AttemptConflictError(str(exc)) from exc
 
     def get_attempt(self, attempt_id: str) -> AttemptEvent | None:
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             return self._select_attempt(connection, attempt_id)
 
     def list_attempts(
@@ -783,7 +792,7 @@ class SQLiteBKTRepository:
             clauses.append("skill_id = :skill_id")
             parameters["skill_id"] = skill_id
         where = f" WHERE {' AND '.join(clauses)}"
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             rows = (
                 connection.execute(
                     text(
@@ -799,7 +808,7 @@ class SQLiteBKTRepository:
 
     def save_mastery(self, snapshot: MasterySnapshot) -> None:
         self._require_own_course(snapshot.course_id, what="mastery snapshot")
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             self._insert_mastery(connection, snapshot)
 
     def save_attempt_and_mastery(
@@ -811,31 +820,15 @@ class SQLiteBKTRepository:
         self._require_own_course(snapshot.course_id, what="mastery snapshot")
 
         try:
-            with self._engine.begin() as connection:
-                existing = self._select_attempt(connection, attempt.attempt_id)
-                if existing is not None:
-                    if existing != attempt:
-                        raise AttemptConflictError(
-                            f"attempt_id {attempt.attempt_id!r} is already used by a different attempt"
-                        )
-                    stored = self._select_mastery_for_attempt(
-                        connection, attempt.attempt_id
-                    )
-                    if stored is None:
-                        raise RuntimeError(
-                            "stored attempt is missing its mastery snapshot"
-                        )
-                    return stored
-
+            with connection_scope(self._engine, write=True) as connection:
                 self._insert_attempt(connection, attempt)
-                self._insert_mastery(connection, snapshot)
+                return self._insert_mastery(connection, snapshot)
         except IntegrityError as exc:
             raise AttemptConflictError(str(exc)) from exc
-        return snapshot.model_copy(deep=True)
 
     def get_mastery(self, learner_id: str, skill_id: str) -> MasterySnapshot | None:
         """Identity is learner_id + course_id (this repository's) + skill_id."""
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             row = (
                 connection.execute(
                     text(
@@ -860,7 +853,7 @@ class SQLiteBKTRepository:
         return self._mastery_from_row(row) if row is not None else None
 
     def get_mastery_for_attempt(self, attempt_id: str) -> MasterySnapshot | None:
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             return self._select_mastery_for_attempt(connection, attempt_id)
 
     def list_mastery(self, *, learner_id: str | None = None) -> list[MasterySnapshot]:
@@ -870,7 +863,7 @@ class SQLiteBKTRepository:
             clauses.append("learner_id = :learner_id")
             parameters["learner_id"] = learner_id
         where = f" WHERE {' AND '.join(clauses)}"
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             rows = (
                 connection.execute(
                     text(
@@ -886,7 +879,7 @@ class SQLiteBKTRepository:
 
     def save_model_metadata(self, metadata: BKTModelMetadata) -> None:
         self._require_own_course(metadata.course_id, what="model metadata")
-        with self._engine.begin() as connection:
+        with connection_scope(self._engine, write=True) as connection:
             existing = self._select_model_metadata(connection, metadata.model_version)
             if existing is not None:
                 if existing == metadata:
@@ -917,7 +910,7 @@ class SQLiteBKTRepository:
             )
 
     def get_model_metadata(self, model_version: str) -> BKTModelMetadata | None:
-        with self._engine.connect() as connection:
+        with connection_scope(self._engine, write=False) as connection:
             return self._select_model_metadata(connection, model_version)
 
     def _select_attempt(
@@ -984,89 +977,108 @@ class SQLiteBKTRepository:
             skill_ids=json.loads(row["skill_ids"]),
         )
 
-    def _insert_attempt(self, connection: Connection, attempt: AttemptEvent) -> None:
-        connection.execute(
-            text(
-                """
-                INSERT INTO attempt_events (
-                    attempt_id, course_id, presentation_id, learner_id, item_id,
-                    skill_id, selected_option_id, correct, attempt_order, occurred_at
-                ) VALUES (
-                    :attempt_id, :course_id, :presentation_id, :learner_id, :item_id,
-                    :skill_id, :selected_option_id, :correct, :attempt_order, :occurred_at
-                )
-                """
-            ),
-            {
-                "attempt_id": attempt.attempt_id,
-                "course_id": attempt.course_id,
-                "presentation_id": attempt.presentation_id,
-                "learner_id": attempt.learner_id,
-                "item_id": attempt.item_id,
-                "skill_id": attempt.skill_id,
-                "selected_option_id": attempt.selected_option_id,
-                "correct": int(attempt.correct),
-                "attempt_order": attempt.attempt_order,
-                "occurred_at": _utc_iso(attempt.occurred_at),
-            },
-        )
-
-    def _insert_mastery(self, connection: Connection, snapshot: MasterySnapshot) -> None:
-        existing = (
+    def _insert_attempt(self, connection: Connection, attempt: AttemptEvent) -> AttemptEvent:
+        """Atomic insert-or-return-existing in one round trip, replacing
+        the old plain INSERT (which relied on a caller's own pre-check, or
+        a raised IntegrityError, to catch a colliding attempt_id).
+        ON CONFLICT (attempt_id) DO UPDATE with a no-op self-assignment is
+        the portable idiom -- supported by both SQLite and PostgreSQL --
+        that makes RETURNING yield a row unconditionally (fresh insert, or
+        the pre-existing row completely untouched) instead of the zero
+        rows ON CONFLICT DO NOTHING RETURNING would give on conflict. Also
+        strictly safer than the old SELECT-then-INSERT pattern under
+        concurrency: two simultaneous identical submissions could both
+        pass a separate pre-check's SELECT before either INSERTed; this is
+        atomic, so the database -- not application code racing against
+        itself -- is what decides which write wins."""
+        row = (
             connection.execute(
                 text(
                     """
-                    SELECT * FROM mastery_snapshots
-                    WHERE source_attempt_id = :source_attempt_id
-                      AND model_version = :model_version
-                      AND course_id = :course_id
+                    INSERT INTO attempt_events (
+                        attempt_id, course_id, presentation_id, learner_id, item_id,
+                        skill_id, selected_option_id, correct, attempt_order, occurred_at
+                    ) VALUES (
+                        :attempt_id, :course_id, :presentation_id, :learner_id, :item_id,
+                        :skill_id, :selected_option_id, :correct, :attempt_order, :occurred_at
+                    )
+                    ON CONFLICT (attempt_id) DO UPDATE SET attempt_id = excluded.attempt_id
+                    RETURNING *
                     """
                 ),
                 {
-                    "source_attempt_id": snapshot.source_attempt_id,
-                    "model_version": snapshot.model_version,
-                    "course_id": snapshot.course_id,
+                    "attempt_id": attempt.attempt_id,
+                    "course_id": attempt.course_id,
+                    "presentation_id": attempt.presentation_id,
+                    "learner_id": attempt.learner_id,
+                    "item_id": attempt.item_id,
+                    "skill_id": attempt.skill_id,
+                    "selected_option_id": attempt.selected_option_id,
+                    "correct": int(attempt.correct),
+                    "attempt_order": attempt.attempt_order,
+                    "occurred_at": _utc_iso(attempt.occurred_at),
                 },
             )
             .mappings()
             .first()
         )
-        if existing is not None:
-            stored = self._mastery_from_row(existing)
-            if (
-                stored.learner_id == snapshot.learner_id
-                and stored.skill_id == snapshot.skill_id
-                and stored.mastery_probability == snapshot.mastery_probability
-                and stored.attempt_count == snapshot.attempt_count
-            ):
-                return
-            raise ValueError(
-                "mastery snapshot already exists for source attempt and model version"
+        resulting = self._attempt_from_row(row)
+        if resulting != attempt:
+            raise AttemptConflictError(
+                f"attempt_id {attempt.attempt_id!r} is already used by a different attempt"
             )
+        return resulting
 
-        connection.execute(
-            text(
-                """
-                INSERT INTO mastery_snapshots (
-                    snapshot_id, course_id, learner_id, skill_id, mastery_probability,
-                    attempt_count, source_attempt_id, model_version, updated_at
-                ) VALUES (
-                    :snapshot_id, :course_id, :learner_id, :skill_id, :mastery_probability,
-                    :attempt_count, :source_attempt_id, :model_version, :updated_at
-                )
-                """
-            ),
-            {
-                "snapshot_id": str(uuid4()),
-                "course_id": snapshot.course_id,
-                "learner_id": snapshot.learner_id,
-                "skill_id": snapshot.skill_id,
-                "mastery_probability": snapshot.mastery_probability,
-                "attempt_count": snapshot.attempt_count,
-                "source_attempt_id": snapshot.source_attempt_id,
-                "model_version": snapshot.model_version,
-                "updated_at": _utc_iso(snapshot.updated_at),
-            },
+    def _insert_mastery(
+        self, connection: Connection, snapshot: MasterySnapshot
+    ) -> MasterySnapshot:
+        """Same atomic pattern as _insert_attempt (see its docstring),
+        targeting mastery_snapshots' own (source_attempt_id, model_version)
+        uniqueness. On conflict, the untouched pre-existing row is
+        returned; if its content differs from what was submitted, that is
+        a genuine conflict and raises exactly as the old SELECT-then-check
+        code did."""
+        row = (
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO mastery_snapshots (
+                        snapshot_id, course_id, learner_id, skill_id, mastery_probability,
+                        attempt_count, source_attempt_id, model_version, updated_at
+                    ) VALUES (
+                        :snapshot_id, :course_id, :learner_id, :skill_id, :mastery_probability,
+                        :attempt_count, :source_attempt_id, :model_version, :updated_at
+                    )
+                    ON CONFLICT (source_attempt_id, model_version)
+                        DO UPDATE SET source_attempt_id = excluded.source_attempt_id
+                    RETURNING *
+                    """
+                ),
+                {
+                    "snapshot_id": str(uuid4()),
+                    "course_id": snapshot.course_id,
+                    "learner_id": snapshot.learner_id,
+                    "skill_id": snapshot.skill_id,
+                    "mastery_probability": snapshot.mastery_probability,
+                    "attempt_count": snapshot.attempt_count,
+                    "source_attempt_id": snapshot.source_attempt_id,
+                    "model_version": snapshot.model_version,
+                    "updated_at": _utc_iso(snapshot.updated_at),
+                },
+            )
+            .mappings()
+            .first()
+        )
+        resulting = self._mastery_from_row(row)
+        if (
+            resulting.learner_id == snapshot.learner_id
+            and resulting.skill_id == snapshot.skill_id
+            and resulting.mastery_probability == snapshot.mastery_probability
+            and resulting.attempt_count == snapshot.attempt_count
+        ):
+            return resulting
+        raise ValueError(
+            "mastery snapshot already exists for source attempt and model version"
         )
 
     @staticmethod

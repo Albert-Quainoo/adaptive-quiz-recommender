@@ -28,9 +28,10 @@ def activate_course(
     session: LearnerSessionState,
     course_id: str,
 ) -> None:
-    normalized = controller.start_learner_session(session.learner_id or "")
-    select_course(session, course_id)
-    session.seen_item_ids = controller.answered_item_ids(normalized)
+    with controller.repository.unit_of_work():
+        normalized = controller.start_learner_session(session.learner_id or "")
+        select_course(session, course_id)
+        session.seen_item_ids = controller.answered_item_ids(normalized)
 
 
 def ensure_question(

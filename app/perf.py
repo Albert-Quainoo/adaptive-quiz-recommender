@@ -49,6 +49,7 @@ from contextvars import ContextVar
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import Pool
 
 _LOGGER_NAME = "app.perf"
 _PERF_METRIC_PREFIX = "PERF_METRIC "
@@ -83,15 +84,52 @@ _current_frame: ContextVar["_Frame | None"] = ContextVar("_current_frame", defau
 _current_correlation_id: ContextVar[str | None] = ContextVar(
     "_current_correlation_id", default=None
 )
+# SQLAlchemy 2.0 has no before/after event pair around the actual commit()/
+# rollback() DBAPI call (unlike cursor execute) -- "commit"/"rollback" fire
+# once, after the fact. As a correctness-safe proxy for how long the commit/
+# rollback itself took, this records perf_counter() right after every query
+# completes; the commit/rollback handlers below then measure the gap since
+# that last query -- accurate for the common case where nothing else runs
+# between the last statement and the transaction's end.
+_last_query_end: ContextVar[float | None] = ContextVar("_last_query_end", default=None)
 
 
 class _Frame:
-    __slots__ = ("parent", "query_count", "db_time_ms")
+    __slots__ = (
+        "parent",
+        "query_count",
+        "db_time_ms",
+        "pool_checkouts",
+        "checkout_time_ms",
+        "new_connections",
+        "tx_begins",
+        "tx_commits",
+        "tx_rollbacks",
+        "tx_time_ms",
+    )
 
     def __init__(self, parent: "_Frame | None") -> None:
         self.parent = parent
         self.query_count = 0
         self.db_time_ms = 0.0
+        self.pool_checkouts = 0
+        self.checkout_time_ms = 0.0
+        self.new_connections = 0
+        self.tx_begins = 0
+        self.tx_commits = 0
+        self.tx_rollbacks = 0
+        self.tx_time_ms = 0.0
+
+    def _absorb_child(self, child: "_Frame") -> None:
+        self.query_count += child.query_count
+        self.db_time_ms += child.db_time_ms
+        self.pool_checkouts += child.pool_checkouts
+        self.checkout_time_ms += child.checkout_time_ms
+        self.new_connections += child.new_connections
+        self.tx_begins += child.tx_begins
+        self.tx_commits += child.tx_commits
+        self.tx_rollbacks += child.tx_rollbacks
+        self.tx_time_ms += child.tx_time_ms
 
 
 def new_correlation_id() -> str:
@@ -105,6 +143,8 @@ def _before_cursor_execute(conn, cursor, statement, parameters, context, execute
 
 @event.listens_for(Engine, "after_cursor_execute")
 def _after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    now = time.perf_counter()
+    _last_query_end.set(now)
     frame = _current_frame.get()
     if frame is None:
         return
@@ -112,7 +152,69 @@ def _after_cursor_execute(conn, cursor, statement, parameters, context, executem
     if start is None:
         return
     frame.query_count += 1
-    frame.db_time_ms += (time.perf_counter() - start) * 1000
+    frame.db_time_ms += (now - start) * 1000
+
+
+@event.listens_for(Pool, "connect")
+def _on_pool_connect(dbapi_connection, connection_record):
+    """Fires only when the pool creates a brand-new physical DBAPI
+    connection (a pool miss/cold start) -- never on a checkout that reuses
+    an already-open pooled connection."""
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.new_connections += 1
+
+
+@event.listens_for(Pool, "checkout")
+def _on_pool_checkout(dbapi_connection, connection_record, connection_proxy):
+    connection_record.info["_perf_checkout_start"] = time.perf_counter()
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.pool_checkouts += 1
+
+
+@event.listens_for(Pool, "checkin")
+def _on_pool_checkin(dbapi_connection, connection_record):
+    start = connection_record.info.pop("_perf_checkout_start", None)
+    if start is None:
+        return
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.checkout_time_ms += (time.perf_counter() - start) * 1000
+
+
+@event.listens_for(Engine, "begin")
+def _on_begin(conn):
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.tx_begins += 1
+
+
+def _time_since_last_query() -> float:
+    """See _last_query_end's comment: SQLAlchemy 2.0 has no before/after
+    pair around the actual commit()/rollback() DBAPI call, so this measures
+    the gap since the last query completed as a safe, non-invasive proxy --
+    never replaces or alters the actual commit/rollback operation itself."""
+    last = _last_query_end.get()
+    if last is None:
+        return 0.0
+    return max(0.0, (time.perf_counter() - last) * 1000)
+
+
+@event.listens_for(Engine, "commit")
+def _on_commit(conn):
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.tx_commits += 1
+        frame.tx_time_ms += _time_since_last_query()
+
+
+@event.listens_for(Engine, "rollback")
+def _on_rollback(conn):
+    frame = _current_frame.get()
+    if frame is not None:
+        frame.tx_rollbacks += 1
+        frame.tx_time_ms += _time_since_last_query()
 
 
 @contextmanager
@@ -151,18 +253,26 @@ def phase(
         elapsed_ms = (time.perf_counter() - start) * 1000
         _current_frame.reset(token)
         if frame.parent is not None:
-            frame.parent.query_count += frame.query_count
-            frame.parent.db_time_ms += frame.db_time_ms
+            frame.parent._absorb_child(frame)
         extras = "".join(f" {key}={value}" for key, value in extra.items())
         LOGGER.info(
             "phase=%s correlation_id=%s course_id=%s elapsed_ms=%.2f "
-            "db_queries=%d db_time_ms=%.2f%s",
+            "db_queries=%d db_time_ms=%.2f pool_checkouts=%d checkout_time_ms=%.2f "
+            "new_connections=%d tx_begins=%d tx_commits=%d tx_rollbacks=%d "
+            "tx_time_ms=%.2f%s",
             name,
             correlation_id,
             course_id or "-",
             elapsed_ms,
             frame.query_count,
             frame.db_time_ms,
+            frame.pool_checkouts,
+            frame.checkout_time_ms,
+            frame.new_connections,
+            frame.tx_begins,
+            frame.tx_commits,
+            frame.tx_rollbacks,
+            frame.tx_time_ms,
             extras,
         )
         if is_top_level:
@@ -173,6 +283,13 @@ def phase(
                 "elapsed_ms": round(elapsed_ms, 2),
                 "db_queries": frame.query_count,
                 "db_time_ms": round(frame.db_time_ms, 2),
+                "pool_checkouts": frame.pool_checkouts,
+                "checkout_time_ms": round(frame.checkout_time_ms, 2),
+                "new_connections": frame.new_connections,
+                "tx_begins": frame.tx_begins,
+                "tx_commits": frame.tx_commits,
+                "tx_rollbacks": frame.tx_rollbacks,
+                "tx_time_ms": round(frame.tx_time_ms, 2),
             }
             if "cache_hit" in extra:
                 metric["cache_hit"] = extra["cache_hit"]

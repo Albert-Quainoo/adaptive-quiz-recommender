@@ -55,6 +55,11 @@ def test_perf_metric_line_appears_in_fresh_subprocess_stdout():
     assert isinstance(payload["elapsed_ms"], (int, float))
     assert payload["db_queries"] == 0
     assert payload["db_time_ms"] == 0
+    assert payload["pool_checkouts"] == 0
+    assert payload["new_connections"] == 0
+    assert payload["tx_begins"] == 0
+    assert payload["tx_commits"] == 0
+    assert payload["tx_rollbacks"] == 0
 
 
 def test_perf_metric_line_never_contains_learner_or_secret_looking_keys():
@@ -85,6 +90,13 @@ def test_perf_metric_line_never_contains_learner_or_secret_looking_keys():
         "db_queries",
         "db_time_ms",
         "cache_hit",
+        "pool_checkouts",
+        "checkout_time_ms",
+        "new_connections",
+        "tx_begins",
+        "tx_commits",
+        "tx_rollbacks",
+        "tx_time_ms",
     }
     assert set(payload.keys()) <= allowed_keys
 
@@ -119,6 +131,57 @@ with phase("total_submit_rerun", correlation_id="nesting-check", course_id="intr
     )
     payload = json.loads(metric_lines[0][len("PERF_METRIC ") :])
     assert payload["phase"] == "total_submit_rerun"
+
+
+def test_pool_and_transaction_instrumentation_reports_real_activity(tmp_path):
+    db_path = tmp_path / "perf_instrumentation_check.sqlite3"
+    script = f"""
+import sys
+sys.path.insert(0, {str(REPO_ROOT)!r})
+from sqlalchemy import text
+from app.perf import phase
+from database import create_engine_for
+
+engine = create_engine_for({str(db_path)!r})
+with phase("course_selection", correlation_id="pool-tx-check", course_id="intro-ai"):
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE t (x INTEGER)"))
+        connection.execute(text("INSERT INTO t (x) VALUES (1)"))
+    with engine.connect() as connection:
+        connection.execute(text("SELECT * FROM t")).fetchall()
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+    metric_line = next(
+        line for line in completed.stdout.splitlines() if line.startswith("PERF_METRIC ")
+    )
+    payload = json.loads(metric_line[len("PERF_METRIC ") :])
+
+    # CREATE TABLE, INSERT, SELECT, plus the 2 PRAGMA statements
+    # database.py's SQLite engine setup issues on the first physical
+    # connection (see database.py's "connect" event: foreign_keys, journal_mode).
+    assert payload["db_queries"] == 5
+    assert payload["pool_checkouts"] == 2  # one engine.begin(), one engine.connect()
+    assert payload["new_connections"] >= 1  # at least the first physical connection
+    # 2: engine.begin() opens one explicitly, and engine.connect() also
+    # auto-begins one under SQLAlchemy's normal transactional bookkeeping
+    # once a statement executes on it (a documented SQLAlchemy behavior,
+    # not specific to this app).
+    assert payload["tx_begins"] == 2
+    assert payload["tx_commits"] == 1  # the explicit engine.begin() block
+    # The plain engine.connect() read never calls .commit(), so SQLAlchemy
+    # closes its auto-begun (read-only) transaction with an implicit
+    # rollback -- also standard SQLAlchemy behavior, not this app's.
+    assert payload["tx_rollbacks"] == 1
+    assert payload["checkout_time_ms"] >= 0
+    assert payload["tx_time_ms"] >= 0
 
 
 def test_repeated_module_import_does_not_duplicate_perf_metric_lines():

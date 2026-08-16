@@ -16,6 +16,7 @@ from bkt import (
     MasterySnapshot,
     SQLiteBKTRepository,
 )
+from database import unit_of_work
 from recommendation import (
     ContentGapResult,
     RecommendationPolicyConfig,
@@ -418,3 +419,37 @@ def test_content_gap_result_is_persisted_with_mastery_and_threshold(tmp_path):
     assert events[0].prerequisite_mastery_threshold == 0.75
     assert events[0].created_at.tzinfo is not None
     reopened.close()
+
+
+def test_save_learner_cache_does_not_outrun_a_rolled_back_transaction(tmp_path):
+    """save_learner's in-memory "already confirmed" cache (an optimization
+    that skips the round trip for a learner already known to exist -- see
+    recommendation/sqlite_repository.py) must never believe a learner
+    exists unless that write actually committed. If it did, a later
+    unrelated failure in the same unit_of_work rolling back save_learner's
+    write would leave the learner permanently missing from the database
+    (until process restart) while this process kept skipping the write
+    that would have fixed it -- breaking every future foreign-key-
+    dependent write for that learner (question_presentations references
+    learner_sessions)."""
+    repository = SQLiteRecommendationRepository(
+        tmp_path / "confirmed-learners-cache.sqlite3",
+        course_id="test-course",
+        skills=[_skill("AI-SQL-01")],
+        items=[_item("AI-SQL-01")],
+    )
+    repository.initialize_schema()
+
+    with pytest.raises(RuntimeError, match="synthetic failure after save_learner"):
+        with unit_of_work(repository._engine):
+            repository.save_learner("learner-1", created_at=NOW)
+            raise RuntimeError("synthetic failure after save_learner")
+
+    assert repository.learner_exists("learner-1") is False
+
+    # A fresh, unrelated call for the same learner_id must still actually
+    # write the row -- proving the cache did not wrongly remember the
+    # rolled-back attempt as "confirmed".
+    repository.save_learner("learner-1", created_at=NOW)
+    assert repository.learner_exists("learner-1") is True
+    repository.close()
