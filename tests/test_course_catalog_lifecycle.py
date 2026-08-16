@@ -125,7 +125,7 @@ def test_advance_to_content_approval_rejects_non_preparing_courses(repository):
 def test_advance_to_ready_and_activate_noops_when_not_ready(repository):
     manifest = manifest_with_status("awaiting_content_approval")
     report = ReadinessReport(course_id="x", is_ready=False, blockers=["missing bank"])
-    result = advance_to_ready_and_activate(manifest, report, repository, clock=clock_at())
+    result = advance_to_ready_and_activate(manifest, report, repository, approver="op", clock=clock_at())
     assert result is None
     assert repository.list_for_course("x") == []
 
@@ -133,7 +133,7 @@ def test_advance_to_ready_and_activate_noops_when_not_ready(repository):
 def test_advance_to_ready_and_activate_noops_when_not_in_eligible_status(repository):
     manifest = manifest_with_status("preparing")
     report = ReadinessReport(course_id="x", is_ready=True, blockers=[])
-    result = advance_to_ready_and_activate(manifest, report, repository, clock=clock_at())
+    result = advance_to_ready_and_activate(manifest, report, repository, approver="op", clock=clock_at())
     assert result is None
 
 
@@ -142,7 +142,7 @@ def test_advance_to_ready_and_activate_noops_when_auto_activate_disabled(reposit
         "awaiting_content_approval", auto_activate_when_ready=False
     )
     report = ReadinessReport(course_id="x", is_ready=True, blockers=[])
-    result = advance_to_ready_and_activate(manifest, report, repository, clock=clock_at())
+    result = advance_to_ready_and_activate(manifest, report, repository, approver="op", clock=clock_at())
     assert result is None
 
 
@@ -157,7 +157,7 @@ def test_advance_to_ready_and_activate_transitions_and_writes_one_record(reposit
         bkt_model_version="mv1",
     )
     updated, record = advance_to_ready_and_activate(
-        manifest, report, repository, clock=clock_at()
+        manifest, report, repository, approver="op", clock=clock_at()
     )
     assert updated.status == "active"
     assert record.decision == "activated"
@@ -165,6 +165,7 @@ def test_advance_to_ready_and_activate_transitions_and_writes_one_record(reposit
     assert record.taxonomy_version == "tv1"
     assert record.approved_bank_version == "bv1"
     assert record.bkt_model_version == "mv1"
+    assert record.approver_identity == "op"
 
 
 def test_archive_course_moves_active_to_archived(repository):
@@ -191,7 +192,7 @@ def test_full_lifecycle_produces_an_append_only_audit_trail(repository):
     )
     report = ReadinessReport(course_id="x", is_ready=True, blockers=[])
     manifest, _ = advance_to_ready_and_activate(
-        manifest, report, repository, clock=clock_at()
+        manifest, report, repository, approver="op", clock=clock_at()
     )
     before_archive = repository.list_for_course("x")
     archive_course(manifest, repository, approver="op", clock=clock_at())

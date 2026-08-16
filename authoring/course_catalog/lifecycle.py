@@ -165,14 +165,20 @@ def advance_to_ready_and_activate(
     readiness: ReadinessReport,
     repository: SQLiteCourseApprovalRepository,
     *,
+    approver: str,
     clock: Clock = _default_clock,
 ) -> tuple[CourseManifest, CourseApprovalRecord] | None:
     """awaiting_content_approval -> ready -> active, in one recorded step.
 
     A no-op (returns None, no mutation, no new record) whenever the course
     isn't in the eligible status, isn't ready, or has opted out of
-    auto-activation -- callers (inspect-course-readiness) can call this on
-    every run without side effects on a not-yet-ready course."""
+    auto-activation -- the only caller (authoring/course_catalog/cli.py's
+    activate-course, an explicit, --confirm-gated admin command) can call
+    this without side effects on a not-yet-ready course. approver is the
+    real identity requesting activation, recorded on the audit record --
+    there is no more silent/automatic activation path in this codebase
+    (inspect-course-readiness, the one that used to trigger this
+    unattended, is now strictly read-only)."""
 
     if manifest.status != "awaiting_content_approval":
         return None
@@ -187,7 +193,7 @@ def advance_to_ready_and_activate(
         lifecycle_status="active",
         course_profile_version=manifest.version,
         decision="activated",
-        approver_identity="system:auto-activation",
+        approver_identity=approver,
         decided_at=clock(),
         auto_activate_when_ready=True,
         taxonomy_version=readiness.taxonomy_version,

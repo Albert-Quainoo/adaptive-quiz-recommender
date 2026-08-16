@@ -1,6 +1,7 @@
 """Protected offline admin CLI for the course catalog lifecycle.
 
     python -m authoring.course_catalog.cli inspect-course-readiness <course_id>
+    python -m authoring.course_catalog.cli activate-course <course_id> --approver <id> --confirm
     python -m authoring.course_catalog.cli approve-course <course_id> --approver <id>
     python -m authoring.course_catalog.cli reject-course <course_id> --reason ...
     python -m authoring.course_catalog.cli archive-course <course_id> --approver <id>
@@ -10,6 +11,22 @@ authoring/replenishment/cli.py, it is "protected" purely by being
 unreachable from the learner-facing app process. It is never a substitute
 for, and never overrides, individual question-review decisions made in
 authoring/grounded_review.py.
+
+inspect-course-readiness is strictly read-only: it opens no database
+connection and writes nothing, ever -- see
+tests/test_course_catalog_cli.py::test_inspect_course_readiness_writes_nothing.
+It used to also auto-activate a ready course in the same call; that side
+effect was removed because a readiness *inspection* silently taking a
+hard-to-reverse, learner-visible action (making a course active) is exactly
+the kind of surprise this protected CLI exists to prevent. activate-course
+is the separate, explicitly named command for that: it requires --confirm
+in addition to --approver, re-checks readiness itself immediately before
+writing (never trusts a caller's earlier inspect-course-readiness result),
+and is the only command that flips a manifest to "active" -- always via
+authoring.course_catalog.lifecycle.advance_to_ready_and_activate, which
+still records one immutable CourseApprovalRecord and still honors
+auto_activate_when_ready (a course explicitly opted out of it stays
+un-activated even here, until that flag is changed separately).
 """
 
 import argparse
@@ -52,6 +69,11 @@ def _write_manifest(manifest) -> None:
 
 
 def inspect_course_readiness(arguments: argparse.Namespace) -> int:
+    """Strictly read-only: loads the manifest and evaluates readiness only.
+    Opens no database connection and calls no lifecycle-transition
+    function, so this can never change lifecycle state or activate a
+    course -- see this module's docstring and
+    tests/test_course_catalog_cli.py::test_inspect_course_readiness_writes_nothing."""
     manifest = load_course_manifest(arguments.course_id)
     report = inspect_readiness(manifest)
 
@@ -61,16 +83,53 @@ def inspect_course_readiness(arguments: argparse.Namespace) -> int:
         print(f"{manifest.course_id}: not ready")
         for blocker in report.blockers:
             print(f"  - {blocker}")
+    return 0
+
+
+def activate_course_command(arguments: argparse.Namespace) -> int:
+    """The one command that can move a course to "active". Requires
+    --confirm in addition to --approver: readiness is real information a
+    human should see before deciding, not something this command should
+    ever act on unattended. Re-checks readiness itself right before
+    writing rather than trusting a separate earlier
+    inspect-course-readiness call, so nothing can change course content
+    out from under a stale confirmation."""
+    manifest = load_course_manifest(arguments.course_id)
+    report = inspect_readiness(manifest)
+
+    if not report.is_ready:
+        print(f"{manifest.course_id}: not ready, cannot activate", file=sys.stderr)
+        for blocker in report.blockers:
+            print(f"  - {blocker}", file=sys.stderr)
+        return 1
+
+    if not arguments.confirm:
+        print(
+            f"{manifest.course_id}: ready, but --confirm was not passed; "
+            "no change made. Re-run with --confirm to activate.",
+            file=sys.stderr,
+        )
+        return 1
 
     repository = _open_repository(arguments)
-    outcome = advance_to_ready_and_activate(manifest, report, repository)
-    if outcome is not None:
-        updated_manifest, record = outcome
-        _write_manifest(updated_manifest)
+    outcome = advance_to_ready_and_activate(
+        manifest, report, repository, approver=arguments.approver
+    )
+    if outcome is None:
         print(
-            f"{manifest.course_id}: auto-activated "
-            f"(record {record.record_id}, sequence {record.sequence_number})"
+            f"{manifest.course_id}: not activated -- either not in "
+            "awaiting_content_approval, or auto_activate_when_ready is "
+            "disabled for this course.",
+            file=sys.stderr,
         )
+        return 1
+
+    updated_manifest, record = outcome
+    _write_manifest(updated_manifest)
+    print(
+        f"{manifest.course_id}: activated "
+        f"(record {record.record_id}, sequence {record.sequence_number})"
+    )
     return 0
 
 
@@ -190,10 +249,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     readiness_command = commands.add_parser(
         "inspect-course-readiness",
-        help="report unmet activation requirements; auto-activate if all pass",
+        help="report unmet activation requirements (strictly read-only)",
     )
     readiness_command.add_argument("course_id")
     readiness_command.set_defaults(handler=inspect_course_readiness)
+
+    activate_command = commands.add_parser(
+        "activate-course",
+        help="activate a ready, awaiting_content_approval course (requires --confirm)",
+    )
+    activate_command.add_argument("course_id")
+    activate_command.add_argument("--approver", required=True)
+    activate_command.add_argument(
+        "--confirm",
+        action="store_true",
+        help="required: without it, the command reports readiness only and writes nothing",
+    )
+    activate_command.set_defaults(handler=activate_course_command)
 
     approve_command = commands.add_parser(
         "approve-course", help="approve a proposed course definition for preparation"
