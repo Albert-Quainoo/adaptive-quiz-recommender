@@ -258,3 +258,29 @@ def test_data_written_by_one_process_is_readable_by_a_separate_process():
     assert reader.get_mastery("learner-1", "AI-PG-01") == _snapshot(attempt)
     writer.close()
     reader.close()
+
+
+def test_fresh_mastery_insert_survives_postgres_real_column_precision_loss():
+    """mastery_probability is declared REAL (see bkt/sqlite_repository.py's
+    SCHEMA) -- on SQLite that's an 8-byte double, lossless, but on
+    PostgreSQL REAL is specifically 4-byte single precision. save_attempt_
+    and_mastery's atomic upsert always reads the row back via RETURNING and
+    compares it against what was submitted (see _insert_mastery) to detect
+    a genuine conflict -- for a value with more precision than float32
+    holds, that round-tripped value is *never* bit-identical to the
+    original Python float even on a completely fresh, non-conflicting
+    insert. An exact `==` comparison there raises ValueError on every such
+    submission; this asserts the tolerant comparison does not, using
+    1/3 -- far more significant digits than REAL can represent, so this
+    reproduces regardless of the specific client-encoding path."""
+    repository = SQLiteBKTRepository(_dsn(), course_id="test-course")
+    repository.initialize_schema()
+    attempt = _attempt("pg-precision-1")
+
+    result = repository.save_attempt_and_mastery(attempt, _snapshot(attempt, probability=1 / 3))
+
+    assert result.mastery_probability == pytest.approx(1 / 3, rel=1e-6)
+    assert repository.get_mastery("learner-1", "AI-PG-01").mastery_probability == pytest.approx(
+        1 / 3, rel=1e-6
+    )
+    repository.close()

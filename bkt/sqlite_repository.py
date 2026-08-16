@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -1073,7 +1074,12 @@ class SQLiteBKTRepository:
         if (
             resulting.learner_id == snapshot.learner_id
             and resulting.skill_id == snapshot.skill_id
-            and resulting.mastery_probability == snapshot.mastery_probability
+            and math.isclose(
+                resulting.mastery_probability,
+                snapshot.mastery_probability,
+                rel_tol=1e-6,
+                abs_tol=1e-6,
+            )
             and resulting.attempt_count == snapshot.attempt_count
         ):
             return resulting
