@@ -30,8 +30,19 @@ def activate_course(
 ) -> None:
     with controller.repository.unit_of_work():
         normalized = controller.start_learner_session(session.learner_id or "")
-        select_course(session, course_id)
-        session.seen_item_ids = controller.answered_item_ids(normalized)
+        select_course(session, course_id, bank_version=controller.bank_version)
+        if controller.max_session_questions is None:
+            # Unbounded course (e.g. intro-ai): preserve the original
+            # behavior exactly -- seed with the learner's full lifetime
+            # history so nothing already answered is ever re-served. Round
+            # checkpoints don't exist for this course, so there is no later
+            # point where that full history would be reset.
+            session.seen_item_ids = controller.answered_item_ids(normalized)
+        # Round-based courses start each round's excluded set empty --
+        # recommendation/policy.py's select_item still prefers the
+        # learner's lifetime-unseen items first, so genuinely new content
+        # is not repeated ahead of schedule; it just isn't a hard exclusion
+        # once a round wants to resurface weak-area content.
 
 
 def ensure_question(
@@ -42,7 +53,9 @@ def ensure_question(
         raise ValueError("Learner ID is required.")
     if session.question is None:
         question = controller.recommend_question(
-            session.learner_id, session.seen_item_ids
+            session.learner_id,
+            session.seen_item_ids,
+            restrict_to_weak_skills=session.restrict_to_weak_skills,
         )
         retain_question(session, question)
     return session.question

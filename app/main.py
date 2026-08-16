@@ -19,18 +19,28 @@ from app.controller import (
     ContentGapError,
     NoApprovedItemError,
     NoRecommendationError,
-    SessionLimitReachedError,
+    RoundCompleteError,
 )
 from app.flow import activate_course, ensure_question, submit_current_question
 from app.multi_course import build_course_catalog
 from app.perf import new_correlation_id, phase
-from app.session import clear_learner, get_session_state, identify_learner, next_question
+from app.session import (
+    clear_learner,
+    finish_session,
+    get_session_state,
+    identify_learner,
+    mark_round_complete,
+    next_question,
+    pause_session,
+    start_new_round,
+)
 from app.ui.content_gap import render_content_gap
 from app.ui.course_selector import render_course_selector
 from app.ui.feedback import render_feedback
 from app.ui.login import render_learner_switcher, render_login
 from app.ui.progress import render_progress
 from app.ui.question import render_question
+from app.ui.round_checkpoint import render_finished, render_paused, render_round_checkpoint
 from app.ui.theme import inject_theme
 
 
@@ -100,10 +110,7 @@ def render_recommendation_error(error: ApplicationError, *, has_seen: bool) -> N
         st.info("You have completed all currently available questions for this learner.")
     elif isinstance(error, NoRecommendationError):
         st.info("No eligible question is available for this learner right now.")
-    elif isinstance(
-        error,
-        (BankExhaustedBelowMasteryError, AllEligibleItemsAttemptedError, SessionLimitReachedError),
-    ):
+    elif isinstance(error, (BankExhaustedBelowMasteryError, AllEligibleItemsAttemptedError)):
         st.info(error.user_message)
     else:
         st.error(error.user_message)
@@ -192,6 +199,37 @@ def main() -> None:
         st.error(str(error))
         return
 
+    if session.round_state == "finished":
+        if render_finished():
+            with phase(
+                "round_restart", correlation_id=correlation_id, course_id=session.course_id
+            ):
+                activate_course(controller, session, session.course_id)
+            st.rerun()
+        return
+
+    if session.round_state == "paused":
+        if render_paused():
+            session.round_state = "in_progress"
+            st.rerun()
+        return
+
+    if session.round_state == "round_complete":
+        choice = render_round_checkpoint(session.round_number)
+        if choice == "continue":
+            start_new_round(session, bank_version=controller.bank_version)
+            st.rerun()
+        elif choice == "focus_weak":
+            start_new_round(session, bank_version=controller.bank_version, focus_weak_areas=True)
+            st.rerun()
+        elif choice == "pause":
+            pause_session(session)
+            st.rerun()
+        elif choice == "finish":
+            finish_session(session)
+            st.rerun()
+        return
+
     st.title("Adaptive Quiz")
     st.caption("One question at a time · progress is saved automatically")
 
@@ -207,12 +245,14 @@ def main() -> None:
         except ContentGapError as error:
             render_content_gap(error.content_gap)
             return
+        except RoundCompleteError:
+            mark_round_complete(session)
+            st.rerun()
         except (
             NoApprovedItemError,
             NoRecommendationError,
             BankExhaustedBelowMasteryError,
             AllEligibleItemsAttemptedError,
-            SessionLimitReachedError,
         ) as error:
             render_recommendation_error(error, has_seen=bool(session.seen_item_ids))
             return

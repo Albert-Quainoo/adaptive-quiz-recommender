@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -17,7 +17,7 @@ from app.controller import (
     InvalidOptionError,
     NoApprovedItemError,
     NoRecommendationError,
-    SessionLimitReachedError,
+    RoundCompleteError,
 )
 from app.flow import activate_course, activate_learner, ensure_question, submit_current_question
 from app.session import (
@@ -26,6 +26,8 @@ from app.session import (
     identify_learner,
     next_question,
     retain_question,
+    select_course,
+    start_new_round,
     submission_succeeded,
 )
 from app.view_models import readable_recommendation_reason
@@ -73,13 +75,14 @@ def item(item_id, skill_id):
 
 
 def build_controller(
-    database, *, items=None, skills=None, token="token-1", max_session_questions=None
+    database, *, items=None, skills=None, token="token-1", max_session_questions=None, clock=None
 ):
     skills = skills or [skill(FOUNDATION), skill(DEPENDENT, [FOUNDATION])]
     items = items if items is not None else [
         item("foundation-item", FOUNDATION),
         item("dependent-item", DEPENDENT),
     ]
+    clock = clock or (lambda: NOW)
     repository = SQLiteRecommendationRepository(
         database, course_id="test-course", skills=skills, items=items
     )
@@ -97,9 +100,9 @@ def build_controller(
             repository, course_id="test-course", model_version="app-test-v1", config=policy
         ),
         bkt_service=BKTService(
-            DeterministicModel(), repository, clock=lambda: NOW
+            DeterministicModel(), repository, clock=clock
         ),
-        clock=lambda: NOW,
+        clock=clock,
         presentation_token_factory=lambda: token,
         max_session_questions=max_session_questions,
     )
@@ -157,8 +160,112 @@ def test_session_limit_raises_once_the_cap_is_reached(tmp_path):
 
     below_cap.recommend_question("learner-1", [])
     still_below_cap.recommend_question("learner-1", ["one-seen-item"])
-    with pytest.raises(SessionLimitReachedError):
+    with pytest.raises(RoundCompleteError):
         at_cap.recommend_question("learner-1", ["seen-1", "seen-2"])
+
+
+def test_round_checkpoint_state_transitions_are_pure_session_state():
+    from app.session import (
+        finish_session,
+        mark_round_complete,
+        pause_session,
+        select_course,
+        start_new_round,
+    )
+
+    backing = {}
+    session = get_session_state(backing)
+    identify_learner(session, "learner-1")
+    select_course(session, "test-course", bank_version="bank-v1")
+    assert session.round_number == 1
+    assert session.round_state == "in_progress"
+    assert session.round_bank_version == "bank-v1"
+
+    mark_round_complete(session)
+    assert session.round_state == "round_complete"
+
+    start_new_round(session, bank_version="bank-v2", focus_weak_areas=True)
+    assert session.round_number == 2
+    assert session.round_state == "in_progress"
+    assert session.round_bank_version == "bank-v2"
+    assert session.restrict_to_weak_skills is True
+    assert session.seen_item_ids == []
+
+    pause_session(session)
+    assert session.round_state == "paused"
+
+    finish_session(session)
+    assert session.round_state == "finished"
+
+
+def test_two_consecutive_rounds_preserve_mastery_and_prioritize_unseen_items(tmp_path):
+    """End-to-end: a 2-question round cap, run through two full rounds.
+    Verifies mastery/attempt history survives the round boundary untouched,
+    round 2 starts with no repeats excluded, and round 2 prefers items the
+    learner has never attempted over the two already answered in round 1."""
+    skills = [skill(FOUNDATION)]
+    items = [item(f"item-{n}", FOUNDATION) for n in range(5)]
+    # A genuinely advancing clock: mastery_snapshots' tiebreak beyond
+    # updated_at is source_attempt_id (a content hash, not chronological),
+    # so a frozen clock across 4+ sequential submissions can make
+    # get_mastery's "latest" snapshot pick ambiguous between equal-timestamp
+    # rows.
+    ticks = iter(range(1000))
+    clock = lambda: NOW + timedelta(seconds=next(ticks))
+    controller, repository = build_controller(
+        tmp_path / "rounds.sqlite3", items=items, skills=skills, max_session_questions=2, clock=clock
+    )
+    backing = {}
+    session = get_session_state(backing)
+    identify_learner(session, "learner-1")
+    select_course(session, "test-course", bank_version=controller.bank_version)
+
+    # Round 1: answer two questions, then hit the round cap.
+    round_1_items = []
+    for _ in range(2):
+        question = controller.recommend_question("learner-1", session.seen_item_ids)
+        round_1_items.append(question.item_id)
+        controller.submit_answer(
+            "learner-1", question.presentation_id, option(question, "Correct")
+        )
+        session.seen_item_ids.append(question.item_id)
+
+    assert len(set(round_1_items)) == 2  # no repeat within round 1
+    with pytest.raises(RoundCompleteError):
+        controller.recommend_question("learner-1", session.seen_item_ids)
+
+    progress_after_round_1 = controller.get_progress("learner-1", FOUNDATION)
+    assert progress_after_round_1.attempt_count == 2
+    assert progress_after_round_1.mastery_probability == 0.8
+
+    # Round 2: mastery/attempts from round 1 must be untouched, and the
+    # round's own excluded-item set must have reset.
+    start_new_round(session, bank_version=controller.bank_version)
+    assert session.round_number == 2
+    assert session.seen_item_ids == []
+    assert controller.get_progress("learner-1", FOUNDATION).attempt_count == 2
+
+    round_2_items = []
+    for _ in range(2):
+        question = controller.recommend_question("learner-1", session.seen_item_ids)
+        round_2_items.append(question.item_id)
+        controller.submit_answer(
+            "learner-1", question.presentation_id, option(question, "Correct")
+        )
+        session.seen_item_ids.append(question.item_id)
+
+    assert len(set(round_2_items)) == 2  # no repeat within round 2 either
+    # Round 2 must prefer the 3 lifetime-unseen items over the 2 already
+    # attempted in round 1 -- with 3 unseen items available for 2 slots,
+    # neither round-1 item should reappear yet.
+    assert set(round_2_items).isdisjoint(round_1_items)
+
+    with pytest.raises(RoundCompleteError):
+        controller.recommend_question("learner-1", session.seen_item_ids)
+
+    final_progress = controller.get_progress("learner-1", FOUNDATION)
+    assert final_progress.attempt_count == 4
+    assert len(repository.list_attempts(learner_id="learner-1")) == 4
 
 
 @pytest.mark.parametrize(

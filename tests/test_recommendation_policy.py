@@ -182,3 +182,69 @@ def test_default_difficulty_thresholds_are_transparent_and_configurable():
     assert difficulty_for_mastery(0.40, config) == "intermediate"
     assert difficulty_for_mastery(0.74, config) == "intermediate"
     assert difficulty_for_mastery(0.75, config) == "advanced"
+
+
+def test_restrict_to_weak_narrows_to_below_threshold_skills():
+    strong = skill("AI-SRC-01")
+    weak = skill("AI-SRC-02")
+    config = RecommendationPolicyConfig()
+
+    selection = select_skill(
+        [strong, weak],
+        {strong.skill_id, weak.skill_id},
+        {strong.skill_id: 0.90, weak.skill_id: 0.10},
+        config,
+        restrict_to_weak=True,
+    )
+
+    assert selection.skill.skill_id == weak.skill_id
+
+
+def test_restrict_to_weak_falls_back_to_normal_selection_when_nothing_is_weak():
+    """A "focus on weak areas" round-start choice must never hard-fail just
+    because the learner currently has nothing below the weak threshold."""
+    first = skill("AI-SRC-01")
+    second = skill("AI-SRC-02")
+    config = RecommendationPolicyConfig()
+
+    selection = select_skill(
+        [first, second],
+        {first.skill_id, second.skill_id},
+        {first.skill_id: 0.90, second.skill_id: 0.85},
+        config,
+        restrict_to_weak=True,
+    )
+
+    assert selection is not None
+    assert selection.skill.skill_id == second.skill_id  # still the lower-mastery one
+
+
+def test_select_item_prioritizes_lifetime_unseen_items_over_attempted_ones():
+    attempted = item("item-attempted", "AI-SRC-01", "introductory")
+    unseen = item("item-unseen", "AI-SRC-01", "introductory")
+
+    selection = select_item(
+        [attempted, unseen],
+        skill_id="AI-SRC-01",
+        desired_difficulty="introductory",
+        excluded_item_ids=set(),
+        last_answered_item_id=None,
+        attempted_item_ids=frozenset({attempted.item_id}),
+    )
+
+    assert selection.item.item_id == unseen.item_id
+
+
+def test_select_item_falls_back_to_attempted_items_once_unseen_is_exhausted():
+    only_attempted = item("item-attempted", "AI-SRC-01", "introductory")
+
+    selection = select_item(
+        [only_attempted],
+        skill_id="AI-SRC-01",
+        desired_difficulty="introductory",
+        excluded_item_ids=set(),
+        last_answered_item_id=None,
+        attempted_item_ids=frozenset({only_attempted.item_id}),
+    )
+
+    assert selection.item.item_id == only_attempted.item_id

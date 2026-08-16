@@ -22,6 +22,10 @@ class RecommendationRequest(BaseModel):
     available_skill_ids: list[str] = Field(min_length=1)
     excluded_item_ids: list[str] = Field(default_factory=list)
     requested_difficulty: difficulty_level | None = None
+    # Round-checkpoint learner choice ("focus on weak areas"): narrows skill
+    # selection to skills still below the introductory mastery threshold.
+    # False (the default) is the normal adaptive-progression policy.
+    restrict_to_weak_skills: bool = False
 
     @field_validator("learner_id", mode="before")
     @classmethod

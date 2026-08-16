@@ -89,8 +89,16 @@ def select_skill(
     mastery_by_skill: Mapping[str, float],
     config: RecommendationPolicyConfig,
     exhausted_skill_ids: set[str] = frozenset(),
+    restrict_to_weak: bool = False,
 ) -> SkillSelection | None:
-    """Choose an eligible skill; input order is the taxonomy tie-breaker."""
+    """Choose an eligible skill; input order is the taxonomy tie-breaker.
+
+    restrict_to_weak (a learner's explicit "focus on weak areas" round-start
+    choice) narrows eligibility to skills still below
+    introductory_mastery_threshold, skipping the foundational-unseen-skill
+    branch below so a weak-areas round never introduces a brand-new skill.
+    Falls back to the normal eligible set if nothing is currently weak, so
+    the choice degrades gracefully rather than hard-failing."""
 
     eligible = [
         (taxonomy_order, skill)
@@ -100,6 +108,28 @@ def select_skill(
     ]
     if not eligible:
         return None
+
+    if restrict_to_weak:
+        weak = [
+            entry
+            for entry in eligible
+            if mastery_for(entry[1].skill_id, mastery_by_skill, config)
+            < config.introductory_mastery_threshold
+        ]
+        if weak:
+            _, skill = min(
+                weak,
+                key=lambda entry: (
+                    mastery_for(entry[1].skill_id, mastery_by_skill, config),
+                    entry[0],
+                    entry[1].skill_id,
+                ),
+            )
+            return SkillSelection(
+                skill=skill,
+                mastery_probability=mastery_for(skill.skill_id, mastery_by_skill, config),
+                reason="lowest_mastery_eligible_skill",
+            )
 
     if not mastery_by_skill:
         foundational = [entry for entry in eligible if not entry[1].prerequisite_skill_ids]
@@ -156,7 +186,13 @@ def select_item(
     desired_difficulty: difficulty_level,
     excluded_item_ids: set[str],
     last_answered_item_id: str | None,
+    attempted_item_ids: frozenset[str] = frozenset(),
 ) -> ItemSelection | None:
+    """attempted_item_ids is the learner's lifetime attempt history (not just
+    this round's excluded_item_ids): items never attempted before are
+    ranked ahead of already-attempted ones at the same difficulty distance,
+    so a multi-round session exhausts unseen content before it starts
+    resurfacing previously-seen items for weak-area review."""
     candidates = [
         item
         for item in items
@@ -175,6 +211,7 @@ def select_item(
     selected = min(
         candidates,
         key=lambda item: (
+            item.item_id in attempted_item_ids,
             difficulty_order.index(item.question.difficulty),
             item.item_id,
         ),

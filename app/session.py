@@ -26,8 +26,27 @@ class LearnerSessionState(BaseModel):
     )
     feedback_state: Literal["hidden", "visible"] = "hidden"
     feedback: SubmissionResultViewModel | None = None
+    # Scoped to the *current round* only (see round_number below): reset to
+    # [] at the start of every round, so "no repeats" applies within a
+    # round, not for the learner's whole lifetime -- a later round may
+    # legitimately resurface an item from an earlier round once genuinely
+    # unseen content runs low (recommendation/policy.py's select_item
+    # prioritizes lifetime-unseen items ahead of that).
     seen_item_ids: list[str] = Field(default_factory=list)
     error_message: str | None = None
+
+    round_number: int = 1
+    round_state: Literal["in_progress", "round_complete", "paused", "finished"] = (
+        "in_progress"
+    )
+    # The active bank's fingerprint (ApplicationController.bank_version) at
+    # the moment this round started, recorded so a round's content
+    # provenance is auditable even though the controller's own item set is
+    # already static for its cached lifetime.
+    round_bank_version: str | None = None
+    # This round's "focus on weak areas" choice, threaded into every
+    # recommend_question call in the round.
+    restrict_to_weak_skills: bool = False
 
 
 def attempt_id_for(learner_id: str, presentation_id: str) -> str:
@@ -60,7 +79,9 @@ def clear_learner(session: LearnerSessionState) -> None:
         setattr(session, name, value)
 
 
-def select_course(session: LearnerSessionState, course_id: str) -> None:
+def select_course(
+    session: LearnerSessionState, course_id: str, *, bank_version: str | None = None
+) -> None:
     session.course_id = course_id
     session.seen_item_ids = []
     session.question = None
@@ -72,6 +93,50 @@ def select_course(session: LearnerSessionState, course_id: str) -> None:
     session.feedback_state = "hidden"
     session.feedback = None
     session.error_message = None
+    session.round_number = 1
+    session.round_state = "in_progress"
+    session.round_bank_version = bank_version
+    session.restrict_to_weak_skills = False
+
+
+def mark_round_complete(session: LearnerSessionState) -> None:
+    """Called when the controller raises RoundCompleteError: presents the
+    checkpoint (Continue / Focus on weak areas / Pause / Finish) instead of
+    a terminal error. Mastery and attempt history are untouched -- only
+    display state changes here."""
+    session.round_state = "round_complete"
+
+
+def start_new_round(
+    session: LearnerSessionState, *, bank_version: str | None, focus_weak_areas: bool = False
+) -> None:
+    """Starts the next round: resets only this round's seen-item exclusion
+    set and question-display state. Never touches mastery or attempt
+    history, both of which live durably in the repository keyed by
+    learner_id/skill_id, independent of round or session boundaries."""
+    session.round_number += 1
+    session.round_state = "in_progress"
+    session.round_bank_version = bank_version
+    session.restrict_to_weak_skills = focus_weak_areas
+    session.seen_item_ids = []
+    session.question = None
+    session.presentation_id = None
+    session.item_id = None
+    session.selected_option_id = None
+    session.attempt_id = None
+    session.submission_state = "not_submitted"
+    session.feedback_state = "hidden"
+    session.feedback = None
+    session.error_message = None
+
+
+def pause_session(session: LearnerSessionState) -> None:
+    session.round_state = "paused"
+
+
+def finish_session(session: LearnerSessionState) -> None:
+    session.round_state = "finished"
+    session.question = None
 
 
 def retain_question(session: LearnerSessionState, question: QuestionViewModel) -> None:

@@ -1,5 +1,6 @@
 """Application boundary coordinating recommendation, scoring, BKT, and SQLite."""
 
+import hashlib
 import logging
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
@@ -77,10 +78,16 @@ class AllEligibleItemsAttemptedError(ApplicationError):
     )
 
 
-class SessionLimitReachedError(ApplicationError):
+class RoundCompleteError(ApplicationError):
+    """Raised when a round's question cap is reached. Not a terminal
+    failure: it is a checkpoint the learner resolves by choosing to
+    continue, focus on weak areas, pause, or finish -- see
+    app/main.py's render_round_checkpoint. Mastery and attempt history are
+    untouched; only the current round's excluded-item set resets when a
+    new round starts (app/session.py's start_new_round)."""
+
     user_message = (
-        "You've reached this session's question limit. Great work -- come "
-        "back soon for more practice."
+        "You've completed this round. Nice work -- what would you like to do next?"
     )
 
 
@@ -135,6 +142,16 @@ class ApplicationController:
             for item in items
             if item.item_id is not None
         }
+        # A stable fingerprint of exactly which items this controller instance
+        # is serving, so a learner-facing round can record which bank
+        # snapshot it pinned (see app/session.py's round_bank_version).
+        # ApplicationController's own item set never changes after
+        # construction -- the CourseCatalogController that builds it is
+        # cached for the process lifetime -- so this is already the round's
+        # real pinned version, just exposed for the record.
+        self.bank_version = hashlib.sha256(
+            "\0".join(sorted(self._items)).encode("utf-8")
+        ).hexdigest()[:16]
         self.repository = repository
         self.recommendation_service = recommendation_service
         self.bkt_service = bkt_service
@@ -144,6 +161,10 @@ class ApplicationController:
         )
         self._low_supply_reporter = low_supply_reporter
         self._lock = RLock()
+
+    @property
+    def max_session_questions(self) -> int | None:
+        return self._max_session_questions
 
     def _report_low_supply(self, skill_id: str) -> None:
         # Fire-and-forget: an idempotent local insert only, never network or
@@ -178,13 +199,17 @@ class ApplicationController:
 
     @_synchronized
     def recommend_question(
-        self, learner_id: str, excluded_item_ids: Sequence[str]
+        self,
+        learner_id: str,
+        excluded_item_ids: Sequence[str],
+        *,
+        restrict_to_weak_skills: bool = False,
     ) -> QuestionViewModel:
         if (
             self._max_session_questions is not None
             and len(excluded_item_ids) >= self._max_session_questions
         ):
-            raise SessionLimitReachedError
+            raise RoundCompleteError
         # Deliberately not wrapped in self.repository.unit_of_work(): the
         # content-gap branch below calls self.repository.save_content_gap
         # (inside recommendation_service.recommend()) and then raises
@@ -216,6 +241,7 @@ class ApplicationController:
                         learner_id=learner_id,
                         available_skill_ids=available_skill_ids,
                         excluded_item_ids=list(excluded_item_ids),
+                        restrict_to_weak_skills=restrict_to_weak_skills,
                     )
                 )
         except RecommendationUnavailable as exc:

@@ -90,6 +90,7 @@ class RecommendationService:
 
         attempts = self.repository.list_attempts(learner_id=request.learner_id)
         last_answered_item_id = attempts[-1].item_id if attempts else None
+        attempted_item_ids = frozenset(attempt.item_id for attempt in attempts)
         excluded_item_ids = set(request.excluded_item_ids)
         found_eligible_skill = False
         exhausted_skill_ids: list[str] = []
@@ -103,6 +104,7 @@ class RecommendationService:
                 mastery_by_skill,
                 self.config,
                 set(exhausted_skill_ids),
+                restrict_to_weak=request.restrict_to_weak_skills,
             )
             if skill_selection is None:
                 break
@@ -122,6 +124,7 @@ class RecommendationService:
                 desired_difficulty=desired_difficulty,
                 excluded_item_ids=excluded_item_ids,
                 last_answered_item_id=last_answered_item_id,
+                attempted_item_ids=attempted_item_ids,
             )
             if item_selection is None:
                 LOGGER.info(
