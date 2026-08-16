@@ -1,9 +1,10 @@
 {
-  "course_id": "ai",
+  "course_id": "intro-ai",
   "title": "Introduction to Artificial Intelligence",
   "version": "1",
   "taxonomy_path": "taxonomy/data/ai",
-  "approved_bank_path": "outputs/approved_banks/pilot-approved-bank-38-v1.jsonl",
+  "approved_bank_path": "outputs/approved_banks/pilot-approved-bank-43-v1.jsonl",
+  "bkt_model_path": "outputs/bkt_dev_model_v4.pkl",
   "candidate_store_path": "outputs/reference_candidates.json",
   "review_store_path": "outputs/replenishment/ai/reviews",
   "allowed_domains": [
@@ -22,5 +23,7 @@
   "low_supply_threshold": 3,
   "target_supply": 6,
   "default_bkt_model_version": "bkt-synthetic-v4",
-  "status": "active"
+  "status": "active",
+  "aliases": ["AI", "Introduction to AI"],
+  "auto_activate_when_ready": true
 }

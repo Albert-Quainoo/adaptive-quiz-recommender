@@ -52,10 +52,10 @@ def render_admin_status(database_path: str) -> None:
     try:
         from app.ui.replenishment_admin import render_replenishment_admin
         from authoring.replenishment.inventory import compute_course_inventory
-        from authoring.replenishment.manifest import load_active_manifests
+        from authoring.replenishment.manifest import load_preparation_eligible_manifests
 
         job_repository = load_replenishment_job_repository(database_path)
-        for manifest in load_active_manifests():
+        for manifest in load_preparation_eligible_manifests():
             inventory = compute_course_inventory(manifest, job_repository)
             render_replenishment_admin(manifest.course_id, list(inventory.values()))
     except Exception:

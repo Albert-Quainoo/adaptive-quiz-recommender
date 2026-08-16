@@ -15,11 +15,18 @@ def validate_bank(
     course: str,
     expected_count: int,
     required_skill_ids: list[str],
+    skills_path: Path | None = None,
+    references_path: Path | None = None,
 ) -> dict:
+    """skills_path/references_path let a caller whose taxonomy directory
+    doesn't share its manifest's course_id (e.g. authoring/course_catalog's
+    readiness checks) point at the real files directly, instead of relying
+    on course_paths(course)'s taxonomy/data/{course}/ convention."""
     items = load_approved_bank(bank_path)
     item_ids = [item.item_id for item in items]
     stems = [" ".join(item.question.question.casefold().split()) for item in items]
-    skills_path, references_path = course_paths(course)
+    if skills_path is None or references_path is None:
+        skills_path, references_path = course_paths(course)
     known_skills = {
         skill.skill_id for skill in load_skills(skills_path, references_path).skills
     }

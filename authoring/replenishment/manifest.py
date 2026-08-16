@@ -14,7 +14,22 @@ from pydantic import BaseModel, Field, field_validator
 
 MANIFEST_DIRECTORY = Path(__file__).resolve().parent / "manifests"
 
-ManifestStatus = Literal["active", "inactive"]
+ManifestStatus = Literal[
+    "proposed",
+    "approved_for_preparation",
+    "preparing",
+    "awaiting_content_approval",
+    "ready",
+    "active",
+    "archived",
+]
+
+# Statuses past the one manual course-definition approval gate and not yet
+# archived -- eligible for background replenishment work regardless of
+# whether the course is learner-visible yet.
+_PREPARATION_ELIGIBLE_STATUSES = frozenset(
+    {"approved_for_preparation", "preparing", "awaiting_content_approval", "active"}
+)
 
 
 class CourseManifest(BaseModel):
@@ -23,6 +38,7 @@ class CourseManifest(BaseModel):
     version: str = Field(min_length=1)
     taxonomy_path: Path
     approved_bank_path: Path
+    bkt_model_path: Path
     candidate_store_path: Path
     review_store_path: Path
     allowed_domains: tuple[str, ...] = Field(min_length=1)
@@ -30,6 +46,8 @@ class CourseManifest(BaseModel):
     target_supply: int = Field(gt=0)
     default_bkt_model_version: str = Field(min_length=1)
     status: ManifestStatus
+    aliases: tuple[str, ...] = Field(default_factory=tuple)
+    auto_activate_when_ready: bool = True
 
     @field_validator("course_id", mode="before")
     @classmethod
@@ -79,9 +97,20 @@ def active_bank_path(manifest: CourseManifest) -> Path:
     return manifest.approved_bank_path
 
 
-def load_active_manifests() -> list[CourseManifest]:
-    manifests = [
+def load_all_manifests() -> list[CourseManifest]:
+    return [
         CourseManifest.model_validate(json.loads(path.read_text(encoding="utf-8")))
         for path in sorted(MANIFEST_DIRECTORY.glob("*.json"))
     ]
-    return [manifest for manifest in manifests if manifest.status == "active"]
+
+
+def load_active_manifests() -> list[CourseManifest]:
+    return [manifest for manifest in load_all_manifests() if manifest.status == "active"]
+
+
+def load_preparation_eligible_manifests() -> list[CourseManifest]:
+    return [
+        manifest
+        for manifest in load_all_manifests()
+        if manifest.status in _PREPARATION_ELIGIBLE_STATUSES
+    ]

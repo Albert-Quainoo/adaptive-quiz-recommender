@@ -32,6 +32,7 @@ def manifest_at(tmp_path, **overrides):
         version="1",
         taxonomy_path=taxonomy_dir,
         approved_bank_path=tmp_path / "bank" / "bank.jsonl",
+        bkt_model_path=tmp_path / "model.pkl",
         candidate_store_path=tmp_path / "candidates.json",
         review_store_path=tmp_path / "reviews",
         allowed_domains=("example.edu",),

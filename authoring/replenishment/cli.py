@@ -17,7 +17,10 @@ from pathlib import Path
 
 from authoring.replenishment.inventory import compute_course_inventory
 from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
-from authoring.replenishment.manifest import CourseManifest, load_active_manifests
+from authoring.replenishment.manifest import (
+    CourseManifest,
+    load_preparation_eligible_manifests,
+)
 from authoring.replenishment.modal_inference import ModalBatchModel
 from authoring.replenishment.policy import ReplenishmentPolicyConfig, decide_replenishment
 from authoring.replenishment.worker import BatchModel, LlamaBatchModel, process_one
@@ -120,7 +123,7 @@ def scan(arguments: argparse.Namespace) -> int:
     review_config = _review_config()
     enqueued = 0
 
-    for manifest in load_active_manifests():
+    for manifest in load_preparation_eligible_manifests():
         inventory = compute_course_inventory(manifest, repository)
         decisions = decide_replenishment(inventory, _policy_config(manifest))
         # A review backlog is a normal waiting state, not a failure -- this only ever
@@ -151,7 +154,9 @@ def scan(arguments: argparse.Namespace) -> int:
 
 def worker(arguments: argparse.Namespace) -> int:
     repository = _open_repository(arguments)
-    manifests = {manifest.course_id: manifest for manifest in load_active_manifests()}
+    manifests = {
+        manifest.course_id: manifest for manifest in load_preparation_eligible_manifests()
+    }
     review_config = _review_config()
 
     def run_once() -> bool:
@@ -189,7 +194,7 @@ def worker(arguments: argparse.Namespace) -> int:
 def status(arguments: argparse.Namespace) -> int:
     repository = _open_repository(arguments)
 
-    for manifest in load_active_manifests():
+    for manifest in load_preparation_eligible_manifests():
         inventory = compute_course_inventory(manifest, repository)
         print(f"\n== {manifest.course_id} ({manifest.title}) ==")
         for skill_id in sorted(inventory):

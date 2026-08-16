@@ -9,9 +9,9 @@ from authoring.replenishment.manifest import (
 )
 
 
-def test_load_course_manifest_reads_the_ai_manifest():
-    manifest = load_course_manifest("ai")
-    assert manifest.course_id == "ai"
+def test_load_course_manifest_reads_the_intro_ai_manifest():
+    manifest = load_course_manifest("intro-ai")
+    assert manifest.course_id == "intro-ai"
     assert manifest.status == "active"
     assert manifest.low_supply_threshold > 0
     assert manifest.target_supply >= manifest.low_supply_threshold
@@ -19,7 +19,7 @@ def test_load_course_manifest_reads_the_ai_manifest():
 
 
 def test_load_course_manifest_is_case_insensitive():
-    assert load_course_manifest("AI").course_id == "ai"
+    assert load_course_manifest("INTRO-AI").course_id == "intro-ai"
 
 
 def test_load_course_manifest_missing_course_raises():
@@ -30,11 +30,11 @@ def test_load_course_manifest_missing_course_raises():
 def test_load_active_manifests_only_returns_active_courses():
     manifests = load_active_manifests()
     assert all(manifest.status == "active" for manifest in manifests)
-    assert any(manifest.course_id == "ai" for manifest in manifests)
+    assert any(manifest.course_id == "intro-ai" for manifest in manifests)
 
 
 def test_skill_and_reference_paths_are_derived_from_taxonomy_path():
-    manifest = load_course_manifest("ai")
+    manifest = load_course_manifest("intro-ai")
     assert manifest.skills_path() == manifest.taxonomy_path / "skills.csv"
     assert manifest.references_path() == manifest.taxonomy_path / "references.csv"
     assert manifest.provenance_path() == manifest.taxonomy_path / "reference_provenance.csv"
@@ -47,6 +47,7 @@ def _fields(**overrides):
         version="1",
         taxonomy_path="taxonomy/data/ai",
         approved_bank_path="outputs/approved_banks/pilot-approved-bank-38-v1.jsonl",
+        bkt_model_path="outputs/bkt_dev_model_v4.pkl",
         candidate_store_path="outputs/reference_candidates.json",
         review_store_path="outputs/replenishment/ai/reviews",
         allowed_domains=("example.edu",),

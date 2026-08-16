@@ -30,6 +30,7 @@ def manifest_at(tmp_path, **overrides) -> CourseManifest:
     fields = dict(
         course_id="ai", title="t", version="1", taxonomy_path=taxonomy_dir,
         approved_bank_path=tmp_path / "bank" / "ai-bank-v0.jsonl",
+        bkt_model_path=tmp_path / "model.pkl",
         candidate_store_path=tmp_path / "candidates.json",
         review_store_path=tmp_path / "reviews",
         allowed_domains=("example.edu",), low_supply_threshold=3, target_supply=6,
@@ -42,7 +43,7 @@ def manifest_at(tmp_path, **overrides) -> CourseManifest:
 @pytest.fixture
 def isolated_manifest(tmp_path, monkeypatch):
     manifest = manifest_at(tmp_path)
-    monkeypatch.setattr(cli, "load_active_manifests", lambda: [manifest])
+    monkeypatch.setattr(cli, "load_preparation_eligible_manifests", lambda: [manifest])
     # Isolated from the real authoring/blueprints/ directory: these tests exercise
     # retrieval/scan/status behavior, not blueprint resolution, and the real
     # directory now legitimately carries more than one blueprint covering AI-SRC-08.

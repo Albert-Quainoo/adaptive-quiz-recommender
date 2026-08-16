@@ -91,6 +91,7 @@ def manifest_at(tmp_path, **overrides) -> CourseManifest:
     fields = dict(
         course_id="ai", title="t", version="1", taxonomy_path=taxonomy_dir,
         approved_bank_path=tmp_path / "bank" / "ai-bank-v0.jsonl",
+        bkt_model_path=tmp_path / "model.pkl",
         candidate_store_path=tmp_path / "candidates.json",
         review_store_path=tmp_path / "reviews",
         allowed_domains=("example.edu",), low_supply_threshold=3, target_supply=6,
@@ -199,10 +200,10 @@ def test_pointer_write_is_atomic_temp_then_replace(tmp_path, repository):
     assert pointer_path.is_file()
 
 
-def test_the_real_38_item_bank_is_never_touched_by_this_test_suite():
-    manifest = load_course_manifest("ai")
+def test_the_real_43_item_bank_is_never_touched_by_this_test_suite():
+    manifest = load_course_manifest("intro-ai")
     before = manifest.approved_bank_path.read_bytes()
     items = load_approved_bank(manifest.approved_bank_path)
-    assert len(items) == 38
+    assert len(items) == 43
     after = manifest.approved_bank_path.read_bytes()
     assert before == after
