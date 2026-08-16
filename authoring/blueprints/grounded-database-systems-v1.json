@@ -71,11 +71,11 @@
       "skill_id": "DB-ERM-01"
     },
     {
-      "assessment_focus": "Apply Chen notation to identify which cardinality symbols connect a relationship diamond to its entities in a described scenario.",
-      "cognitive_demand": "Apply the Chen-notation cardinality convention to a described one-to-many or many-to-many relationship.",
+      "assessment_focus": "Apply Chen notation to identify where cardinality symbols are placed in an ER diagram.",
+      "cognitive_demand": "Apply the Chen-notation convention that cardinality symbols label the connecting lines, not the shapes themselves.",
       "difficulty": "intermediate",
       "expected_misconception_or_distractor_strategy": [
-        "Distractors should swap which entity gets the '1' label and which gets the 'n' label."
+        "Distractors should place the cardinality symbol inside the entity rectangle, inside the relationship diamond, or inside an attribute oval instead of on the connecting line."
       ],
       "generation_constraints": [
         "Use an intermediate application task.",
@@ -87,19 +87,19 @@
         "DB-ERM-01-176f63d3399d"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not describe a relationship whose cardinality is ambiguous from the scenario."
+        "Do not ask which specific entity receives the '1' versus the 'n' label -- that direction convention is not precisely resolved by the mapped reference."
       ],
       "prohibited_conflations": [
-        "cardinality labels are attached to entities rather than to the connecting lines"
+        "cardinality symbols are placed inside the entity or relationship shapes rather than on the connecting lines"
       ],
-      "question_archetype": "cardinality symbol application",
+      "question_archetype": "cardinality placement application",
       "required_concepts": [
         "cardinality symbols",
-        "one-to-many relationship"
+        "relationship-to-entity connecting lines"
       ],
       "required_question_characteristics": [
-        "Describe a relationship between two entities with a stated cardinality (e.g. one customer can place many orders).",
-        "Ask which cardinality symbols (such as 1 and n) label the lines to each entity in Chen notation."
+        "Describe a relationship diamond connecting two entity rectangles in a Chen notation ERD.",
+        "Ask where the cardinality symbols (such as m and n) are placed, not which entity gets which symbol."
       ],
       "skill_id": "DB-ERM-01"
     },
