@@ -22,9 +22,26 @@ additive-only over the existing learner-path code.
 Never logs learner IDs, submitted answers, database URLs, or credentials --
 only a phase name, the per-run correlation_id, course_id, elapsed_ms, and
 aggregate DB query count/time.
+
+PERF_METRIC lines: one compact JSON line per completed *top-level* phase
+(a phase with no other phase active when it started -- e.g.
+"course_selection" or "total_submit_rerun", not the reads/writes nested
+inside them, which are already rolled into that top-level phase's own
+db_queries/db_time_ms), prefixed "PERF_METRIC " and written via
+print(..., flush=True) directly to sys.stdout. This deliberately bypasses
+the logging module for this specific line: a bare, unconfigured
+logging.getLogger(...).info() call was observed to never reach Streamlit
+Cloud's captured logs at all, because Python's logging module silently
+drops INFO records when no handler is attached anywhere in the logger's
+chain (they fall through to the built-in "handler of last resort", which
+only handles WARNING and above) -- there was no Streamlit-specific
+suppression involved. The human-readable "phase=..." line below now has a
+properly configured handler and is unaffected by this change.
 """
 
+import json
 import logging
+import sys
 import time
 import uuid
 from contextlib import contextmanager
@@ -33,7 +50,34 @@ from contextvars import ContextVar
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
-LOGGER = logging.getLogger("app.perf")
+_LOGGER_NAME = "app.perf"
+_PERF_METRIC_PREFIX = "PERF_METRIC "
+
+
+def _configure_logger() -> logging.Logger:
+    """Idempotent by construction: Python caches Logger instances by name,
+    so app/perf.py being imported more than once in the same process (it
+    isn't, under normal execution, but this stays correct regardless of
+    Streamlit's rerun/reload mechanics) must not stack a second
+    StreamHandler onto the same logger -- that would double (then triple,
+    ...) every subsequent human-readable phase line."""
+    configured = logging.getLogger(_LOGGER_NAME)
+    configured.setLevel(logging.INFO)
+    configured.propagate = False  # don't also hand records to the root logger
+    already_installed = any(
+        getattr(existing_handler, "_app_perf_handler", False)
+        for existing_handler in configured.handlers
+    )
+    if not already_installed:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler._app_perf_handler = True
+        configured.addHandler(handler)
+    return configured
+
+
+LOGGER = _configure_logger()
 
 _current_frame: ContextVar["_Frame | None"] = ContextVar("_current_frame", default=None)
 _current_correlation_id: ContextVar[str | None] = ContextVar(
@@ -97,6 +141,7 @@ def phase(
         correlation_token = _current_correlation_id.set(correlation_id)
 
     parent = _current_frame.get()
+    is_top_level = parent is None
     frame = _Frame(parent)
     token = _current_frame.set(frame)
     start = time.perf_counter()
@@ -120,5 +165,17 @@ def phase(
             frame.db_time_ms,
             extras,
         )
+        if is_top_level:
+            metric = {
+                "correlation_id": correlation_id,
+                "phase": name,
+                "course_id": course_id or "-",
+                "elapsed_ms": round(elapsed_ms, 2),
+                "db_queries": frame.query_count,
+                "db_time_ms": round(frame.db_time_ms, 2),
+            }
+            if "cache_hit" in extra:
+                metric["cache_hit"] = extra["cache_hit"]
+            print(_PERF_METRIC_PREFIX + json.dumps(metric, sort_keys=True), flush=True)
         if correlation_token is not None:
             _current_correlation_id.reset(correlation_token)
