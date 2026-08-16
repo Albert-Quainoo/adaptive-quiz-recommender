@@ -14,6 +14,7 @@ from bkt.sqlite_repository import (
     DEFAULT_MIGRATION_COURSE_ID,
     SchemaStatus,
     SQLiteBKTRepository,
+    check_schema_status,
     run_course_ownership_migration,
 )
 from database import create_engine_for
@@ -215,6 +216,28 @@ def test_runtime_works_after_migration_with_foreign_keys_enabled_on_postgres():
     status = repository.initialize_schema()
     assert status is SchemaStatus.CURRENT
     repository.close()
+
+
+def test_schema_status_ignores_same_named_table_in_another_schema_on_postgres():
+    """Regression: Supabase (and Postgres generally) ships its own
+    same-named tables in other schemas -- e.g. auth.schema_migrations,
+    realtime.schema_migrations. check_schema_status must not mistake one of
+    those for this application's own public.schema_migrations and must
+    still report MIGRATION_REQUIRED on the legacy schema the autouse
+    fixture set up, rather than crashing on an unqualified query against a
+    table that doesn't exist in the public schema."""
+    engine = create_engine_for(_dsn())
+    with engine.begin() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS other_schema"))
+        connection.execute(text("CREATE TABLE other_schema.schema_migrations (version TEXT)"))
+    try:
+        with engine.connect() as connection:
+            status = check_schema_status(connection)
+        assert status is SchemaStatus.MIGRATION_REQUIRED
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("DROP SCHEMA other_schema CASCADE"))
+    engine.dispose()
 
 
 def test_migrated_primary_keys_on_postgres():

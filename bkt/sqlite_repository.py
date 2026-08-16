@@ -247,8 +247,16 @@ def _table_exists(connection: Connection, table: str) -> bool:
         ).first()
         return row is not None
     if dialect in ("postgresql", "postgres"):
+        # Scoped to public: Supabase (and Postgres generally) ships its own
+        # same-named tables in other schemas -- e.g. auth.schema_migrations,
+        # realtime.schema_migrations -- which an unscoped table_name match
+        # would collide with, since this application always creates its
+        # tables unqualified (i.e. in the default "public" schema).
         row = connection.execute(
-            text("SELECT 1 FROM information_schema.tables WHERE table_name = :table"),
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_name = :table AND table_schema = 'public'"
+            ),
             {"table": table},
         ).first()
         return row is not None

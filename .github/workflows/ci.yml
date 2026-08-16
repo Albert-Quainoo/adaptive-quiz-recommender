@@ -43,7 +43,7 @@ jobs:
           QUIZ_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
           QUIZ_CONFIRM_DESTRUCTIVE_POSTGRES_TESTS: "1"
         run: |
-          python -m pytest tests/test_postgres_adaptive_repository.py tests/test_postgres_replenishment_jobs.py -q
+          python -m pytest tests/test_postgres_adaptive_repository.py tests/test_postgres_replenishment_jobs.py tests/test_postgres_course_ownership_migration.py -q
 
       - name: Validate the committed 43-item approved bank
         run: |
