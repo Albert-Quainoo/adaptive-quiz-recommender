@@ -121,6 +121,7 @@ changes.
 | `MODEL_REVISION` | Recorded provenance for the loaded model | `unknown` |
 | `QUIZ_DATABASE_URL` | Production PostgreSQL DSN for jobs and learner state (e.g. Supabase). When set, used exclusively -- never falls back to SQLite. | — |
 | `QUIZ_DATABASE_PATH` | Local-dev/test SQLite file for jobs and learner state, used only when `QUIZ_DATABASE_URL` is unset | `data/adaptive_quiz.sqlite3` |
+| `QUIZ_ADMIN_STATUS_ENABLED` | Shows the read-only replenishment/content-status sidebar in the learner-facing app (`true`/`1`/`yes`/`on`). An operator/debugging aid, not a learner feature -- the public app must never scan every course's taxonomy and bank to render it. Leave unset (disabled) in production. When enabled, the scan is cached with a 60s TTL, shared across all sessions. | `false` |
 | `QUIZ_REPLENISHMENT_POLL_SECONDS` | Worker poll interval in continuous mode | `30` |
 | `QUIZ_REPLENISHMENT_MAX_ATTEMPTS` | Attempts before a retryable failure becomes permanent | `5` |
 | `QUIZ_REPLENISHMENT_LOW_SUPPLY_THRESHOLD`, `QUIZ_REPLENISHMENT_TARGET_SUPPLY` | Override the manifest's course-wide thresholds | manifest values |

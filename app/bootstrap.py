@@ -40,6 +40,7 @@ class AppSettings:
     policy_version: str
     initial_mastery_probability: float = 0.20
     prerequisite_mastery_threshold: float = 0.75
+    admin_status_enabled: bool = False
 
     @classmethod
     def from_sources(
@@ -84,6 +85,12 @@ class AppSettings:
             prerequisite_mastery_threshold=float(
                 setting("QUIZ_PREREQUISITE_MASTERY_THRESHOLD", "0.75")
             ),
+            # Defaults disabled: the read-only replenishment/admin sidebar is
+            # an operator debugging aid, not a learner-facing feature, and
+            # must be explicitly opted into (never on by default in
+            # production) -- see app/main.py's render_admin_status.
+            admin_status_enabled=setting("QUIZ_ADMIN_STATUS_ENABLED", "false").strip().lower()
+            in ("1", "true", "yes", "on"),
         )
 
 

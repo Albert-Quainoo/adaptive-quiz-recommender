@@ -22,6 +22,13 @@ def _env(tmp_path, name: str) -> dict[str, str]:
         "QUIZ_BKT_MODEL_VERSION": "bkt-synthetic-v4",
         "QUIZ_INITIAL_MASTERY_PROBABILITY": "0.20",
         "QUIZ_DATABASE_PATH": str(tmp_path / f"{name}.sqlite3"),
+        # These tests specifically exercise the admin sidebar's own
+        # behavior (rendering, idempotency, failure resilience), so they
+        # must explicitly opt in -- it defaults to disabled for every
+        # ordinary learner-path render (see AppSettings.admin_status_enabled
+        # and tests/test_learner_path_admin_status_disabled.py, which proves
+        # the default-off behavior this constant is the exception to).
+        "QUIZ_ADMIN_STATUS_ENABLED": "true",
     }
 
 
