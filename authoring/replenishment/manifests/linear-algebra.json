@@ -5,7 +5,10 @@
   ],
   "allowed_domains": [
     "ocw.mit.edu",
-    "khanacademy.org"
+    "khanacademy.org",
+    "linear.pugetsound.edu",
+    "openstax.org",
+    "math.libretexts.org"
   ],
   "approved_bank_path": "outputs/approved_banks/linear-algebra-approved-bank-0-v1.jsonl",
   "auto_activate_when_ready": true,

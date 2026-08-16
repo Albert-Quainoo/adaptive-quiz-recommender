@@ -177,6 +177,65 @@ PILOT_GROUNDING_BRIEFS = {
                 "A graph traversal (such as breadth-first or depth-first search) visits every vertex exactly once; a visiting order that skips or repeats a vertex is not a valid traversal.",
             ],
         ),
+        CanonicalGroundingBrief(
+            skill_id="LA-SLE-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A matrix is in reduced row-echelon form (RREF) when the leading entry of each nonzero row is a 1, that leading 1 is the only nonzero entry in its column, and each leading 1 sits to the right of every leading 1 in the rows above it.",
+                "Course convention: when a question asks to explicitly solve for the value of a variable, use RREF and read the solution directly off the leading-1 columns -- do not reason through back-substitution.",
+                "Course convention: a conclusion drawn only from row-echelon form (REF), such as whether the system is consistent from a zero row, is a structural conclusion and must be distinguished from finding the actual RREF solution.",
+                "Solving a system of linear equations means finding all values of the variables that make every equation in the system simultaneously true, not just one equation.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="LA-VSP-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "The span of a set of vectors is the set of all possible linear combinations of those vectors.",
+                "A set of vectors is linearly independent exactly when the only linear combination of them equal to the zero vector uses all-zero coefficients (the trivial relation); any nontrivial combination equal to zero makes the set linearly dependent.",
+                "A basis of a vector space is a set that both spans the space and is linearly independent; a spanning-only or independent-only set is not automatically a basis.",
+                "A subset of a vector space is a subspace when it is nonempty and closed under vector addition and scalar multiplication; containing the zero vector alone is not sufficient.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="LA-LTR-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A linear transformation T must satisfy both T(u1 + u2) = T(u1) + T(u2) for all inputs, and T(alpha*u) = alpha*T(u) for every scalar alpha; a function is not linear if it satisfies only one property.",
+                "A function that adds a nonzero constant, or that includes a nonlinear term, is not a linear transformation even if it otherwise resembles a matrix-vector product.",
+                "The standard matrix A of a linear transformation T on column vectors is built so that T(x) = A*x for every input x; its columns are the images of the standard basis vectors, not its rows.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="LA-DET-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A square matrix is nonsingular (invertible) exactly when its determinant is nonzero; a zero determinant means the matrix has no inverse.",
+                "A matrix with nonzero determinant has only the trivial (zero) solution to its associated homogeneous system.",
+                "Cramer's Rule solves for one variable at a time by replacing that variable's column in the coefficient matrix with the constant column, then dividing the resulting determinant by the coefficient matrix's own determinant.",
+                "Cramer's Rule only gives a unique solution when the coefficient matrix's determinant is nonzero; when it is zero, Cramer's Rule cannot be used.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="LA-EIG-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A nonzero vector x is an eigenvector of a square matrix A with eigenvalue lambda exactly when A*x = lambda*x; the zero vector is never counted as an eigenvector.",
+                "The eigenvalues of a matrix are exactly the roots of its characteristic polynomial.",
+                "For a given eigenvalue, the set of its eigenvectors together with the zero vector forms a subspace called the eigenspace for that eigenvalue.",
+                "Two square matrices A and B are similar when A = S*B*S^-1 for some nonsingular matrix S; similar matrices always share the same eigenvalues, even though they are not equal as matrices.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="LA-MKV-01",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "A square matrix is stochastic when all of its entries are nonnegative and the entries of each column sum to 1.",
+                "A Markov chain is a difference equation v_(t+1) = A*v_t driven by a stochastic matrix A, where v_(t+1) is the state one time step after v_t, not the same state.",
+                "Google's PageRank Importance Rule: if a page links to n other pages, each of those pages inherits 1/n of the linking page's importance, not all of it.",
+                "The PageRank vector is the steady-state vector of the importance matrix's Markov chain -- an eigenvector of the (stochastic) importance matrix with eigenvalue 1 -- not simply the matrix's row or column of largest entries.",
+            ],
+        ),
     )
 }
 

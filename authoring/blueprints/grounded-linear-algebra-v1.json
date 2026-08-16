@@ -1,0 +1,815 @@
+{
+  "base_seed": 20260816,
+  "batch_id": "grounded-linear-algebra-v1",
+  "intents": [
+    {
+      "assessment_focus": "Recognize whether a given augmented matrix is in reduced row-echelon form.",
+      "cognitive_demand": "Recognize the defining properties of reduced row-echelon form in a stated matrix.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present a matrix in ordinary row-echelon form (not reduced) or with a leading entry that is not 1 as if it were RREF."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-SLE-01-INT-01",
+      "learning_objective": "Solve a system of linear equations by row-reducing its augmented matrix to reduced row-echelon form and distinguish REF-based structural conclusions from RREF solutions.",
+      "preferred_reference_ids": [
+        "LA-SLE-01-0fd0b3832653"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask the student to perform row reduction in this intent."
+      ],
+      "prohibited_conflations": [
+        "row-echelon form and reduced row-echelon form are the same thing"
+      ],
+      "question_archetype": "RREF recognition",
+      "required_concepts": [
+        "reduced row-echelon form",
+        "leading 1"
+      ],
+      "required_question_characteristics": [
+        "Present one small augmented matrix.",
+        "Ask whether it is in reduced row-echelon form."
+      ],
+      "skill_id": "LA-SLE-01"
+    },
+    {
+      "assessment_focus": "Recognize what solving a system of linear equations means.",
+      "cognitive_demand": "Recognize the definition of a solution to a system of equations.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe satisfying only one equation, or satisfying the equations in sequence rather than simultaneously."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-SLE-01-INT-02",
+      "learning_objective": "Solve a system of linear equations by row-reducing its augmented matrix to reduced row-echelon form and distinguish REF-based structural conclusions from RREF solutions.",
+      "preferred_reference_ids": [
+        "LA-SLE-01-0c9d1502288d"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require actually solving the system in this intent."
+      ],
+      "prohibited_conflations": [
+        "a solution only needs to satisfy one equation in the system"
+      ],
+      "question_archetype": "system-solution definition recognition",
+      "required_concepts": [
+        "system of linear equations",
+        "simultaneous solution"
+      ],
+      "required_question_characteristics": [
+        "State a small system of two or three linear equations.",
+        "Ask what it means for a set of values to solve the system."
+      ],
+      "skill_id": "LA-SLE-01"
+    },
+    {
+      "assessment_focus": "Apply row reduction to read a variable's value directly from a matrix already in RREF, without back-substitution.",
+      "cognitive_demand": "Apply the RREF leading-1-column rule to read off a variable's value.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present values that would result from mis-reading a different row or column."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Read the solution directly from RREF; do not use back-substitution in the reasoning.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-SLE-01-INT-03",
+      "learning_objective": "Solve a system of linear equations by row-reducing its augmented matrix to reduced row-echelon form and distinguish REF-based structural conclusions from RREF solutions.",
+      "preferred_reference_ids": [
+        "LA-SLE-01-0fd0b3832653"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not give a matrix only in (unreduced) row-echelon form for this intent -- it must already be RREF so the answer is read directly, not back-substituted."
+      ],
+      "prohibited_conflations": [
+        "a variable's value in RREF must still be found by back-substitution"
+      ],
+      "question_archetype": "RREF direct-solution reading",
+      "required_concepts": [
+        "RREF",
+        "reading a solution directly from RREF"
+      ],
+      "required_question_characteristics": [
+        "Give an augmented matrix already in reduced row-echelon form for a consistent system with a unique solution.",
+        "Ask for the value of one specific variable."
+      ],
+      "skill_id": "LA-SLE-01"
+    },
+    {
+      "assessment_focus": "Apply row-echelon-form structure to diagnose whether a system is consistent, before reducing further to RREF.",
+      "cognitive_demand": "Apply the row-echelon-form zero-row rule to diagnose consistency.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should require completing the RREF reduction before judging consistency, or misread a zero coefficient row with nonzero constant as consistent."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Distinguish the REF-based structural conclusion from an RREF solution.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "LA-SLE-01-INT-04",
+      "learning_objective": "Solve a system of linear equations by row-reducing its augmented matrix to reduced row-echelon form and distinguish REF-based structural conclusions from RREF solutions.",
+      "preferred_reference_ids": [
+        "LA-SLE-01-0fd0b3832653",
+        "LA-SLE-01-0c9d1502288d"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require the matrix to be reduced to RREF to answer this intent."
+      ],
+      "prohibited_conflations": [
+        "a REF-based consistency conclusion requires finishing the RREF reduction"
+      ],
+      "question_archetype": "REF consistency diagnosis",
+      "required_concepts": [
+        "row-echelon form",
+        "consistency",
+        "zero row with nonzero constant means inconsistent"
+      ],
+      "required_question_characteristics": [
+        "Give a matrix in row-echelon (not necessarily reduced) form, including one row that is entirely zero on the coefficient side.",
+        "Ask whether the system is consistent based on that row alone, distinguishing this REF-based structural conclusion from finding the RREF solution."
+      ],
+      "skill_id": "LA-SLE-01"
+    },
+    {
+      "assessment_focus": "Recognize whether a given vector is a linear combination of a stated set of vectors.",
+      "cognitive_demand": "Recognize whether stated scalar coefficients produce a given vector as a linear combination.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present an arithmetic slip in combining the vectors."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-VSP-01-INT-01",
+      "learning_objective": "Determine whether a set of vectors spans a space, is linearly independent, or forms a basis, and test whether a subset is a subspace.",
+      "preferred_reference_ids": [
+        "LA-VSP-01-89976ec53e8a"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask whether the vector lies in the span in general terms; keep the specific coefficients given."
+      ],
+      "prohibited_conflations": [
+        "any target vector is automatically a linear combination of any given set"
+      ],
+      "question_archetype": "linear combination recognition",
+      "required_concepts": [
+        "linear combination",
+        "span"
+      ],
+      "required_question_characteristics": [
+        "Give two or three small vectors and one candidate target vector with proposed scalar coefficients.",
+        "Ask whether the target equals that linear combination."
+      ],
+      "skill_id": "LA-VSP-01"
+    },
+    {
+      "assessment_focus": "Recognize the definition of linear independence for a set of vectors.",
+      "cognitive_demand": "Recognize what it means for the only linear combination equal to the zero vector to be trivial.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim independence requires the vectors to be orthogonal, or requires a nonzero combination to reach the zero vector."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-VSP-01-INT-02",
+      "learning_objective": "Determine whether a set of vectors spans a space, is linearly independent, or forms a basis, and test whether a subset is a subspace.",
+      "preferred_reference_ids": [
+        "LA-VSP-01-259983bf0688"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require an actual independence computation in this intent."
+      ],
+      "prohibited_conflations": [
+        "linear independence requires orthogonality"
+      ],
+      "question_archetype": "linear independence definition recognition",
+      "required_concepts": [
+        "linear independence",
+        "trivial relation of linear dependence"
+      ],
+      "required_question_characteristics": [
+        "State the definition scenario: a linear combination of a vector set equals the zero vector.",
+        "Ask what condition on the coefficients makes the set linearly independent."
+      ],
+      "skill_id": "LA-VSP-01"
+    },
+    {
+      "assessment_focus": "Apply the basis definition (spans and is linearly independent) to judge whether a given set is a basis for a stated space.",
+      "cognitive_demand": "Apply both the spanning and independence requirements to judge whether a set is a basis.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should conclude a spanning-only or independent-only set is a basis."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-VSP-01-INT-03",
+      "learning_objective": "Determine whether a set of vectors spans a space, is linearly independent, or forms a basis, and test whether a subset is a subspace.",
+      "preferred_reference_ids": [
+        "LA-VSP-01-09d6b543906e"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not leave either the spanning or independence fact unstated."
+      ],
+      "prohibited_conflations": [
+        "a spanning set is automatically a basis",
+        "a linearly independent set is automatically a basis"
+      ],
+      "question_archetype": "basis-candidate judgment",
+      "required_concepts": [
+        "basis",
+        "spanning set",
+        "linear independence"
+      ],
+      "required_question_characteristics": [
+        "Give a small set of vectors in a low-dimensional space and state whether it spans the space and whether it is linearly independent.",
+        "Ask whether the set is a basis for the space."
+      ],
+      "skill_id": "LA-VSP-01"
+    },
+    {
+      "assessment_focus": "Apply the subspace test (closure under addition and scalar multiplication) to diagnose whether a described subset is a subspace.",
+      "cognitive_demand": "Apply the closure-based subspace test to a described subset.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should judge subspace membership only by whether the zero vector is included, ignoring closure under addition or scalar multiplication."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-VSP-01-INT-04",
+      "learning_objective": "Determine whether a set of vectors spans a space, is linearly independent, or forms a basis, and test whether a subset is a subspace.",
+      "preferred_reference_ids": [
+        "LA-VSP-01-fd6c104fa331"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe the empty set or the whole space, which trivially resolve the question without applying the closure test."
+      ],
+      "prohibited_conflations": [
+        "containing the zero vector alone is sufficient to be a subspace"
+      ],
+      "question_archetype": "subspace-test diagnosis",
+      "required_concepts": [
+        "subspace",
+        "closure under addition and scalar multiplication"
+      ],
+      "required_question_characteristics": [
+        "Describe a specific subset of a vector space (e.g. defined by one linear or one nonlinear condition on the coordinates).",
+        "Ask whether the subset is a subspace."
+      ],
+      "skill_id": "LA-VSP-01"
+    },
+    {
+      "assessment_focus": "Recognize the two defining properties of a linear transformation.",
+      "cognitive_demand": "Recognize the additivity and homogeneity properties that define a linear transformation.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should include only one of the two required properties, or include an unrelated property such as invertibility."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-LTR-01-INT-01",
+      "learning_objective": "Determine whether a function between vector spaces is a linear transformation and construct its standard matrix.",
+      "preferred_reference_ids": [
+        "LA-LTR-01-54d781124200"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require checking a specific candidate function in this intent."
+      ],
+      "prohibited_conflations": [
+        "a linear transformation only needs to preserve scalar multiplication, not addition"
+      ],
+      "question_archetype": "linear-transformation definition recognition",
+      "required_concepts": [
+        "additivity",
+        "homogeneity (scalar preservation)"
+      ],
+      "required_question_characteristics": [
+        "State the two defining equations of a linear transformation T.",
+        "Ask which two properties together define linearity."
+      ],
+      "skill_id": "LA-LTR-01"
+    },
+    {
+      "assessment_focus": "Recognize that a standard matrix is built from the images of the standard basis vectors.",
+      "cognitive_demand": "Recognize how the standard matrix's columns relate to the transformation's outputs.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the rows, not the columns, hold the transformed basis vectors, or that the matrix is built from arbitrary input vectors."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-LTR-01-INT-02",
+      "learning_objective": "Determine whether a function between vector spaces is a linear transformation and construct its standard matrix.",
+      "preferred_reference_ids": [
+        "LA-LTR-01-6f7e6d406916"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing an actual standard matrix in this intent."
+      ],
+      "prohibited_conflations": [
+        "a standard matrix's rows hold the transformed standard basis vectors"
+      ],
+      "question_archetype": "standard-matrix construction recognition",
+      "required_concepts": [
+        "standard matrix",
+        "images of standard basis vectors"
+      ],
+      "required_question_characteristics": [
+        "State that T is a linear transformation on column vectors.",
+        "Ask what the columns of its standard matrix A are built from."
+      ],
+      "skill_id": "LA-LTR-01"
+    },
+    {
+      "assessment_focus": "Apply the additivity and homogeneity properties to diagnose whether a described function is a linear transformation.",
+      "cognitive_demand": "Apply the two linearity properties to a concretely described function.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should judge linearity only by whether the output looks like a matrix-vector product, ignoring an added constant term."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-LTR-01-INT-03",
+      "learning_objective": "Determine whether a function between vector spaces is a linear transformation and construct its standard matrix.",
+      "preferred_reference_ids": [
+        "LA-LTR-01-54d781124200"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a function that is obviously the zero map or the identity map."
+      ],
+      "prohibited_conflations": [
+        "a function with an added constant term can still be linear"
+      ],
+      "question_archetype": "linearity-test diagnosis",
+      "required_concepts": [
+        "linearity test",
+        "additive constant breaks linearity"
+      ],
+      "required_question_characteristics": [
+        "Describe one specific function between small vector spaces (e.g. a coordinate rule), including at least one that adds a constant or involves a nonlinear term.",
+        "Ask whether the function is a linear transformation."
+      ],
+      "skill_id": "LA-LTR-01"
+    },
+    {
+      "assessment_focus": "Apply the standard-matrix construction to compute T(x) for a specific input, given T's standard matrix.",
+      "cognitive_demand": "Apply matrix-vector multiplication to evaluate a linear transformation at a specific input.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present a plausible arithmetic slip in the matrix-vector product, such as using the wrong row/column pairing."
+      ],
+      "generation_constraints": [
+        "Use an intermediate computation task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-LTR-01-INT-04",
+      "learning_objective": "Determine whether a function between vector spaces is a linear transformation and construct its standard matrix.",
+      "preferred_reference_ids": [
+        "LA-LTR-01-6f7e6d406916"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for the standard matrix itself in this intent -- it must already be given."
+      ],
+      "prohibited_conflations": [
+        "T(x) is computed by adding A and x rather than multiplying"
+      ],
+      "question_archetype": "standard-matrix application",
+      "required_concepts": [
+        "standard matrix",
+        "matrix-vector product"
+      ],
+      "required_question_characteristics": [
+        "Give a small (2x2 or 3x3) standard matrix A for T and a specific input vector x.",
+        "Ask for T(x) = Ax."
+      ],
+      "skill_id": "LA-LTR-01"
+    },
+    {
+      "assessment_focus": "Recognize that a matrix is invertible (nonsingular) exactly when its determinant is nonzero.",
+      "cognitive_demand": "Recognize the determinant-nonzero criterion for invertibility.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should reverse the criterion, claiming a zero determinant means the matrix is invertible."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-DET-01-INT-01",
+      "learning_objective": "Compute a matrix determinant, use it to decide whether the matrix is invertible, and apply Cramer's Rule to solve a system of linear equations.",
+      "preferred_reference_ids": [
+        "LA-DET-01-fbfccb2a146b"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing the determinant from raw entries in this intent."
+      ],
+      "prohibited_conflations": [
+        "a zero determinant means the matrix is invertible"
+      ],
+      "question_archetype": "invertibility-criterion recognition",
+      "required_concepts": [
+        "determinant",
+        "nonsingular matrix",
+        "invertibility"
+      ],
+      "required_question_characteristics": [
+        "State a matrix's determinant value (zero or nonzero).",
+        "Ask whether the matrix is invertible."
+      ],
+      "skill_id": "LA-DET-01"
+    },
+    {
+      "assessment_focus": "Recognize the condition on the coefficient matrix's determinant that Cramer's Rule requires.",
+      "cognitive_demand": "Recognize when Cramer's Rule can be applied to a system.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim Cramer's Rule applies regardless of the determinant's value."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-DET-01-INT-02",
+      "learning_objective": "Compute a matrix determinant, use it to decide whether the matrix is invertible, and apply Cramer's Rule to solve a system of linear equations.",
+      "preferred_reference_ids": [
+        "LA-DET-01-548b2f34ffff"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require carrying out the Cramer's Rule computation in this intent."
+      ],
+      "prohibited_conflations": [
+        "Cramer's Rule works even when the coefficient matrix's determinant is zero"
+      ],
+      "question_archetype": "Cramer's-Rule applicability recognition",
+      "required_concepts": [
+        "Cramer's Rule",
+        "nonzero coefficient-matrix determinant"
+      ],
+      "required_question_characteristics": [
+        "State a system of linear equations and its coefficient matrix's determinant value.",
+        "Ask whether Cramer's Rule can be used to find the unique solution."
+      ],
+      "skill_id": "LA-DET-01"
+    },
+    {
+      "assessment_focus": "Apply Cramer's Rule to solve for one variable of a small system of linear equations.",
+      "cognitive_demand": "Apply the Cramer's Rule ratio-of-determinants formula to compute one variable's value.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should replace the wrong column with the constants, or divide by the wrong determinant."
+      ],
+      "generation_constraints": [
+        "Use an intermediate computation task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-DET-01-INT-03",
+      "learning_objective": "Compute a matrix determinant, use it to decide whether the matrix is invertible, and apply Cramer's Rule to solve a system of linear equations.",
+      "preferred_reference_ids": [
+        "LA-DET-01-548b2f34ffff"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not give a system whose coefficient-matrix determinant is zero."
+      ],
+      "prohibited_conflations": [
+        "Cramer's Rule replaces a row, not a column, with the constant vector"
+      ],
+      "question_archetype": "Cramer's-Rule computation",
+      "required_concepts": [
+        "Cramer's Rule",
+        "replacing a column with the constant vector"
+      ],
+      "required_question_characteristics": [
+        "Give a small (2x2) system of linear equations with a nonzero coefficient-matrix determinant.",
+        "Ask for the value of one specific variable using Cramer's Rule."
+      ],
+      "skill_id": "LA-DET-01"
+    },
+    {
+      "assessment_focus": "Apply the nonsingularity criterion to diagnose whether a described matrix has an inverse, given its determinant.",
+      "cognitive_demand": "Apply the determinant-nonzero criterion to a specific stated determinant value.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim a matrix with nonzero determinant has a nontrivial solution to its homogeneous system."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-DET-01-INT-04",
+      "learning_objective": "Compute a matrix determinant, use it to decide whether the matrix is invertible, and apply Cramer's Rule to solve a system of linear equations.",
+      "preferred_reference_ids": [
+        "LA-DET-01-fbfccb2a146b"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing the determinant from raw matrix entries."
+      ],
+      "prohibited_conflations": [
+        "a matrix with nonzero determinant has a nontrivial homogeneous solution"
+      ],
+      "question_archetype": "invertibility diagnosis from a stated determinant",
+      "required_concepts": [
+        "nonsingular matrix",
+        "trivial solution of the homogeneous system"
+      ],
+      "required_question_characteristics": [
+        "State a specific numeric determinant value for a square matrix.",
+        "Ask whether the matrix is invertible and whether the corresponding homogeneous system has only the trivial solution."
+      ],
+      "skill_id": "LA-DET-01"
+    },
+    {
+      "assessment_focus": "Recognize the defining equation of an eigenvector and eigenvalue.",
+      "cognitive_demand": "Recognize the equation Ax = lambda*x as the eigenvector/eigenvalue relationship.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim x must be the zero vector, or that lambda must be a matrix rather than a scalar."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-EIG-01-INT-01",
+      "learning_objective": "Compute the eigenvalues and eigenvectors of a matrix from its characteristic polynomial and describe the corresponding eigenspaces.",
+      "preferred_reference_ids": [
+        "LA-EIG-01-f6bd9c982ad5"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing eigenvalues from a specific matrix in this intent."
+      ],
+      "prohibited_conflations": [
+        "the zero vector can be an eigenvector"
+      ],
+      "question_archetype": "eigenvector definition recognition",
+      "required_concepts": [
+        "eigenvector",
+        "eigenvalue",
+        "Ax = lambda x"
+      ],
+      "required_question_characteristics": [
+        "State a square matrix A, a nonzero vector x, and a scalar lambda satisfying Ax = lambda*x.",
+        "Ask what relationship this equation defines."
+      ],
+      "skill_id": "LA-EIG-01"
+    },
+    {
+      "assessment_focus": "Recognize that the eigenvalues of a matrix are the roots of its characteristic polynomial.",
+      "cognitive_demand": "Recognize the relationship between eigenvalues and roots of the characteristic polynomial.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the roots are the matrix's determinant or trace rather than its eigenvalues."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-EIG-01-INT-02",
+      "learning_objective": "Compute the eigenvalues and eigenvectors of a matrix from its characteristic polynomial and describe the corresponding eigenspaces.",
+      "preferred_reference_ids": [
+        "LA-EIG-01-f6bd9c982ad5"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require actually computing the characteristic polynomial in this intent."
+      ],
+      "prohibited_conflations": [
+        "the roots of the characteristic polynomial are the matrix's diagonal entries"
+      ],
+      "question_archetype": "characteristic-polynomial relationship recognition",
+      "required_concepts": [
+        "characteristic polynomial",
+        "eigenvalues as roots"
+      ],
+      "required_question_characteristics": [
+        "State that a matrix has a characteristic polynomial.",
+        "Ask what the roots of that polynomial represent."
+      ],
+      "skill_id": "LA-EIG-01"
+    },
+    {
+      "assessment_focus": "Apply the Ax = lambda*x relationship to verify whether a given vector is an eigenvector of a given matrix for a stated eigenvalue.",
+      "cognitive_demand": "Apply matrix-vector multiplication to check the eigenvector equation for a specific candidate.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should present a plausible arithmetic slip in computing Ax."
+      ],
+      "generation_constraints": [
+        "Use an intermediate verification task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-EIG-01-INT-03",
+      "learning_objective": "Compute the eigenvalues and eigenvectors of a matrix from its characteristic polynomial and describe the corresponding eigenspaces.",
+      "preferred_reference_ids": [
+        "LA-EIG-01-f6bd9c982ad5"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask the student to find the eigenvalues from scratch in this intent."
+      ],
+      "prohibited_conflations": [
+        "any nonzero vector is an eigenvector for any matrix"
+      ],
+      "question_archetype": "eigenvector verification",
+      "required_concepts": [
+        "eigenvector verification",
+        "Ax = lambda x"
+      ],
+      "required_question_characteristics": [
+        "Give a small square matrix A, a candidate nonzero vector x, and a candidate scalar lambda.",
+        "Ask whether Ax = lambda*x holds for this candidate pair."
+      ],
+      "skill_id": "LA-EIG-01"
+    },
+    {
+      "assessment_focus": "Apply the definition of similarity to diagnose whether two similar matrices must share the same eigenvalues.",
+      "cognitive_demand": "Apply the shared-property consequence of similarity to eigenvalues.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim similar matrices need not share eigenvalues, or must be equal as matrices."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-EIG-01-INT-04",
+      "learning_objective": "Compute the eigenvalues and eigenvectors of a matrix from its characteristic polynomial and describe the corresponding eigenspaces.",
+      "preferred_reference_ids": [
+        "LA-EIG-01-55761f2d7d79"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask about eigenvectors being identical in this intent, only eigenvalues."
+      ],
+      "prohibited_conflations": [
+        "similar matrices must be equal as matrices",
+        "similar matrices need not share eigenvalues"
+      ],
+      "question_archetype": "similarity-and-eigenvalues diagnosis",
+      "required_concepts": [
+        "similar matrices",
+        "shared eigenvalues"
+      ],
+      "required_question_characteristics": [
+        "State that two square matrices A and B are similar (A = S*B*S^-1 for some nonsingular S).",
+        "Ask what this implies about their eigenvalues."
+      ],
+      "skill_id": "LA-EIG-01"
+    },
+    {
+      "assessment_focus": "Recognize the defining properties of a stochastic matrix.",
+      "cognitive_demand": "Recognize the nonnegative-entries and column-sums-to-one properties of a stochastic matrix.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should require rows, not columns, to sum to one, or require the entries to sum to one overall."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-MKV-01-INT-01",
+      "learning_objective": "Recognize a stochastic matrix, interpret it as a Markov chain, and relate the steady-state vector to Google's PageRank algorithm.",
+      "preferred_reference_ids": [
+        "LA-MKV-01-74e1cca28368"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require checking a specific numeric matrix's column sums in this intent."
+      ],
+      "prohibited_conflations": [
+        "a stochastic matrix requires its rows, not its columns, to sum to one"
+      ],
+      "question_archetype": "stochastic-matrix definition recognition",
+      "required_concepts": [
+        "stochastic matrix",
+        "columns sum to one"
+      ],
+      "required_question_characteristics": [
+        "Give a small square matrix with nonnegative entries.",
+        "Ask what additional property its columns must have for the matrix to be stochastic."
+      ],
+      "skill_id": "LA-MKV-01"
+    },
+    {
+      "assessment_focus": "Recognize what a difference equation v_(t+1) = A*v_t represents for a Markov chain.",
+      "cognitive_demand": "Recognize that the difference equation describes the state at the next time step.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim v_(t+1) is the same state as v_t, or an average over all past states."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "LA-MKV-01-INT-02",
+      "learning_objective": "Recognize a stochastic matrix, interpret it as a Markov chain, and relate the steady-state vector to Google's PageRank algorithm.",
+      "preferred_reference_ids": [
+        "LA-MKV-01-74e1cca28368"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing a specific v_(t+1) from numeric values."
+      ],
+      "prohibited_conflations": [
+        "v_(t+1) equals v_t under a difference equation"
+      ],
+      "question_archetype": "difference-equation recognition",
+      "required_concepts": [
+        "difference equation",
+        "state transition over one time step"
+      ],
+      "required_question_characteristics": [
+        "State the equation v_(t+1) = A*v_t for a stochastic matrix A.",
+        "Ask what v_(t+1) represents relative to v_t."
+      ],
+      "skill_id": "LA-MKV-01"
+    },
+    {
+      "assessment_focus": "Apply the Importance Rule to determine how much importance one page passes to another in a small link structure.",
+      "cognitive_demand": "Apply the 1/n importance-splitting rule to a described set of outgoing links.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should pass all of P's importance to Q, or divide by the wrong count of outgoing links."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "LA-MKV-01-INT-03",
+      "learning_objective": "Recognize a stochastic matrix, interpret it as a Markov chain, and relate the steady-state vector to Google's PageRank algorithm.",
+      "preferred_reference_ids": [
+        "LA-MKV-01-857e28bf6228"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask for the full PageRank steady-state vector in this intent."
+      ],
+      "prohibited_conflations": [
+        "a page passes all of its importance to every page it links to"
+      ],
+      "question_archetype": "PageRank Importance Rule application",
+      "required_concepts": [
+        "Importance Rule",
+        "1/n importance split among outgoing links"
+      ],
+      "required_question_characteristics": [
+        "Describe a page P that links to a stated number n of other pages, including a target page Q.",
+        "Ask how much importance P passes to Q under the Importance Rule."
+      ],
+      "skill_id": "LA-MKV-01"
+    },
+    {
+      "assessment_focus": "Apply the relationship between a Markov chain's steady-state vector and eigenvalue 1 to diagnose what the steady-state vector represents.",
+      "cognitive_demand": "Apply the eigenvalue-1 steady-state relationship to interpret PageRank as a limiting distribution.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe the steady-state vector as the matrix's row of largest entries, rather than an eigenvector with eigenvalue 1."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped references."
+      ],
+      "intent_id": "LA-MKV-01-INT-04",
+      "learning_objective": "Recognize a stochastic matrix, interpret it as a Markov chain, and relate the steady-state vector to Google's PageRank algorithm.",
+      "preferred_reference_ids": [
+        "LA-MKV-01-857e28bf6228",
+        "LA-MKV-01-74e1cca28368"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require computing an actual eigenvector from numeric entries."
+      ],
+      "prohibited_conflations": [
+        "the steady-state vector is just the matrix's largest column, not an eigenvector"
+      ],
+      "question_archetype": "steady-state interpretation",
+      "required_concepts": [
+        "steady state",
+        "eigenvalue 1",
+        "PageRank vector"
+      ],
+      "required_question_characteristics": [
+        "State that a Markov chain's importance matrix is stochastic and that PageRank uses its steady-state vector.",
+        "Ask what property of that vector (relative to the matrix) makes it the steady state."
+      ],
+      "skill_id": "LA-MKV-01"
+    }
+  ],
+  "prompt_version": "v3.3",
+  "questions_per_intent": 1,
+  "review_status": "blueprint-approved",
+  "reviewed_at": "2026-08-16T22:30:00Z",
+  "reviewer_id": "claude (three-course preparation wave, delegated blueprint authoring by Albert)",
+  "skill_conventions": {}
+}
