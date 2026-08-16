@@ -491,7 +491,8 @@
         "DB-SQL-01-4b63e83d9781"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not include a row with a null value in the join column."
+        "Do not include a row with a null value in the join column.",
+        "Do not end the stem with table data instead of a question mark -- the question must come last."
       ],
       "prohibited_conflations": [
         "an inner join result includes every row from both tables regardless of match"
@@ -503,7 +504,7 @@
       ],
       "required_question_characteristics": [
         "Give two small tables with a shared key column and a handful of rows, some matching and some not.",
-        "Ask how many rows, or which rows, an inner join on that key returns."
+        "State any table data first, then end the stem itself with a direct question ending in a question mark (for example: '... How many rows does an inner join on customer_id return?') -- the question mark must be the very last character of the stem, after any inline table data."
       ],
       "skill_id": "DB-SQL-01"
     },

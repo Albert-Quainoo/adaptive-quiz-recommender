@@ -489,7 +489,8 @@
         "LA-DET-01-548b2f34ffff"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not give a system whose coefficient-matrix determinant is zero."
+        "Do not give a system whose coefficient-matrix determinant is zero.",
+        "Do not phrase the stem as an imperative beginning with 'Use' -- it must be phrased as a question or begin with an imperative such as Determine or Calculate."
       ],
       "prohibited_conflations": [
         "Cramer's Rule replaces a row, not a column, with the constant vector"
@@ -501,7 +502,7 @@
       ],
       "required_question_characteristics": [
         "Give a small (2x2) system of linear equations with a nonzero coefficient-matrix determinant.",
-        "Ask for the value of one specific variable using Cramer's Rule."
+        "Phrase the stem as a direct question ending in a question mark, or begin it with Determine or Calculate (for example: 'Using Cramer's Rule, determine the value of x ...?')."
       ],
       "skill_id": "LA-DET-01"
     },
