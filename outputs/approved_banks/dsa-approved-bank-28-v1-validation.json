@@ -1,0 +1,31 @@
+{
+  "bank_path": "outputs/approved_banks/dsa-approved-bank-28-v1.jsonl",
+  "difficulty_counts": {
+    "intermediate": 14,
+    "introductory": 14
+  },
+  "item_count": 28,
+  "missing_required_skill_ids": [],
+  "required_skill_ids": [
+    "DSA-CPX-01",
+    "DSA-LST-01",
+    "DSA-STK-01",
+    "DSA-SRC-01",
+    "DSA-SRT-01",
+    "DSA-HSH-01",
+    "DSA-TGR-01"
+  ],
+  "skill_counts": {
+    "DSA-CPX-01": 4,
+    "DSA-HSH-01": 4,
+    "DSA-LST-01": 4,
+    "DSA-SRC-01": 4,
+    "DSA-SRT-01": 4,
+    "DSA-STK-01": 4,
+    "DSA-TGR-01": 4
+  },
+  "status": "ready",
+  "unique_item_ids": 28,
+  "unique_normalized_stems": 28,
+  "unknown_skill_ids": []
+}

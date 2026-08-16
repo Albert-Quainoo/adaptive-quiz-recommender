@@ -82,6 +82,15 @@ kaggle.json
 !outputs/bkt_dev_model_v4.metadata.json
 !outputs/bkt_dev_model_v4.pkl.sha256
 
+# Cold-start BKT models each new course's manifest.bkt_model_path points
+# to -- same rationale as bkt_dev_model_v4 above.
+!outputs/bkt_dsa_model_v1.pkl
+!outputs/bkt_dsa_model_v1.metadata.json
+!outputs/bkt_linear_algebra_model_v1.pkl
+!outputs/bkt_linear_algebra_model_v1.metadata.json
+!outputs/bkt_database_systems_model_v1.pkl
+!outputs/bkt_database_systems_model_v1.metadata.json
+
 # Misc
 .python-version
 
