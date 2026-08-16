@@ -1,21 +1,26 @@
 {
-  "course_id": "dsa",
-  "title": "Data Structures & Algorithms",
-  "version": "1",
-  "taxonomy_path": "taxonomy/data/dsa",
-  "approved_bank_path": "outputs/approved_banks/dsa-approved-bank-0-v1.jsonl",
-  "bkt_model_path": "outputs/bkt_dsa_model_v1.pkl",
-  "candidate_store_path": "outputs/replenishment/dsa/reference_candidates.json",
-  "review_store_path": "outputs/replenishment/dsa/reviews",
+  "aliases": [
+    "DSA",
+    "Data Structures",
+    "Algorithms",
+    "Data Structures and Algorithms"
+  ],
   "allowed_domains": [
     "ocw.mit.edu",
     "cs50.harvard.edu"
   ],
-  "low_supply_threshold": 3,
-  "target_supply": 6,
-  "default_bkt_model_version": "bkt-dsa-v1",
-  "status": "approved_for_preparation",
-  "aliases": ["DSA", "Data Structures", "Algorithms", "Data Structures and Algorithms"],
+  "approved_bank_path": "outputs/approved_banks/dsa-approved-bank-0-v1.jsonl",
   "auto_activate_when_ready": true,
-  "max_session_questions": 20
+  "bkt_model_path": "outputs/bkt_dsa_model_v1.pkl",
+  "candidate_store_path": "outputs/replenishment/dsa/reference_candidates.json",
+  "course_id": "dsa",
+  "default_bkt_model_version": "bkt-dsa-v1",
+  "low_supply_threshold": 3,
+  "max_session_questions": 20,
+  "review_store_path": "outputs/replenishment/dsa/reviews",
+  "status": "preparing",
+  "target_supply": 6,
+  "taxonomy_path": "taxonomy/data/dsa",
+  "title": "Data Structures & Algorithms",
+  "version": "1"
 }

@@ -1,21 +1,26 @@
 {
-  "course_id": "database-systems",
-  "title": "Database Systems",
-  "version": "1",
-  "taxonomy_path": "taxonomy/data/database-systems",
-  "approved_bank_path": "outputs/approved_banks/database-systems-approved-bank-0-v1.jsonl",
-  "bkt_model_path": "outputs/bkt_database_systems_model_v1.pkl",
-  "candidate_store_path": "outputs/replenishment/database-systems/reference_candidates.json",
-  "review_store_path": "outputs/replenishment/database-systems/reviews",
+  "aliases": [
+    "DB",
+    "Databases",
+    "Database Systems",
+    "DBMS"
+  ],
   "allowed_domains": [
     "ocw.mit.edu",
     "cs50.harvard.edu"
   ],
-  "low_supply_threshold": 3,
-  "target_supply": 6,
-  "default_bkt_model_version": "bkt-database-systems-v1",
-  "status": "approved_for_preparation",
-  "aliases": ["DB", "Databases", "Database Systems", "DBMS"],
+  "approved_bank_path": "outputs/approved_banks/database-systems-approved-bank-0-v1.jsonl",
   "auto_activate_when_ready": true,
-  "max_session_questions": 20
+  "bkt_model_path": "outputs/bkt_database_systems_model_v1.pkl",
+  "candidate_store_path": "outputs/replenishment/database-systems/reference_candidates.json",
+  "course_id": "database-systems",
+  "default_bkt_model_version": "bkt-database-systems-v1",
+  "low_supply_threshold": 3,
+  "max_session_questions": 20,
+  "review_store_path": "outputs/replenishment/database-systems/reviews",
+  "status": "preparing",
+  "target_supply": 6,
+  "taxonomy_path": "taxonomy/data/database-systems",
+  "title": "Database Systems",
+  "version": "1"
 }
