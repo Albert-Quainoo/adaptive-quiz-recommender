@@ -388,7 +388,8 @@
         "LA-LTR-01-6f7e6d406916"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not ask for the standard matrix itself in this intent -- it must already be given."
+        "Do not ask for the standard matrix itself in this intent -- it must already be given.",
+        "Do not phrase the stem as a statement beginning with 'Given ...' -- it must be phrased as a question or begin with an imperative such as Determine or Compute."
       ],
       "prohibited_conflations": [
         "T(x) is computed by adding A and x rather than multiplying"
@@ -400,7 +401,7 @@
       ],
       "required_question_characteristics": [
         "Give a small (2x2 or 3x3) standard matrix A for T and a specific input vector x.",
-        "Ask for T(x) = Ax."
+        "Phrase the stem as a direct question ending in a question mark, or begin it with Determine or Compute (for example: 'Determine T(x) for x = ...')."
       ],
       "skill_id": "LA-LTR-01"
     },

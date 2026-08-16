@@ -356,7 +356,8 @@
         "DB-ALG-01-835486ff9559"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not involve a join across two tables in this intent."
+        "Do not involve a join across two tables in this intent.",
+        "Do not phrase the stem as an imperative beginning with 'Translate' -- it must be phrased as a question or begin with an imperative such as Determine or Identify."
       ],
       "prohibited_conflations": [
         "a SQL WHERE clause corresponds to relational algebra's projection operator"
@@ -369,7 +370,7 @@
       ],
       "required_question_characteristics": [
         "State a simple SQL query with a SELECT column list and a WHERE condition on one table.",
-        "Ask for the equivalent relational-algebra expression combining selection and projection."
+        "Phrase the stem as a direct question ending in a question mark, or begin it with Determine or Identify (for example: 'Which relational-algebra expression is equivalent to ...?')."
       ],
       "skill_id": "DB-ALG-01"
     },
