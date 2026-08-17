@@ -1,0 +1,158 @@
+name: Content Replenishment
+
+# Asynchronous content-supply monitoring/preparation for the four active
+# course banks (intro-ai, dsa, linear-algebra, database-systems). Runs
+# entirely outside the Streamlit learner path -- see
+# scripts/run_replenishment_cycle.py and README.md's "Content replenishment
+# pipeline" section for the pipeline this orchestrates.
+#
+# --- Required repository secrets --------------------------------------
+#   BRAVE_SEARCH_API_KEY          Brave Search credential (grounding retrieval)
+#   MODAL_INFERENCE_ENDPOINT      Modal web endpoint URL for the Llama generator/reviewer
+#   MODAL_PROXY_TOKEN_ID          Modal proxy auth token id
+#   MODAL_PROXY_TOKEN_SECRET      Modal proxy auth token secret
+#   MODEL_REPOSITORY              Model identifier recorded for provenance
+#   QUIZ_DATABASE_URL             Production Postgres DSN (e.g. Supabase) -- the
+#                                 authoritative job queue; never falls back to SQLite
+#                                 when set
+# None of these are printed by this workflow or by
+# scripts/run_replenishment_cycle.py; GitHub Actions also auto-masks any
+# `secrets.*` value that appears in step output. GITHUB_TOKEN (automatic) is
+# used only to push to the content-ops/replenishment branch and open/update
+# the review PR -- it is never used for Brave/Modal/database access.
+# -------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Scan only -- no Brave/Modal/reviewer calls, no worker processing"
+        type: boolean
+        default: true
+      max_new_candidates:
+        description: "Max brand-new skill episodes to start this run"
+        type: string
+        default: "3"
+      max_cost_usd:
+        description: "Estimated dollar ceiling for this run"
+        type: string
+        default: "5.00"
+  # ROLLOUT (see requirement 8): keep the schedule trigger disabled until a
+  # manual workflow_dispatch dry run has been reviewed -- inspect the
+  # deficiency report this workflow produces (job summary + the
+  # content-ops/replenishment PR) before uncommenting. Do not enable this
+  # until that review has happened.
+  # schedule:
+  #   - cron: "0 9 * * *"  # 09:00 UTC daily
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: replenishment-cycle
+  cancel-in-progress: false
+
+env:
+  CONTENT_OPS_BRANCH: content-ops/replenishment
+  PYTHONPATH: .
+
+jobs:
+  replenish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check out or create the content-ops branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BASE="${{ github.event.repository.default_branch }}"
+          if git ls-remote --exit-code --heads origin "$CONTENT_OPS_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$CONTENT_OPS_BRANCH"
+            git checkout -B "$CONTENT_OPS_BRANCH" "origin/$CONTENT_OPS_BRANCH"
+            # Keep the branch's approved-bank state in line with main so a
+            # promotion this run always lands on top of the real active
+            # bank, never a stale fork of it. A real conflict needs a human
+            # -- never silently continue past one.
+            if ! git merge --no-edit "origin/$BASE"; then
+              echo "::error::merge conflict pulling $BASE into $CONTENT_OPS_BRANCH -- resolve manually"
+              exit 1
+            fi
+          else
+            git checkout -B "$CONTENT_OPS_BRANCH"
+          fi
+
+      - name: Run the replenishment cycle
+        env:
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          QUIZ_DATABASE_URL: ${{ secrets.QUIZ_DATABASE_URL }}
+          MODAL_INFERENCE_ENDPOINT: ${{ secrets.MODAL_INFERENCE_ENDPOINT }}
+          MODAL_PROXY_TOKEN_ID: ${{ secrets.MODAL_PROXY_TOKEN_ID }}
+          MODAL_PROXY_TOKEN_SECRET: ${{ secrets.MODAL_PROXY_TOKEN_SECRET }}
+          MODEL_REPOSITORY: ${{ secrets.MODEL_REPOSITORY }}
+          QUIZ_REPLENISHMENT_INFERENCE_PROVIDER: modal
+          QUIZ_REVIEW_REVIEWER_PROVIDER: modal
+          MAX_NEW_CANDIDATES: ${{ github.event.inputs.max_new_candidates || '3' }}
+          MAX_COST_USD: ${{ github.event.inputs.max_cost_usd || '5.00' }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "${{ github.event_name }}" != "schedule" ] && [ "${{ github.event.inputs.dry_run }}" != "false" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          python -m scripts.run_replenishment_cycle \
+            $DRY_RUN_FLAG \
+            --max-new-candidates "$MAX_NEW_CANDIDATES" \
+            --max-cost-usd "$MAX_COST_USD"
+
+      - name: Publish job summary
+        if: always()
+        run: cat outputs/replenishment/_reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replenishment-report-${{ github.run_id }}
+          path: outputs/replenishment/
+          retention-days: 30
+
+      - name: Commit and push job-scoped artifacts to content-ops
+        id: commit
+        run: |
+          git add outputs/replenishment outputs/approved_banks
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Replenishment cycle: run ${{ github.run_id }}"
+            git push origin "HEAD:$CONTENT_OPS_BRANCH"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the admin review PR
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE="${{ github.event.repository.default_branch }}"
+          PR_NUMBER=$(gh pr list --head "$CONTENT_OPS_BRANCH" --base "$BASE" \
+            --state open --json number --jq '.[0].number' || true)
+          if [ -z "$PR_NUMBER" ]; then
+            gh pr create \
+              --head "$CONTENT_OPS_BRANCH" \
+              --base "$BASE" \
+              --title "Content replenishment: pending candidates for admin review" \
+              --body "Auto-updated by the Content Replenishment workflow. Opening or updating this PR does **not** approve or promote any content -- every candidate still requires the existing explicit admin approval (authoring/grounded_review.py's propose_revision/approve_revision) before it can be promoted, and promotion still only ever writes to this branch, never to $BASE directly. Merge this PR only once you are satisfied with what has been approved."
+            PR_NUMBER=$(gh pr list --head "$CONTENT_OPS_BRANCH" --base "$BASE" \
+              --state open --json number --jq '.[0].number')
+          fi
+          gh pr comment "$PR_NUMBER" --body-file outputs/replenishment/_reports/latest.md
