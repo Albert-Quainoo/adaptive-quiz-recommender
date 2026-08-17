@@ -1,0 +1,382 @@
+"""Bounded, reportable replenishment run for the scheduled GitHub Actions
+workflow (.github/workflows/replenishment.yml).
+
+This is a thin orchestration layer over the existing, unmodified pipeline
+(authoring/replenishment/{cli,worker,jobs,policy,inventory}.py): in live
+mode it scans the four active course manifests, enqueues deficient skills
+exactly the way `python -m authoring.replenishment.cli scan` already does,
+then drives the worker loop for at most a few new skill episodes per run
+under an explicit call/cost budget (authoring/replenishment/budget.py),
+snapshotting every touched job's artifacts to a job-scoped, git-committable
+directory (authoring/replenishment/snapshot.py) so a GitHub-hosted
+(ephemeral) runner can resume later runs purely from PostgreSQL job state
+plus whatever the caller checked out of the content-ops branch.
+
+    python -m scripts.run_replenishment_cycle --dry-run
+    python -m scripts.run_replenishment_cycle
+
+--dry-run performs the same read-only inventory/deficiency scan and produces
+the identical report, but writes nothing anywhere: no job is enqueued,
+updated, claimed, or processed; no branch artifact or PR is created; no
+Brave/Modal/reviewer call is made; no bank or lifecycle state changes. Each
+would-be-enqueued row instead carries a deterministic_job_key() (report.py)
+so the report can be read as "these are the jobs this would enqueue" without
+ever calling repository.enqueue().
+"""
+
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import authoring.replenishment.cli as cli
+import authoring.replenishment.report as report
+from authoring.grounded_batch import BatchGenerationError
+from authoring.question_intents import intents_by_skill
+from authoring.replenishment.budget import CycleBudgetConfig, CycleBudgetTracker
+from authoring.replenishment.inventory import compute_course_inventory
+from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
+from authoring.replenishment.manifest import load_preparation_eligible_manifests
+from authoring.replenishment.policy import decide_replenishment
+from authoring.replenishment.snapshot import archive_stale_jobs, snapshot_job_artifacts
+from authoring.replenishment.worker import (
+    _blueprint_generation_difficulty,
+    blueprints_covering_skill,
+    process_one,
+    ready_to_resume,
+)
+from authoring.review.backpressure import apply_review_backlog_caps
+from authoring.review.reports import count_pending_review_items
+
+# The four courses this workflow monitors -- named explicitly rather than
+# processing whatever load_preparation_eligible_manifests() happens to
+# return, so a future course only becomes part of this workflow through a
+# deliberate change here, never by silently picking up a new manifest file.
+COURSE_IDS = ("intro-ai", "dsa", "linear-algebra", "database-systems")
+
+DEFAULT_SNAPSHOT_ROOT = Path("outputs/replenishment")
+DEFAULT_REPORT_DIR = Path("outputs/replenishment/_reports")
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _env_int(name: str, default: int) -> int:
+    return int(os.getenv(name, str(default)))
+
+
+def _env_float(name: str, default: float) -> float:
+    return float(os.getenv(name, str(default)))
+
+
+def _resolve_difficulty(skill_id: str) -> str:
+    """Best-effort difficulty for the deficiency report: only meaningful once
+    exactly one reviewed blueprint unambiguously covers this skill with one
+    consistent explicit difficulty (see worker.py's
+    _blueprint_generation_difficulty). Anything else -- no blueprint yet,
+    more than one covering blueprint, inconsistent difficulty -- reports
+    "unknown" rather than guessing; generation itself will fail the same way
+    a human would expect if this job actually reaches that stage."""
+    covering = blueprints_covering_skill(skill_id)
+    if len(covering) != 1:
+        return "unknown"
+    intents = intents_by_skill(covering[0]).get(skill_id, [])
+    try:
+        return _blueprint_generation_difficulty(skill_id, intents)
+    except BatchGenerationError:
+        return "unknown"
+
+
+def _tick_budget_delta(job_type: str, config: CycleBudgetConfig) -> dict:
+    from authoring.replenishment.budget import (
+        GENERATION_JOB_TYPES,
+        REVIEW_JOB_TYPES,
+        SEARCH_JOB_TYPES,
+    )
+
+    if job_type in GENERATION_JOB_TYPES:
+        return {
+            "ticks": 1,
+            "generation_calls": 1,
+            "estimated_cost_usd": config.cost_per_generation_call_usd,
+        }
+    if job_type in REVIEW_JOB_TYPES:
+        return {
+            "ticks": 1,
+            "review_calls": 1,
+            "estimated_cost_usd": config.cost_per_review_call_usd,
+        }
+    if job_type in SEARCH_JOB_TYPES:
+        return {
+            "ticks": 1,
+            "search_calls": 1,
+            "estimated_cost_usd": config.cost_per_search_call_usd,
+        }
+    return {"ticks": 1, "estimated_cost_usd": 0.0}
+
+
+def _next_claimable_job(repository, manifests, clock):
+    """The job process_one() (worker.py) would claim next, without spending a
+    tick -- mirrors its own resume-then-claim ordering exactly (same public
+    calls: recover_expired_leases, requeue_retryable, ready_to_resume,
+    mark_queued) so the new-candidate cap below can be enforced *before* a
+    brand-new job is claimed, not after a call has already been spent on it.
+    Idempotent: safe to call every loop iteration."""
+    repository.recover_expired_leases(clock=clock)
+    repository.requeue_retryable(clock=clock)
+    for waiting_job in repository.list_waiting():
+        manifest = manifests.get(waiting_job.course_id)
+        if manifest is not None and ready_to_resume(waiting_job, manifest):
+            next_job_type = (
+                "promote_approved_items"
+                if waiting_job.status
+                in (
+                    "waiting_for_question_review",
+                    "waiting_for_full_human_review",
+                    "rejected_by_automated_review",
+                    "rejected_deterministically",
+                )
+                else waiting_job.job_type
+            )
+            repository.mark_queued(waiting_job.job_id, job_type=next_job_type)
+
+    queued = sorted(
+        (job for job in repository.list_active() if job.status == "queued"),
+        key=lambda job: job.created_at,
+    )
+    return queued[0] if queued else None
+
+
+def run_cycle(
+    *,
+    database: str | Path,
+    snapshot_root: Path,
+    dry_run: bool,
+    budget_config: CycleBudgetConfig,
+    retention_days: int,
+    clock=utc_now,
+) -> report.CycleReport:
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+
+    manifests = {
+        manifest.course_id: manifest
+        for manifest in load_preparation_eligible_manifests()
+        if manifest.course_id in COURSE_IDS
+    }
+    missing = set(COURSE_IDS) - manifests.keys()
+    if missing:
+        print(
+            f"warning: no preparation-eligible manifest for {sorted(missing)}",
+            file=sys.stderr,
+        )
+
+    review_config = cli._review_config()
+
+    deficiency_rows: list[report.DeficiencyRow] = []
+    for course_id in COURSE_IDS:
+        manifest = manifests.get(course_id)
+        if manifest is None:
+            continue
+        inventory = compute_course_inventory(manifest, repository)
+        decisions = decide_replenishment(inventory, cli._policy_config(manifest))
+        decisions = apply_review_backlog_caps(
+            decisions,
+            pending_per_skill={
+                skill_id: row.pending_generated_questions
+                for skill_id, row in inventory.items()
+            },
+            total_pending_backlog=count_pending_review_items(manifest.review_store_path),
+            config=review_config,
+        )
+        for decision in decisions:
+            difficulty = (
+                _resolve_difficulty(decision.skill_id) if decision.should_enqueue else "-"
+            )
+            deficiency_rows.append(report.deficiency_row(decision, difficulty=difficulty))
+            if decision.should_enqueue and not dry_run:
+                repository.enqueue(
+                    course_id=decision.course_id,
+                    skill_id=decision.skill_id,
+                    requested_count=decision.requested_count,
+                )
+
+    job_outcomes: list[report.JobOutcomeRow] = []
+    archived: list[str] = []
+    stop_reason: str | None = None
+    tracker = CycleBudgetTracker(config=budget_config)
+
+    if dry_run:
+        stop_reason = "dry run: scan only, no worker processing"
+    else:
+        while True:
+            reason = tracker.exhausted()
+            if reason:
+                stop_reason = reason
+                break
+
+            next_job = _next_claimable_job(repository, manifests, clock)
+            if next_job is None:
+                stop_reason = "no claimable or resumable work"
+                break
+
+            # attempts == 0 means this job has never been claimed before --
+            # its very first tick, whether this run's own scan enqueued it or
+            # an earlier run's did. Every later tick for the same job_id has
+            # attempts >= 1, so this naturally fires at most once per job and
+            # correctly spans across separate scheduled runs.
+            is_new = next_job.attempts == 0
+            if tracker.would_start_new_candidate_beyond_cap(next_job.job_id, is_new=is_new):
+                stop_reason = (
+                    f"new-candidate cap reached ({budget_config.max_new_candidates})"
+                )
+                break
+
+            processed = process_one(
+                repository,
+                manifests,
+                search_provider_factory=cli._search_provider_factory,
+                fetcher_factory=cli._fetcher_factory,
+                model_factory=cli._model_factory(),
+                reviewer_factory=cli._reviewer_factory(),
+                review_config=review_config,
+                clock=clock,
+                max_attempts=cli._max_attempts(),
+            )
+            if processed is None:
+                stop_reason = "no claimable work"
+                break
+
+            tracker.record_tick(job_type=processed.job_type, job_id=processed.job_id, is_new=is_new)
+
+            current = repository.get(processed.job_id)
+            job_outcomes.append(report.job_outcome_row(current, is_new_candidate=is_new))
+
+            manifest = manifests.get(current.course_id)
+            if manifest is not None:
+                snapshot_job_artifacts(
+                    current,
+                    manifest,
+                    snapshot_root,
+                    budget_deltas=_tick_budget_delta(processed.job_type, budget_config),
+                    clock=clock,
+                )
+
+        archived = [
+            str(path)
+            for path in archive_stale_jobs(
+                snapshot_root, repository, retention_days=retention_days, clock=clock
+            )
+        ]
+
+    pending_rows = [report.pending_approval_row(job) for job in repository.list_waiting()]
+
+    return report.build_report(
+        dry_run=dry_run,
+        deficiencies=deficiency_rows,
+        job_outcomes=job_outcomes,
+        pending_approvals=pending_rows,
+        budget=tracker.to_dict() if not dry_run else {},
+        stop_reason=stop_reason,
+        archived_job_dirs=archived,
+        clock=clock,
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m scripts.run_replenishment_cycle",
+        description=(
+            "Scan the four active course banks, enqueue deficient skills, and "
+            "drive the worker loop for a bounded number of new candidates "
+            "under an explicit call/cost budget."
+        ),
+    )
+    parser.add_argument("--database", type=str, default=cli.DEFAULT_DATABASE_PATH)
+    parser.add_argument(
+        "--snapshot-root", type=Path, default=DEFAULT_SNAPSHOT_ROOT,
+        help="Job-scoped artifact root (outputs/replenishment/<course>/<job_id>/)",
+    )
+    parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Scan and enqueue only -- no Brave/Modal/reviewer calls, no worker processing.",
+    )
+    parser.add_argument(
+        "--max-new-candidates",
+        type=int,
+        default=_env_int("QUIZ_REPLENISHMENT_MAX_NEW_CANDIDATES", 3),
+    )
+    parser.add_argument(
+        "--max-generation-calls",
+        type=int,
+        default=_env_int("QUIZ_REPLENISHMENT_MAX_GENERATION_CALLS", 20),
+    )
+    parser.add_argument(
+        "--max-cost-usd",
+        type=float,
+        default=_env_float("QUIZ_REPLENISHMENT_MAX_COST_USD", 5.0),
+    )
+    parser.add_argument(
+        "--cost-per-generation-call-usd",
+        type=float,
+        default=_env_float("QUIZ_REPLENISHMENT_COST_PER_GENERATION_CALL_USD", 0.05),
+    )
+    parser.add_argument(
+        "--cost-per-review-call-usd",
+        type=float,
+        default=_env_float("QUIZ_REPLENISHMENT_COST_PER_REVIEW_CALL_USD", 0.02),
+    )
+    parser.add_argument(
+        "--cost-per-search-call-usd",
+        type=float,
+        default=_env_float("QUIZ_REPLENISHMENT_COST_PER_SEARCH_CALL_USD", 0.0),
+    )
+    parser.add_argument(
+        "--max-ticks", type=int, default=_env_int("QUIZ_REPLENISHMENT_MAX_TICKS", 500),
+    )
+    parser.add_argument(
+        "--retention-days",
+        type=int,
+        default=_env_int("QUIZ_REPLENISHMENT_RETENTION_DAYS", 14),
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+
+    budget_config = CycleBudgetConfig(
+        max_new_candidates=args.max_new_candidates,
+        max_generation_calls=args.max_generation_calls,
+        max_cost_usd=args.max_cost_usd,
+        cost_per_generation_call_usd=args.cost_per_generation_call_usd,
+        cost_per_review_call_usd=args.cost_per_review_call_usd,
+        cost_per_search_call_usd=args.cost_per_search_call_usd,
+        max_ticks=args.max_ticks,
+    )
+
+    cycle_report = run_cycle(
+        database=args.database,
+        snapshot_root=args.snapshot_root,
+        dry_run=args.dry_run,
+        budget_config=budget_config,
+        retention_days=args.retention_days,
+    )
+
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    (args.report_dir / "latest.json").write_text(
+        json.dumps(cycle_report.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    markdown = report.render_markdown(cycle_report)
+    (args.report_dir / "latest.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
