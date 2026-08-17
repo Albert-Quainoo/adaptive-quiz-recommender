@@ -1,0 +1,105 @@
+{
+  "accepted_intent_ids": [
+    "AI-FND-04-INT-02"
+  ],
+  "allow_intent_reuse": false,
+  "artifacts": {
+    "audit": "audit.jsonl",
+    "questions": "pending_questions.jsonl",
+    "summary": "summary.json"
+  },
+  "base_seed": 20260817,
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "difficulty": "introductory",
+  "error": null,
+  "generated_at": "2026-08-17T09:18:19.058093Z",
+  "generation_parameters": {},
+  "git_commit": "815247398a63e3f91ce12144960a2e659ea68d3e",
+  "grounding_briefs": {
+    "AI-FND-04": {
+      "content_hash": "c29a3e97704d23ce7a75c73a91f9b71a5ca6f9993b64978b9df1e15303f33ba0",
+      "version": "pilot-grounding-v1"
+    }
+  },
+  "intents": [
+    {
+      "assessment_focus": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
+      "cognitive_demand": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap the Turing Test's behavioral claim with the Chinese Room's understanding-based challenge, or vice versa."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages.",
+        "Use the exact framing \"test or argue\", not \"test or demonstrate\" -- per the approved amendment to AI-FND-04-INT-02."
+      ],
+      "intent_id": "AI-FND-04-INT-02",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-1d9f2a7b336c",
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require the learner to judge whether the argument succeeds.",
+        "Do not blend both the Turing Test and the Chinese Room into one single description."
+      ],
+      "prohibited_conflations": [
+        "conflating what the Turing Test measures (behavioral indistinguishability in conversation) with what the Chinese Room challenges (genuine understanding)",
+        "treating the Chinese Room as itself a test for detecting a machine, rather than an argument against the sufficiency of the Turing Test"
+      ],
+      "question_archetype": "Turing Test vs. Chinese Room claim recognition",
+      "required_concepts": [
+        "the Turing Test as a behavioral test conducted through conversation",
+        "the Chinese Room argument as a challenge to whether behavior alone establishes understanding"
+      ],
+      "required_question_characteristics": [
+        "Describe either the Turing Test or the Chinese Room argument.",
+        "Ask what that description claims to test or argue about machine intelligence or understanding."
+      ],
+      "skill_id": "AI-FND-04"
+    }
+  ],
+  "max_attempts_per_question": 3,
+  "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "unknown",
+  "prompt_version": "v3.3",
+  "questions_per_skill": 1,
+  "references": [
+    {
+      "content_hash": "0a36a4f50e30752cd65982302fa8ab1e29638b8f97a9d511365b14e34990d9f4",
+      "reference_id": "AI-FND-04-0a36a4f50e30",
+      "reference_material": "The point of the argument is this: if the man in the room does not understand Chinese on the basis of implementing the appropriate program for understanding Chinese then neither does any other digital computer solely on that basis because no computer, qua computer, has anything the man does not have.",
+      "retrieved_at": "2026-08-17T09:07:54Z",
+      "review_note": "Fetched and read directly by Claude; genuine, on-topic, stable reference-source passage. Delegated review by Claude Code on behalf of Albert Quainoo.",
+      "reviewed_at": "2026-08-17T09:37:54Z",
+      "reviewer_id": "claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
+      "skill_id": "AI-FND-04",
+      "source_domain": "plato.stanford.edu",
+      "source_url": "https://plato.stanford.edu/entries/chinese-room/",
+      "title": "The Chinese Room Argument (Stanford Encyclopedia of Philosophy)"
+    },
+    {
+      "content_hash": "1d9f2a7b336c150c53a991641d46ec6cb6e52ce0ef4cfb2a95a1a8e2dee73dac",
+      "reference_id": "AI-FND-04-1d9f2a7b336c",
+      "reference_material": "Suppose that we have a person, a machine, and an interrogator. The interrogator is in a room separated from the other person and the machine. The object of the game is for the interrogator to determine which of the other two is the person, and which is the machine.",
+      "retrieved_at": "2026-08-17T09:07:54Z",
+      "review_note": "Fetched and read directly by Claude; genuine, on-topic, stable reference-source passage. Delegated review by Claude Code on behalf of Albert Quainoo.",
+      "reviewed_at": "2026-08-17T09:37:54Z",
+      "reviewer_id": "claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
+      "skill_id": "AI-FND-04",
+      "source_domain": "plato.stanford.edu",
+      "source_url": "https://plato.stanford.edu/entries/turing-test/",
+      "title": "The Turing Test (Stanford Encyclopedia of Philosophy)"
+    }
+  ],
+  "skill_ids": [
+    "AI-FND-04"
+  ],
+  "slot_intent_ids": {
+    "AI-FND-04": [
+      "AI-FND-04-INT-02"
+    ]
+  },
+  "status": "complete"
+}

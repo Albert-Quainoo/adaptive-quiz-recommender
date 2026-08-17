@@ -1,0 +1,104 @@
+{
+  "accepted_intent_ids": [
+    "AI-FND-03-INT-01"
+  ],
+  "allow_intent_reuse": false,
+  "artifacts": {
+    "audit": "audit.jsonl",
+    "questions": "pending_questions.jsonl",
+    "summary": "summary.json"
+  },
+  "base_seed": 20260817,
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "difficulty": "introductory",
+  "error": null,
+  "generated_at": "2026-08-17T09:22:49.558166Z",
+  "generation_parameters": {},
+  "git_commit": "815247398a63e3f91ce12144960a2e659ea68d3e",
+  "grounding_briefs": {
+    "AI-FND-03": {
+      "content_hash": "913dfda0e3f607678d274846fd42721bdeecc68a6391e287aa738264ca1cf2e9",
+      "version": "pilot-grounding-v1"
+    }
+  },
+  "intents": [
+    {
+      "assessment_focus": "Recognize which AI subfield or technique a given real-world scenario exemplifies.",
+      "cognitive_demand": "Recognize which single AI subfield a described real-world scenario exemplifies.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should name a plausible but incorrect AI subfield that superficially resembles the scenario, e.g. confusing search-based pathfinding with machine learning."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-01",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not present a scenario that plausibly fits more than one subfield equally well.",
+        "Do not require ranking or comparing multiple scenarios."
+      ],
+      "prohibited_conflations": [
+        "conflating machine learning with AI in general",
+        "conflating a specific technique such as search with any AI application whatsoever"
+      ],
+      "question_archetype": "AI subfield recognition from a real-world scenario",
+      "required_concepts": [
+        "AI subfields (search, machine learning, natural language processing, computer vision)",
+        "mapping a concrete real-world scenario to the technique it exemplifies"
+      ],
+      "required_question_characteristics": [
+        "State one clear real-world scenario.",
+        "Ask which single AI subfield or technique the scenario exemplifies."
+      ],
+      "skill_id": "AI-FND-03"
+    }
+  ],
+  "max_attempts_per_question": 3,
+  "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "unknown",
+  "prompt_version": "v3.3",
+  "questions_per_skill": 1,
+  "references": [
+    {
+      "content_hash": "1277170ce874150402521f9465c13f4ff3754106969342bf3028174af50b35c8",
+      "reference_id": "AI-FND-03-1277170ce874",
+      "reference_material": "This course explores the concepts and algorithms at the foundation of modern artificial intelligence, diving into the ideas that give rise to technologies like game-playing engines, handwriting recognition, and machine translation.",
+      "retrieved_at": "2026-08-17T09:07:54Z",
+      "review_note": "Fetched and read directly by Claude; genuine, on-topic, stable reference-source passage. Delegated review by Claude Code on behalf of Albert Quainoo.",
+      "reviewed_at": "2026-08-17T09:37:54Z",
+      "reviewer_id": "claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
+      "skill_id": "AI-FND-03",
+      "source_domain": "cs50.harvard.edu",
+      "source_url": "https://cs50.harvard.edu/ai/2024/",
+      "title": "CS50's Introduction to Artificial Intelligence with Python"
+    },
+    {
+      "content_hash": "81534113035fc777e027d7bf5f5257c2caaee4fa334db028de81a14585bf04bc",
+      "reference_id": "AI-FND-03-81534113035f",
+      "reference_material": "Graph search algorithms let us find the shortest path on a map represented as a graph.",
+      "retrieved_at": "2026-08-17T09:07:54Z",
+      "review_note": "Fetched and read directly by Claude; genuine, on-topic, stable reference-source passage. Delegated review by Claude Code on behalf of Albert Quainoo.",
+      "reviewed_at": "2026-08-17T09:37:54Z",
+      "reviewer_id": "claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
+      "skill_id": "AI-FND-03",
+      "source_domain": "redblobgames.com",
+      "source_url": "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+      "title": "Introduction to the A* Algorithm -- Red Blob Games"
+    }
+  ],
+  "skill_ids": [
+    "AI-FND-03"
+  ],
+  "slot_intent_ids": {
+    "AI-FND-03": [
+      "AI-FND-03-INT-01"
+    ]
+  },
+  "status": "complete"
+}

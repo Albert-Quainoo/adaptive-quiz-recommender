@@ -1,0 +1,85 @@
+{
+  "base_seed": 20260817,
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "intents": [
+    {
+      "assessment_focus": "Recognize which AI subfield or technique a given real-world scenario exemplifies.",
+      "cognitive_demand": "Recognize which single AI subfield a described real-world scenario exemplifies.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should name a plausible but incorrect AI subfield that superficially resembles the scenario, e.g. confusing search-based pathfinding with machine learning."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-01",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not present a scenario that plausibly fits more than one subfield equally well.",
+        "Do not require ranking or comparing multiple scenarios."
+      ],
+      "prohibited_conflations": [
+        "conflating machine learning with AI in general",
+        "conflating a specific technique such as search with any AI application whatsoever"
+      ],
+      "question_archetype": "AI subfield recognition from a real-world scenario",
+      "required_concepts": [
+        "AI subfields (search, machine learning, natural language processing, computer vision)",
+        "mapping a concrete real-world scenario to the technique it exemplifies"
+      ],
+      "required_question_characteristics": [
+        "State one clear real-world scenario.",
+        "Ask which single AI subfield or technique the scenario exemplifies."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "assessment_focus": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
+      "cognitive_demand": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should swap the Turing Test's behavioral claim with the Chinese Room's understanding-based challenge, or vice versa."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages.",
+        "Use the exact framing \"test or argue\", not \"test or demonstrate\" -- per the approved amendment to AI-FND-04-INT-02."
+      ],
+      "intent_id": "AI-FND-04-INT-02",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-1d9f2a7b336c",
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require the learner to judge whether the argument succeeds.",
+        "Do not blend both the Turing Test and the Chinese Room into one single description."
+      ],
+      "prohibited_conflations": [
+        "conflating what the Turing Test measures (behavioral indistinguishability in conversation) with what the Chinese Room challenges (genuine understanding)",
+        "treating the Chinese Room as itself a test for detecting a machine, rather than an argument against the sufficiency of the Turing Test"
+      ],
+      "question_archetype": "Turing Test vs. Chinese Room claim recognition",
+      "required_concepts": [
+        "the Turing Test as a behavioral test conducted through conversation",
+        "the Chinese Room argument as a challenge to whether behavior alone establishes understanding"
+      ],
+      "required_question_characteristics": [
+        "Describe either the Turing Test or the Chinese Room argument.",
+        "Ask what that description claims to test or argue about machine intelligence or understanding."
+      ],
+      "skill_id": "AI-FND-04"
+    }
+  ],
+  "prompt_version": "v3.3",
+  "questions_per_intent": 1,
+  "review_status": "blueprint-approved",
+  "reviewed_at": "2026-08-17T09:37:54Z",
+  "reviewer_id": "claude (intro-ai foundations release candidate, delegated blueprint authoring by Albert Quainoo)",
+  "skill_conventions": {}
+}

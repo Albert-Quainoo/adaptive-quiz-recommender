@@ -301,6 +301,26 @@ PILOT_GROUNDING_BRIEFS = {
                 "A B+ tree's wider fan-out per node keeps the tree shorter than an equivalent binary search tree over the same keys, so fewer levels must be traversed to reach a given key.",
             ],
         ),
+        CanonicalGroundingBrief(
+            skill_id="AI-FND-03",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "Real-world AI technologies include game-playing engines, handwriting recognition, and machine translation, each arising from different underlying AI concepts and algorithms.",
+                "Graph search is one concrete AI technique: graph search algorithms find the shortest path on a map represented as a graph, and are the basis of applications such as game AI and navigation.",
+                "A single real-world scenario should be matched to the one AI subfield or technique that most directly explains it, not treated as equally explained by several unrelated techniques at once.",
+            ],
+        ),
+        CanonicalGroundingBrief(
+            skill_id="AI-FND-04",
+            version=GROUNDING_BRIEF_VERSION,
+            statements=[
+                "The Turing Test involves a person, a machine, and an interrogator; the interrogator's task is to determine, through conversation alone, which of the other two is the person and which is the machine.",
+                "The Turing Test's claim is behavioral: appearing indistinguishable from a human in conversation is treated as evidence of intelligence.",
+                "The Chinese Room argument's point is that a system (the man plus the program) can correctly manipulate symbols well enough to pass a test for understanding Chinese without the system actually understanding Chinese.",
+                "The Chinese Room argument challenges whether passing a behavioral test like the Turing Test is sufficient to establish genuine understanding, not merely correct behavioral output.",
+                "The Turing Test is a test of behavioral performance; the Chinese Room is an argument against treating that behavioral performance as sufficient evidence of understanding -- the two must not be described as making the same claim.",
+            ],
+        ),
     )
 }
 

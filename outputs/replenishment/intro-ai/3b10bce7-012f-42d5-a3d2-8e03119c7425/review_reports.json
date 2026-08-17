@@ -1,0 +1,174 @@
+[
+  {
+    "answer_assessment": {
+      "answer_confidence": 1.0,
+      "duplicate_or_rephrased_distractors": [],
+      "matches_declared_answer": true,
+      "multiple_defensible_answers": false,
+      "no_defensible_option": false,
+      "obviously_signalled_answer": false,
+      "option_assessments": {},
+      "selected_option_text": "Whether a machine can correctly manipulate symbols to pass a test for understanding a language without understanding the language"
+    },
+    "blocking_reasons": [],
+    "candidate_id": "AI-FND-04-b4cd5c51a8cab3c4",
+    "configured_max_new_tokens": 1000,
+    "consulted_reference_ids": [
+      "AI-FND-04-0a36a4f50e30",
+      "AI-FND-04-1d9f2a7b336c"
+    ],
+    "created_at": "2026-08-17T09:20:21.851819Z",
+    "deterministic_checks": {
+      "checks": [
+        {
+          "blocking": true,
+          "code": "exactly_four_options",
+          "message": "question has exactly four options",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "options_distinct_after_normalization",
+          "message": "all options are distinct after normalization",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "correct_answer_matches_one_option",
+          "message": "correct_answer exactly equals one option",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "explanation_non_empty",
+          "message": "explanation is non-empty",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "skill_matches_candidate",
+          "message": "candidate skill_id equals AI-FND-04",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "intent_matches_candidate",
+          "message": "candidate intent_id equals AI-FND-04-INT-02",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "difficulty_allowed",
+          "message": "difficulty 'introductory' is an allowed level",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "approved_references_only",
+          "message": "every cited reference_id is an approved reference",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "provenance_present",
+          "message": "candidate carries complete model and prompt provenance",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "no_duplicate_item_id",
+          "message": "question_id AI-FND-04-b4cd5c51a8cab3c4 does not already exist",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "no_exact_duplicate_question",
+          "message": "question text does not duplicate an existing item exactly",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "no_near_duplicate_question",
+          "message": "question text is not a near-duplicate of an existing item",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "no_unresolved_placeholders",
+          "message": "question contains no forbidden formatting or unresolved placeholders",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "question_length_within_limit",
+          "message": "question text is within the 600 character limit",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "option_lengths_within_limit",
+          "message": "every option is within the 250 character limit",
+          "passed": true
+        },
+        {
+          "blocking": true,
+          "code": "explanation_length_within_limit",
+          "message": "explanation is within the 900 character limit",
+          "passed": true
+        }
+      ]
+    },
+    "difficulty_assessment": {
+      "difficulty_justified": true,
+      "explanation_depth_matches_difficulty": true,
+      "is_definition_recall_only": false
+    },
+    "duplicate_assessment": {
+      "exact_duplicate_of": null,
+      "near_duplicate_of": []
+    },
+    "finish_reason": "stop",
+    "grounding_assessment": {
+      "consulted_reference_ids": [
+        "AI-FND-04-0a36a4f50e30",
+        "AI-FND-04-1d9f2a7b336c"
+      ],
+      "contradictions": [],
+      "grounded": true,
+      "grounding_confidence": 1.0,
+      "independently_supported_answer": true,
+      "supported_claims": [],
+      "supporting_reference_ids": [
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "unsupported_claims": []
+    },
+    "input_token_count": 2514,
+    "intent_id": "AI-FND-04-INT-02",
+    "objective_assessment": {
+      "cognitive_demand": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
+      "duplicates_another_intent": false,
+      "matches_objective_verb": true,
+      "measures_declared_skill": true,
+      "satisfies_intent_blueprint": true
+    },
+    "output_token_count": 210,
+    "recommendation": "recommend_human_approval",
+    "rendered_review_request_hash": "10773e3794619f768d44795860dd8be01741cb447b4859476f46f4242ea5187c",
+    "review_id": "3b46e134-bd27-4470-8026-d4f152efb1fe",
+    "review_policy_version": "review-policy-v1",
+    "reviewed_content_hash": "3e7505b8bfc627d814fd70e9df7450c471dcb75c59d34ec11614ab352de9aa2a",
+    "reviewer_model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "reviewer_model_revision": "unknown",
+    "reviewer_prompt_template_hash": "564d751b841ece8368d419075c5320979dd545f6b95088fb880763dd23b097f7",
+    "reviewer_prompt_version": "review-v5",
+    "reviewer_request_count": 1,
+    "risk_level": "low",
+    "risk_score": 0.1,
+    "skill_id": "AI-FND-04",
+    "supporting_reference_ids": [
+      "AI-FND-04-0a36a4f50e30"
+    ],
+    "warnings": []
+  }
+]

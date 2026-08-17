@@ -1,0 +1,23 @@
+{
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "items": [
+    {
+      "final_review_status": "pending",
+      "intent_id": "AI-FND-04-INT-02",
+      "original_question_id": "AI-FND-04-b4cd5c51a8cab3c4",
+      "recommendation": "propose_revision",
+      "recommendation_reason": "Automated review (low): no issues found.",
+      "rejection_reason": null,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "revisions": [],
+      "skill_id": "AI-FND-04"
+    }
+  ],
+  "source_hashes": {
+    "audit.jsonl": "aa716c7a17ce01126f2880af410017e4152be69de796a8a243e155fb2659a3b4",
+    "manifest.json": "32860a0a32bb675f22431a93decb10e9cd8bb8878452fd787221817c74e518eb",
+    "pending_questions.jsonl": "e9c4fc9cf22bb6f2db6c9e4cbf87b06c6a3c078285ba7aac6831c56e38892d3d",
+    "summary.json": "69c52e736689e21e3690b18cf7d349ee5d50f339f36135d7d2ebf4f29dbb7aa6"
+  }
+}

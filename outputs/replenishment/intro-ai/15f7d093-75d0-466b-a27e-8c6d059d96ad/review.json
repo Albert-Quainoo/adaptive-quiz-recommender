@@ -1,0 +1,65 @@
+{
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "items": [
+    {
+      "final_review_status": "pending",
+      "intent_id": "AI-FND-03-INT-01",
+      "original_question_id": "AI-FND-03-216e939347f36d4f",
+      "recommendation": "propose_revision",
+      "recommendation_reason": "Automated review (low): no issues found.",
+      "rejection_reason": null,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "revisions": [
+        {
+          "changed_fields": [
+            "concept",
+            "explanation",
+            "question"
+          ],
+          "content_hash": "d052d66a20f9e10b2d2fbe619afc287ebb9699f2ab2bd4f5de25c0ff90cdafe9",
+          "edited_at": "2026-08-17T09:23:17.969772Z",
+          "editor": "automated-review-v1",
+          "final_review_status": "pending",
+          "intent_id": "AI-FND-03-INT-01",
+          "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+          "model_revision": "unknown",
+          "original_question_id": "AI-FND-03-216e939347f36d4f",
+          "prompt_hash": "5baa90699657771636f7f3459803ebc5d1f16aedec1b3d05386e836c334670c8",
+          "prompt_version": "v3.3",
+          "question": {
+            "concept": "Graph search",
+            "correct_answer": "Graph search",
+            "difficulty": "introductory",
+            "explanation": "Graph search algorithms are used to find the shortest path on a map represented as a graph, which is the basis of applications such as GPS navigation.",
+            "options": [
+              "Machine learning",
+              "Natural language processing",
+              "Computer vision",
+              "Graph search"
+            ],
+            "question": "Which AI subfield is exemplified by a GPS navigation system that finds the shortest route between two locations?"
+          },
+          "reference_ids": [
+            "AI-FND-03-1277170ce874",
+            "AI-FND-03-81534113035f"
+          ],
+          "rejection_reason": null,
+          "review_note": "Automated revision (d9f19100-f9cd-4778-ad10-c824feb2cc8a): reviewer's independently selected answer disagrees with the declared answer",
+          "reviewed_at": null,
+          "reviewed_by": null,
+          "revision_id": "AI-FND-03-216e939347f36d4f-rev-880bbd38fda4",
+          "skill_id": "AI-FND-03",
+          "source_batch_id": "grounded-ai-fnd-release-v1"
+        }
+      ],
+      "skill_id": "AI-FND-03"
+    }
+  ],
+  "source_hashes": {
+    "audit.jsonl": "0a8ea75155bb319c447c2a57fe99af5fdff2e325ac8aca4606cf597ebd98285c",
+    "manifest.json": "bf993383338518db3497f1177f684a488e06504928808e0da4c3cf2aaaea97a3",
+    "pending_questions.jsonl": "b6b14d2300f27ce0f12959919b017404654a9a78cbc1eb10c4685236257835f5",
+    "summary.json": "69c52e736689e21e3690b18cf7d349ee5d50f339f36135d7d2ebf4f29dbb7aa6"
+  }
+}
