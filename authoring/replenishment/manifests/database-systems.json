@@ -20,7 +20,7 @@
   "low_supply_threshold": 3,
   "max_session_questions": 20,
   "review_store_path": "outputs/replenishment/database-systems/reviews",
-  "status": "awaiting_content_approval",
+  "status": "active",
   "target_supply": 6,
   "taxonomy_path": "taxonomy/data/database-systems",
   "title": "Database Systems",

@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -210,6 +211,24 @@ def test_switch_button_returns_to_login_and_activates_a_new_learner(
 def test_course_selector_reports_being_prepared_for_a_registered_but_inactive_course(
     monkeypatch, tmp_path
 ):
+    # Force dsa back to a non-active status in an isolated manifest
+    # directory -- the real catalog's lifecycle state is not a stable test
+    # fixture (dsa is active in production as of the three-course rollout).
+    from authoring.replenishment.manifest import (
+        MANIFEST_DIRECTORY as REAL_MANIFEST_DIRECTORY,
+    )
+
+    manifest_dir = tmp_path / "manifests"
+    manifest_dir.mkdir()
+    for source in REAL_MANIFEST_DIRECTORY.glob("*.json"):
+        manifest = json.loads(source.read_text(encoding="utf-8"))
+        if manifest["course_id"] == "dsa":
+            manifest["status"] = "awaiting_content_approval"
+        (manifest_dir / source.name).write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(
+        "authoring.replenishment.manifest.MANIFEST_DIRECTORY", manifest_dir
+    )
+
     monkeypatch.setenv("QUIZ_APPROVED_BANK_PATH", str(BANK_PATH))
     monkeypatch.setenv("QUIZ_BKT_MODEL_PATH", "outputs/bkt_dev_model_v4.pkl")
     monkeypatch.setenv("QUIZ_BKT_MODEL_VERSION", "bkt-synthetic-v4")
