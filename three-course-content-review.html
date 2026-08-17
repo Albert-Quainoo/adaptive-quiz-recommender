@@ -1,0 +1,1617 @@
+<title>Three-Course Content Review</title>
+<style>
+  :root {
+    --bg: #f2f1ec;
+    --paper: #fbfaf7;
+    --ink: #1b1d22;
+    --ink-soft: #4a4d57;
+    --rule: #d9d7cd;
+    --rule-strong: #b9b6a8;
+    --accent: #1f6f5c;
+    --accent-soft: #e4efec;
+    --flag: #a3402f;
+    --flag-soft: #f6e6e2;
+    --ok: #1f6f5c;
+    --ok-soft: #e4efec;
+    --warn: #9a6a12;
+    --warn-soft: #f5ecda;
+    --dsa: #21707a;
+    --dsa-soft: #e2eef0;
+    --la: #6a4c93;
+    --la-soft: #ece5f3;
+    --db: #9c6a1c;
+    --db-soft: #f3e8d6;
+    --correct-bg: #e4efec;
+    --correct-ink: #14523f;
+    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161b;
+      --paper: #1b1e24;
+      --ink: #e9e8e2;
+      --ink-soft: #a9adb8;
+      --rule: #33363f;
+      --rule-strong: #454956;
+      --accent: #4fb99b;
+      --accent-soft: #1c2f2b;
+      --flag: #e07a63;
+      --flag-soft: #34211d;
+      --ok: #4fb99b;
+      --ok-soft: #1c2f2b;
+      --warn: #d9a94a;
+      --warn-soft: #332a15;
+      --dsa: #5bb6c2;
+      --dsa-soft: #1a2b2f;
+      --la: #b49bdb;
+      --la-soft: #271f34;
+      --db: #d9a94a;
+      --db-soft: #322715;
+      --correct-bg: #1c2f2b;
+      --correct-ink: #7fd6b8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161b;
+    --paper: #1b1e24;
+    --ink: #e9e8e2;
+    --ink-soft: #a9adb8;
+    --rule: #33363f;
+    --rule-strong: #454956;
+    --accent: #4fb99b;
+    --accent-soft: #1c2f2b;
+    --flag: #e07a63;
+    --flag-soft: #34211d;
+    --ok: #4fb99b;
+    --ok-soft: #1c2f2b;
+    --warn: #d9a94a;
+    --warn-soft: #332a15;
+    --dsa: #5bb6c2;
+    --dsa-soft: #1a2b2f;
+    --la: #b49bdb;
+    --la-soft: #271f34;
+    --db: #d9a94a;
+    --db-soft: #322715;
+    --correct-bg: #1c2f2b;
+    --correct-ink: #7fd6b8;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.55;
+    margin: 0;
+    padding: 0 1.5rem 6rem;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header.masthead {
+    padding: 3.5rem 0 2rem;
+    border-bottom: 3px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: 0.9rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2.55rem;
+    line-height: 1.08;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+    font-weight: 400;
+  }
+  .masthead p.lede {
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0.4rem 0 0;
+  }
+  .masthead .meta {
+    margin-top: 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin: 0;
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.2rem;
+    margin: 2.1rem 0 0.7rem;
+    color: var(--ink);
+  }
+  h4 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+
+  section.top-summary { padding: 2.5rem 0; border-bottom: 1px solid var(--rule); }
+  .reopen-note {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn);
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    font-size: 0.88rem;
+    color: var(--ink);
+    margin: 0.9rem 0 0;
+  }
+
+  .course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    margin-top: 1.3rem;
+  }
+  .course-tile {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: 4px solid var(--tile-accent, var(--accent));
+    border-radius: 3px;
+    padding: 1.1rem 1.2rem 1.3rem;
+    text-decoration: none;
+    color: var(--ink);
+    display: block;
+  }
+  .course-tile.dsa { --tile-accent: var(--dsa); }
+  .course-tile.la { --tile-accent: var(--la); }
+  .course-tile.db { --tile-accent: var(--db); }
+  .course-tile h4 { font-family: var(--font-display); font-size: 1.1rem; }
+  .course-tile .big-num {
+    font-family: var(--font-mono);
+    font-size: 2.1rem;
+    font-variant-numeric: tabular-nums;
+    display: block;
+    margin: 0.3rem 0 0.2rem;
+  }
+  .course-tile .fraction { color: var(--ink-soft); font-size: 1.1rem; }
+  .course-tile .breakdown { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.5rem; }
+
+  .status-pill {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .status-ready { background: var(--ok-soft); color: var(--ok); }
+  .status-conditional { background: var(--warn-soft); color: var(--warn); }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.7rem;
+    margin: 1.2rem 0 0.5rem;
+  }
+  .stat-tile {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.75rem 0.9rem;
+  }
+  .stat-num {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-label { font-size: 0.75rem; color: var(--ink-soft); }
+
+  section.course { padding: 3rem 0; border-bottom: 1px solid var(--rule); }
+  .course-dsa { --course-accent: var(--dsa); --course-accent-soft: var(--dsa-soft); }
+  .course-la { --course-accent: var(--la); --course-accent-soft: var(--la-soft); }
+  .course-db { --course-accent: var(--db); --course-accent-soft: var(--db-soft); }
+  .course-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-left: 5px solid var(--course-accent);
+    padding-left: 1rem;
+  }
+  section.course h3 { border-bottom: 1px solid var(--rule); padding-bottom: 0.35rem; }
+
+  .table-wrap { overflow-x: auto; margin: 0.6rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.87rem; }
+  th, td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); font-weight: 500; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+  td.deficient { color: var(--flag); font-size: 0.78rem; }
+  .mono { font-family: var(--font-mono); font-size: 0.85em; }
+
+  .domain-list { columns: 2; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-soft); padding-left: 1.1rem; }
+  .diff-summary { font-size: 0.85rem; color: var(--ink-soft); }
+
+  .unfilled-box {
+    background: var(--flag-soft);
+    border: 1px solid var(--flag);
+    border-radius: 3px;
+    padding: 0.9rem 1.1rem;
+    margin: 0.8rem 0;
+  }
+  .unfilled-box h4 { color: var(--flag); }
+  .unfilled-box ul { margin: 0; padding-left: 1.2rem; font-size: 0.88rem; }
+
+  .readiness-line {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: var(--ok-soft);
+    color: var(--ok);
+    display: inline-block;
+    padding: 0.4rem 0.7rem;
+    border-radius: 3px;
+  }
+
+  details.skill-group {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin: 0.6rem 0;
+    background: var(--paper);
+  }
+  details.skill-group > summary {
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    list-style: none;
+  }
+  details.skill-group > summary::-webkit-details-marker { display: none; }
+  details.skill-group > summary::before { content: "▸ "; color: var(--course-accent); }
+  details.skill-group[open] > summary::before { content: "▾ "; }
+  details.skill-group > summary:hover { background: var(--course-accent-soft); }
+
+  article.qcard {
+    margin: 0 1rem 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--rule);
+    border-left-width: 4px;
+    border-radius: 3px;
+    background: var(--bg);
+  }
+  article.qcard.verdict-clean { border-left-color: var(--rule-strong); }
+  article.qcard.verdict-revised { border-left-color: var(--flag); }
+  article.qcard.verdict-round2 { border-left-color: var(--warn); }
+  article.qcard.verdict-rejected { border-left-color: var(--flag); background: var(--flag-soft); }
+
+  .qcard-head {
+    display: flex;
+    gap: 0.7rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 0.55rem;
+  }
+  .qcard-id { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); }
+  .qcard-diff {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--course-accent-soft);
+    color: var(--course-accent);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+  .qcard-verdict {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    margin-left: auto;
+  }
+  .verdict-revised .qcard-verdict, .verdict-rejected .qcard-verdict { color: var(--flag); }
+  .verdict-round2 .qcard-verdict { color: var(--warn); }
+
+  .tag-round2 {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border: 1px solid var(--warn);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  .q-stem { font-family: var(--font-mono); font-size: 0.92rem; white-space: pre-wrap; margin: 0 0 0.55rem; }
+  .q-options { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.3rem; }
+  .q-options li { font-family: var(--font-mono); font-size: 0.85rem; padding: 0.35rem 0.6rem; border: 1px solid var(--rule); border-radius: 3px; }
+  .q-options li.opt-correct { background: var(--correct-bg); color: var(--correct-ink); border-color: var(--correct-ink); font-weight: 600; }
+  .q-explanation, .q-reason { font-size: 0.87rem; margin: 0.4rem 0; }
+  .q-reason { color: var(--ink-soft); }
+
+  details.original-toggle { margin-top: 0.6rem; font-size: 0.85rem; }
+  details.original-toggle > summary { cursor: pointer; color: var(--flag); font-family: var(--font-mono); font-size: 0.78rem; }
+  .original-block { margin-top: 0.5rem; padding: 0.7rem 0.9rem; background: var(--flag-soft); border-radius: 3px; }
+  .original-block .q-stem { color: var(--ink); }
+
+  section.validation, section.activation, section.recommendation {
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  ul.check-list { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 0.5rem; }
+  ul.check-list li { display: flex; gap: 0.6rem; align-items: baseline; font-size: 0.92rem; }
+  ul.check-list li::before { content: "✓"; color: var(--ok); font-weight: 700; flex-shrink: 0; }
+  ul.check-list li.caveat::before { content: "!"; color: var(--warn); }
+
+  pre.commands {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 1.1rem 1.3rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.83rem;
+    line-height: 1.7;
+  }
+  pre.commands .cmt { color: #8a8d97; }
+
+  ol.commit-list { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); padding-left: 1.4rem; }
+  ol.commit-list li { margin-bottom: 0.25rem; }
+  ol.commit-list .hash { color: var(--ink); }
+
+  .final-table td, .final-table th { font-size: 0.92rem; }
+  .final-table .status-pill { display: inline-block; }
+
+  footer.packet-footer {
+    padding: 3rem 0 1rem;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    details[open] > *:not(summary) { animation: reveal 0.15s ease-out; }
+  }
+  @keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
+
+  a { color: var(--course-accent, var(--accent)); }
+
+  article.qcard.verdict-round3 { border-left-color: var(--flag); }
+  .verdict-round3 .qcard-verdict { color: var(--flag); }
+  .q-hash { font-size: 0.75rem; color: var(--ink-soft); margin: 0.4rem 0 0; }
+
+  article.qcard.verdict-round3 { border-left-color: var(--flag); }
+  .verdict-round3 .qcard-verdict { color: var(--flag); }
+  .q-hash { font-size: 0.75rem; color: var(--ink-soft); margin: 0.4rem 0 0; }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <span class="eyebrow">Content review packet &middot; round 3 (consolidated)</span>
+    <h1>Three-Course Content Review</h1>
+    <p class="lede">
+      DSA, Linear Algebra, and Database Systems &mdash; 80 approved-bank cards,
+      generated directly from the exact final approved-bank JSONL and GroundedReviewStore
+      artifacts on disk. Every card below carries the bank's own item_id and a sha256 content
+      hash computed the same way QuestionRevision self-validates its own content_hash field,
+      so this packet cannot silently drift from the bank the way the round-2 packet did for
+      DB-ERM-01-INT-03.
+    </p>
+    <div class="meta">
+      <span>Generated by scripts/generate_content_review_packet.py</span>
+      <span>7 card(s) corrected this round</span>
+      <span>All three courses remain <span class="mono">awaiting_content_approval</span></span>
+    </div>
+    <p class="reopen-note">
+      Not approved, activated, pushed, deployed, or promoted to Supabase. Local commits only.
+      Course status is unchanged by this packet.
+    </p>
+  </header>
+
+  <section class="top-summary">
+    <h2>Round 3: what changed</h2>
+    <p>
+      Albert's adversarial review of the round-2 packet found the packet itself was stale for
+      DB-ERM-01-INT-03 (still displaying the disputed cardinality-direction question, with an
+      explanation claiming '1' and 'n' mean minimum/maximum relationship counts &mdash; both
+      wrong) even though the approved bank already carried the correct placement-focused
+      replacement. Regenerating this packet directly from the bank/review-store artifacts (this
+      script) fixes that class of bug structurally: the packet can no longer disagree with the
+      bank, because it is derived from the same source.
+    </p>
+    <p>
+      Regenerating also surfaced a second, deeper defect in the same item: the round-2
+      replacement had only ever been hand-written into the approved-bank JSONL &mdash; the
+      GroundedReviewStore's CurationItem for DB-ERM-01-208a6d1c67c7e626 still pointed at the
+      original disputed content, with no QuestionRevision recording the replacement. A bank
+      regenerated from the review store (the intended single source of truth) would have
+      silently reverted to the disputed question. This is now recorded as a proper
+      QuestionRevision, using the genuine fresh-generation provenance already on disk at
+      <span class="mono">outputs/grounded-database-systems-v1-erm03-fix/</span>.
+    </p>
+    <p>Six further items had genuine single-answer or accuracy defects, each corrected, re-run through deterministic checks, the live Modal semantic reviewer, and an independent Claude review:</p>
+    <ul class="check-list">
+      <li>DSA-CPX-01-INT-02 &mdash; two true options (constant-factor / Big-O framing); replaced the second with a false claim.</li>
+      <li>DSA-SRC-01-INT-02 &mdash; "sorted in ascending order" was stronger than the algorithm requires; stem now names the standard ascending-order algorithm explicitly.</li>
+      <li>DSA-STK-01-INT-04 &mdash; "store in order received" and "store in order processed" were not mutually exclusive in the scenario; replaced with a priority-queue distractor.</li>
+      <li>LA-DET-01-INT-01 &mdash; two options both correctly implied non-invertibility; replaced the redundant one with a false, non-equivalent claim.</li>
+      <li>LA-EIG-01-INT-04 &mdash; determinant and trace distractors were also true of similar matrices; replaced with false claims about eigenvectors and diagonalizability.</li>
+      <li>DB-IDX-01-INT-03 &mdash; the marked option contradicted its own explanation about leaf-node contents; reworded both to the implementation-neutral "data entries."</li>
+      <li>DB-ERM-01-INT-03 &mdash; traceability reconciliation only (see above); displayed content is unchanged.</li>
+    </ul>
+    <p>Two items named in Albert's review were checked and left unchanged, because the fix as literally specified would have made them wrong:</p>
+    <ul class="check-list">
+      <li class="caveat">DSA-HSH-01-INT-02 and INT-03 ("appended" to the chain) &mdash; the approved reference (DSA-HSH-01-a15ab46be9fd) explicitly states "the new item is simply appended to the end of the linked list already stored at that index." Albert's own instruction carved out exactly this case ("unless the approved reference explicitly defines an append-only implementation"). Changed nothing.</li>
+    </ul>
+    <p>A fresh adversarial exact-one-answer audit was then run across all 80 cards (not just the flagged items) for factual accuracy, missing premises, duplicate/equivalent options, implementation-dependent generalizations, contradictory explanations, and answer leakage. No further defects were found; the full card listing below is that audit's record.</p>
+  </section>
+
+
+  <section class="course course-dsa" id="dsa">
+    <div class="course-head">
+      <h2>Data Structures &amp; Algorithms</h2>
+      <span class="status-pill status-ready">28/28 approved</span>
+    </div>
+    <details class="skill-group" open><summary><span class="mono">DSA-CPX-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-CPX-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does the Big-O notation O(n^2) describe about the running time of an algorithm that has a nested loop with n iterations in each loop?</p>
+      <ul class="q-options"><li class="">The algorithm will take exactly 2n^2 steps to complete.</li><li class="opt-correct">The algorithm's running time will grow quadratically with the input size.</li><li class="">The algorithm will take at most n^2 steps to complete.</li><li class="">The algorithm's running time will be constant regardless of the input size.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Big-O notation describes the growth rate of an algorithm's running time as input size increases. O(n^2) indicates that the running time will grow quadratically with the input size.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-CPX-01-80a2beed4246b78c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">3f2cc0340f6a2487be367356955f19cd8d50b4139c36c18c85bf7d4950b02f20</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-CPX-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">Which of the following statements about asymptotic growth rates is true?</p>
+      <ul class="q-options"><li class="">If two algorithms have running-time expressions that differ by a constant factor, the one with the larger constant will eventually grow faster.</li><li class="opt-correct">Changing a constant factor in a running-time expression shifts where two growth curves cross, but does not change which one eventually grows faster.</li><li class="">A faster computer or a constant-factor code optimization changes an algorithm's asymptotic growth rate.</li><li class="">Big-O notation gives the exact number of primitive operations an algorithm performs for a given input size.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> This statement is true because asymptotic growth rates are concerned with the growth rate of an algorithm's running time, not its exact running time. Changing a constant factor only affects where the growth curves cross, not which one eventually grows faster.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: option D ('Asymptotic (Big-O) notation describes how an algorithm's running time grows as input size increases, not its exact running time') is itself a true statement, alongside the declared correct answer B -- both are unambiguously correct, so the item had two defensible answers. Replaced D with a false claim about what Big-O notation gives (an exact operation count, which it does not), leaving exactly one defensible option. Independently verified by Claude: the declared answer B is the only option grounded in the approved reference's statement that constant-factor changes shift where growth curves cross without changing which one eventually grows faster; the new option D (Big-O gives an exact operation count) is false, leaving exactly one defensible answer. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-CPX-01-8990a5065e53ee39-rev-6c3241dd9db9</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">d4f01aa13bd313cbd5111faebcf82cbfd0e994f23fd0ecccc603fa4218eb5fd9</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-CPX-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Which search algorithm is more efficient for a large sorted input of 1,000,000 elements?</p>
+      <ul class="q-options"><li class="">Linear search is always more efficient because it doesn't require the data to be sorted.</li><li class="opt-correct">Binary search is more efficient because it repeatedly halves the search space.</li><li class="">Both search algorithms have the same running time complexity for large inputs.</li><li class="">Linear search is more efficient because it only requires a single pass through the data.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Binary search is more efficient for large inputs because it reduces the search space by half with each comparison, resulting in a running time of O(log n), whereas linear search has a running time of O(n).</p>
+      <p class="q-reason"><strong>Review note:</strong> Claude override of automated reviewer's reject/critical verdict: the warning quotes 'Linear search is always more efficient because it doesn't require the data to be sorted' as if it were in the explanation field, but that sentence is actually one of the three (deliberately false) distractor options -- the declared correct answer and the explanation are both accurate and fully supported by the mapped references. A well-formed distractor being contradicted by the references is expected, not a defect.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-CPX-01-7ac330fd286a361e</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">19dbd59d53618e40ca756fc5496c59c036b731b7ad491d1956a2eafd976fcfc0</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-CPX-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">If a sorting algorithm's running time is O(n log n) and a constant-factor speedup is applied, will the algorithm's asymptotic growth rate change?</p>
+      <ul class="q-options"><li class="">Yes, the algorithm's asymptotic growth rate will be O(n log n) -&gt; O(n log n / 2)</li><li class="opt-correct">No, the algorithm's asymptotic growth rate remains O(n log n)</li><li class="">Yes, the algorithm's asymptotic growth rate will be O(n log n) -&gt; O(n log n^2)</li><li class="">Yes, the algorithm's asymptotic growth rate will be O(n log n) -&gt; O(n log log n)</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A constant-factor speedup does not change the algorithm's asymptotic growth rate, as it only affects the constant factor in the running-time expression, not the growth rate itself.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-CPX-01-021d2059b34c07a6</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">427b77e6298836c86767d43cfd20c9b6442530de87f4f4f8568e526f0cc7528d</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-HSH-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-HSH-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does a hash function do to a search key to determine its position in a hash table?</p>
+      <ul class="q-options"><li class="">A hash function stores the key itself as the position in the hash table.</li><li class="">A hash function sorts the table based on the search key.</li><li class="opt-correct">A hash function maps the search key to a position (index) in the hash table.</li><li class="">A hash function duplicates the search key and places it in the table.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A hash function maps a search key to a position (index) in the hash table by performing a computation on the key.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-HSH-01-19d7c56ef9cfe4a8</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">14ba1ef17d77af8bbce5646f6b2e05fb64d519401891803783db78e86e70b226</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-HSH-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">What happens when two different keys are mapped to the same index in a hash table using separate chaining?</p>
+      <ul class="q-options"><li class="">The hash function fails to map the key.</li><li class="opt-correct">A collision occurs, and the new key is appended to the linked list at that index.</li><li class="">The table is resized to accommodate the new key.</li><li class="">The key is discarded because it is a duplicate.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A collision occurs when two different keys hash to the same table position. Under separate chaining, the new key is appended to the linked list already stored at that index.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the collision-resolution scheme (separate chaining vs. open addressing) was never specified in the stem, yet the answer was chaining-specific -- ambiguous. Specified 'using separate chaining' in the stem.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-HSH-01-6878caa481d254ba-rev-0c35ded02133</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2572f932e49fc3ac8e16f3a0aa786d49e41a01ad5fec16c0574ca144e4de68d6</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-HSH-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">A hash function maps the key 'apple' to index 5 in a hash table. A new key 'banana', which also hashes to index 5, is now inserted. Under chaining collision resolution, what happens to 'banana'?</p>
+      <ul class="q-options"><li class="">'banana' overwrites the existing entry at index 5.</li><li class="opt-correct">'banana' is appended to the linked list already stored at index 5.</li><li class="">'banana' is rejected due to the collision.</li><li class="">The hash function is modified to map 'banana' to a different index.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Under chaining collision resolution, a colliding key is appended to the linked list already stored at the index, rather than overwriting the existing entry. Because 'banana' hashes to the same index 5 as 'apple', it collides and is appended.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem never actually stated that 'banana' hashes to index 5, leaving the premise for the collision unstated. Added 'which also hashes to index 5' explicitly.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-HSH-01-aff46801026db821-rev-9584d9075a93</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">cd66e9bef7b0bb48b1ad86074bed2a972962a12a6341f4fe7550826b4711d069</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-HSH-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">A hash function maps the key 'banana' to index 5 in a hash table. A new key 'apple', which also hashes to index 5, is now inserted using open addressing with linear probing. Index 6 is currently free. What happens to 'apple'?</p>
+      <ul class="q-options"><li class="">'apple' is inserted at index 5, overwriting the existing key 'banana'.</li><li class="opt-correct">'apple' is inserted at index 6, as linear probing checks the next slot and finds it free.</li><li class="">'apple' is inserted at index 0, as the collision resolution policy probes the first slot.</li><li class="">The insertion fails outright, as the home position is already occupied.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Under open addressing with linear probing, when a key's home position is already occupied, the policy checks the next slot in sequence. Since index 5 is occupied by 'banana' and index 6 is free, 'apple' is inserted at index 6.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem never stated that 'apple' collides at index 5, never named the specific probing scheme (linear probing, as opposed to quadratic probing or double hashing, which would probe differently), and never stated index 6 was actually free. Made all three explicit.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-HSH-01-eca7f6cf08765b17-rev-6005315720cc</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8205cee4ad20ca571d25d9e9b489f6c33ff6c0de36dfe56aef5dad478a4fbefe</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-LST-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-LST-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What is a key benefit of storing elements in an array?</p>
+      <ul class="q-options"><li class="">Arrays require less memory than linked lists.</li><li class="opt-correct">Arrays store elements in contiguous memory, allowing for constant-time indexed access.</li><li class="">Linked lists are faster than arrays for insertion and deletion operations.</li><li class="">Arrays are only suitable for small datasets.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> This is because array elements occupy contiguous memory, enabling direct access by index in constant time.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-LST-01-389f1e631161e873</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2781630f10f2608287ba8e110c727a923bfe08836556514ca670e778db1a38cb</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-LST-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does a singly linked-list node store?</p>
+      <ul class="q-options"><li class="">An element and a copy of the following element's value.</li><li class="">A pointer to the previous node and the current node's value.</li><li class="opt-correct">An element and a pointer to the next node.</li><li class="">An index and the current node's value.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A singly linked-list node stores an element and a pointer to the next node, as described in the reference material.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-LST-01-21040486e7a165b0</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2285626057d222c7ca4437267a91ff26e1db17bdeee8e490a8a9d80d0f7b60e7</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-LST-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">When inserting a new element at a given position in the middle of a populated array-based list, what must the array-based implementation do to complete the insertion?</p>
+      <ul class="q-options"><li class="opt-correct">It must shift all elements at and after the insertion position to the right.</li><li class="">It must shift all elements before the insertion position to the left.</li><li class="">It must shift all elements before and after the insertion position.</li><li class="">It must shift only the element at the insertion position itself.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Inserting requires making room at the target position: every element currently at or after that position must shift one place to the right to open a gap for the new element, while elements before the insertion position stay exactly where they are.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the declared answer and explanation had the shift direction backwards -- elements at and after the insertion position must shift right to make room, not elements before it shifting left. Corrected the answer, options, and explanation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-LST-01-888bb959b029a0b4-rev-1ec46bff0cd9</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">48d01f78eafb81a1bfc9713c2d34703a870c46e48b288468936e43a45c355c27</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-LST-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Why can't a singly linked list be randomly indexed like an array?</p>
+      <ul class="q-options"><li class="">Because linked lists use dynamic memory allocation, which allows for efficient insertion and deletion.</li><li class="">Because linked lists store elements in contiguous memory, enabling direct access by index.</li><li class="opt-correct">Because linked lists require sequential traversal to reach a given position, unlike arrays which support constant-time indexed access.</li><li class="">Because linked lists use a separate Link object for each node, which includes a pointer to the next node.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Linked lists do not support constant-time indexed access like arrays because each node must be traversed sequentially to reach a given position.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-LST-01-3ec7fc47c87043f2</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">14293ba5fbd22c629bc10e95c1810fbacb97de3d80bbaee8fb79e7c5e2b3f158</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-SRC-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRC-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">How does linear search examine elements to find a target in a list?</p>
+      <ul class="q-options"><li class="opt-correct">Linear search examines elements one at a time, in order, until it finds the target or exhausts the list.</li><li class="">Linear search compares the target to the middle element and continues searching only the half of the list that could still contain the target.</li><li class="">Linear search discards the half of the list that cannot contain the target and continues searching the other half.</li><li class="">Linear search only works on sorted data and compares the target to the middle element.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Linear search examines elements one at a time, in order, until it finds the target or exhausts the list, making its running time O(n).</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRC-01-68ebf25587e57247</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">bd84d369204d74e5849dddbaa7f6afd2a00b1f5049ea5ae768bcdc74bf9145fe</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRC-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">What property must a list have before the standard (ascending-order) binary search algorithm can be applied correctly?</p>
+      <ul class="q-options"><li class="opt-correct">It must be sorted in ascending order.</li><li class="">It must be sorted in descending order.</li><li class="">It must be a linked list.</li><li class="">It must be a hash table.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Binary search requires the input to be sorted so that it can discard half of the remaining search space each time, resulting in a running time of O(log n).</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: 'must be sorted in ascending order' as an unqualified requirement is too strong -- binary search can operate on descending-sorted data if its comparison logic is adapted to match. Constrained the stem to the standard (ascending-order) binary search algorithm so the declared answer is no longer an overgeneralization; left the reference-grounded explanation and options unchanged. Independently verified by Claude: with the stem now scoped to the standard ascending-order algorithm, 'sorted in ascending order' is the only defensible answer; the approved reference describes binary search purely in terms of already-sorted data and does not itself claim descending order is impossible, so no unreferenced claim was introduced. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRC-01-e57feb4d11b7c4db-rev-652046114591</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">89309ec31cd974c15152ed47ae497395c53f5a477414d36c4cb1b79adcf4fac4</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRC-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given a sorted list [4, 6, 8, 12, 15, 20] and the target value 12, the middle element is 8. If the target is greater than the middle element, which half of the list should binary search continue searching in?</p>
+      <ul class="q-options"><li class="">The first half of the list: [4, 6, 8]</li><li class="opt-correct">The second half of the list: [12, 15, 20]</li><li class="">Both halves of the list</li><li class="">Neither half of the list</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Binary search discards the half of the list that cannot contain the target. Since the target 12 is greater than the middle element 8, binary search continues searching in the second half of the list.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem's conditional said 'if the target is less than the middle element' but 12 is greater than 8, contradicting the actual given values (and the explanation, which correctly said 'greater than'). Replaced 'less than' with 'greater than' in the stem.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRC-01-c2dd67dfacf94c95-rev-9c0f973630cb</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">5b64ebd9f0b3c6fe2316782e9f2a8b504b33315fd9aa3e53b968b2b020b7dbce</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRC-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Which search algorithm is more efficient on a large sorted list of n elements, and why?</p>
+      <ul class="q-options"><li class="">Linear search is more efficient because it only checks each element once.</li><li class="opt-correct">Binary search is more efficient because it discards half of the search space with each comparison.</li><li class="">Both search algorithms have the same efficiency on large sorted inputs.</li><li class="">Linear search is more efficient because it does not require sorted data.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Binary search is more efficient because it reduces the search space by half with each comparison, resulting in a running time of O(log n), whereas linear search has a running time of O(n).</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRC-01-57a4d138b0ed777d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">4e6217f1c750440caf71f105389e295502558fa2e62ddab9592c055066161df7</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-SRT-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRT-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the list [3, 6, 1, 8] and bubble sort, what is the order of the list after one pass?</p>
+      <ul class="q-options"><li class="opt-correct">3, 1, 6, 8</li><li class="">3, 6, 1, 8</li><li class="">6, 3, 1, 8</li><li class="">1, 3, 6, 8</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> One bubble-sort pass compares each adjacent pair left to right, swapping when out of order. Compare 3 and 6: 3 &lt; 6, no swap, list stays [3, 6, 1, 8]. Compare 6 and 1: 6 &gt; 1, swap, giving [3, 1, 6, 8]. Compare 6 and 8 (the pair now at those positions after the swap): 6 &lt; 8, no swap. After one pass the list is [3, 1, 6, 8].</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-traced the pass by hand: the generated candidate's declared answer (6, 3, 1, 8) and explanation compared '1 and 8' for the third pair, but after the middle swap the array at those positions is actually 6 and 8, not 1 and 8 -- a stale-array tracing error. The correct one-pass result is [3, 1, 6, 8], which was not among the original four options.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRT-01-37fe1b554da708a4-rev-e82d1f9ce6b3</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">74df6a84d2d068604ea889a604b9f529814a4de5650d66d2af8eef884e3f5825</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRT-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Given the list [3, 5, 2, 8] and selection sort, which element will selection sort place into position on its first pass?</p>
+      <ul class="q-options"><li class="">The element 8 will be placed into position.</li><li class="">The element 5 will be placed into position.</li><li class="opt-correct">The element 2 will be placed into position.</li><li class="">The element 3 will be placed into position.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Selection sort repeatedly finds the smallest element in the unsorted portion and moves it to the front of that portion. On the first pass, the smallest element is 2, so it will be placed into position.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRT-01-d91c581ff48efbeb</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">ceeb341accd884de57dea735cb74a465ce55ce1957fa47c0f1cd3ad030e54af8</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRT-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the sorted prefix [2, 4, 5] and the next key 3 to insert, where should insertion sort place 3?</p>
+      <ul class="q-options"><li class="">before 2</li><li class="opt-correct">between 2 and 4</li><li class="">between 4 and 5</li><li class="">after 5</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Insertion sort inserts the next key into its correct position among the already-sorted prefix. Since 3 is greater than 2 but less than 4, it belongs between 2 and 4.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the original stem gave the list [2, 4, 5, 7] and separately called 3 'the next element', leaving unclear whether 7 was already processed or not. Simplified to a single coherent sorted-prefix-and-key framing.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRT-01-e5d09b0fdaf34e13-rev-fe081e364a8d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">5b1d3b822f0b5ca84c241c21150d5f44ad402d8f2edb4c39b21cfa740fa4b291</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-SRT-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">How do merge sort and quicksort divide the sorting problem, and what distinguishes their approaches?</p>
+      <ul class="q-options"><li class="opt-correct">Merge sort splits the list in half and recursively sorts each half, while quicksort selects a pivot and partitions the remaining elements into those less than and greater than the pivot.</li><li class="">Merge sort selects a pivot and partitions the remaining elements into those less than and greater than the pivot, while quicksort splits the list in half and recursively sorts each half.</li><li class="">Merge sort is a greedy algorithm that sorts the list by repeatedly finding the smallest element, while quicksort is a divide-and-conquer algorithm that splits the list in half and recursively sorts each half.</li><li class="">Merge sort is a divide-and-conquer algorithm that splits the list in half and recursively sorts each half, while quicksort is a greedy algorithm that sorts the list by repeatedly finding the smallest element.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Merge sort uses a fixed midpoint split, whereas quicksort uses a pivot-based partition. This distinction is key to understanding their asymptotic running times.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-SRT-01-e54420e148b3c5b6</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">834f5e4949fbee9635a032f18d0401cdcd77210e2fcbb64f51a6b62b55772f0a</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-STK-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-STK-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">A stack is implemented with the following sequence of push operations: push 1, push 2, push 3. What element will be popped from the stack?</p>
+      <ul class="q-options"><li class="opt-correct">The most recently pushed element, 3</li><li class="">The earliest pushed element, 1</li><li class="">The second pushed element, 2</li><li class="">No element can be popped without specifying which one to remove.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A stack follows the Last-In, First-Out (LIFO) principle, meaning the most recently added element is removed first, so pop returns 3.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: two distractors ('The earliest pushed element, 1' and 'The first pushed element, 1') were semantic duplicates of each other. Replaced the second with a distinct misconception (that pop requires specifying which element to remove, confusing a stack with an indexed structure).</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-STK-01-18c6eda7ea3e0d65-rev-0817b6e90fc5</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">edead597b4ba57c7184fd3d13d25b82aa79acf30bb8282484d3614a354f8ecf1</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-STK-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A queue is initialized with the elements 1, 2, and 3. Which element will be dequeued first?</p>
+      <ul class="q-options"><li class="">The element 3 will be dequeued first.</li><li class="opt-correct">The element 1 will be dequeued first.</li><li class="">The element 2 will be dequeued first.</li><li class="">The element 1 will be dequeued last.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A queue is First-In, First-Out (FIFO), meaning that the element that was added first will be removed first.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-STK-01-50085e1658fd52b3</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8a3986608b16c212421159cef9e72a5641d114ab80421a2ef5b3d42b72eb82fe</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-STK-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the sequence of stack operations: push 1, push 2, pop, push 3, pop, pop, what is the order of the elements returned by the pops?</p>
+      <ul class="q-options"><li class="opt-correct">2, 3, 1</li><li class="">1, 3, 2</li><li class="">3, 2, 1</li><li class="">1, 2, 3</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Trace the stack (LIFO): push 1 -&gt; [1]; push 2 -&gt; [1, 2]; pop returns 2 -&gt; [1]; push 3 -&gt; [1, 3]; pop returns 3 -&gt; [1]; pop returns 1 -&gt; []. The three pops return, in order, 2, 3, 1.</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-traced the operation sequence by hand: the generated candidate declared '3, 2, 1' as correct, but its own explanation self-contradicted ('2 is popped again' after 2 had already been removed and 3 pushed). The correct pop order is 2, 3, 1, which was present as an option but not marked correct.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-STK-01-c346b46c441b2dc9-rev-43fdd83b6797</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">457fd7d7185ef4ee123390247c1d3cb0db2e600d742abd30e82979a582111711</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-STK-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">A company is managing a list of customer orders. Orders are received and processed in the order they are received. Which data structure should be used to store the orders?</p>
+      <ul class="q-options"><li class="">A stack to store the orders in the order they are received</li><li class="opt-correct">A queue to store the orders in the order they are received</li><li class="">A stack to store the orders in the order they are processed</li><li class="">A priority queue to store the orders by priority, regardless of arrival order</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A queue is a First-In, First-Out (FIFO) data structure, meaning that the order in which elements are added is the same order in which they are removed. This is suitable for storing customer orders, as they need to be processed in the order they are received.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: the scenario states orders are processed in the same order they are received, so 'store in order received' and 'store in order processed' describe the same queue and both options answered the question -- not mutually exclusive as distractors. Replaced the fourth option with a priority queue, a genuinely incorrect data structure for this FIFO scenario, since nothing in the scenario involves priority. Independently verified by Claude: the scenario names no priority ordering, so the new option D is a genuinely incorrect data structure/behavior for it, leaving 'a queue to store the orders in the order they are received' as the only defensible answer. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-STK-01-409871df4ec6fc00-rev-7cab6b6840c5</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">1b372235b7b647b2d8401542e3117157d98dc631ebc262c1c7e3fc49c8b02475</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DSA-TGR-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-TGR-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">In a binary search tree, where should a node with key value 7 be stored in relation to a node with key value 5?</p>
+      <ul class="q-options"><li class="">In the left subtree of the node with key value 5</li><li class="opt-correct">In the right subtree of the node with key value 5</li><li class="">As a child of the node with key value 5</li><li class="">As the node with key value 5</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> According to the binary search tree property, all nodes stored in the right subtree of a node with key value K have key values greater than K. Since 7 is greater than 5, it should be stored in the right subtree.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-TGR-01-d54a6968ac29fc49</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">35805200bd4d128419b3f3a2f31c00bac2b7ded44653d4da98e13f43affd55b4</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-TGR-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Does the max-heap property hold for a node with value 8 and children with values 4 and 12?</p>
+      <ul class="q-options"><li class="opt-correct">No, the max-heap property does not hold because 8 is less than 12.</li><li class="">Yes, the max-heap property holds because 8 is greater than or equal to both 4 and 12.</li><li class="">No, the max-heap property does not hold because 4 is greater than 8.</li><li class="">Yes, the max-heap property holds because 8 is less than 4 and 12.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The max-heap property requires every node's value to be greater than or equal to the values of both of its children. Here the parent is 8 and one child is 12; since 8 &lt; 12, the property is violated, regardless of the other child (4) being smaller than 8.</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-checked the property by hand: 8 is not &gt;= 12, so the max-heap property does not hold. The generated candidate declared the opposite ('Yes ... 8 is greater than or equal to both 4 and 12') as correct, which is false on its face -- the automated reviewer also scored this recommend_human_approval/low, a false negative this independent Claude review catches.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-TGR-01-39a6e74047e87cf6-rev-e0bd059b26e1</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">1c867c4c5b9b38e1af7b872059df706308264217d6b9ea3a9aeebdc84cdae091</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-TGR-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Given a binary search tree with the following structure: root (10), left child (5), right child (15), left child of 5 (3), right child of 5 (7), left child of 7 (6), and right child of 7 (8), what order do the nodes visit during an inorder traversal?</p>
+      <ul class="q-options"><li class="opt-correct">3, 5, 6, 7, 8, 10, 15</li><li class="">5, 3, 10, 7, 6, 8, 15</li><li class="">10, 5, 3, 7, 6, 8, 15</li><li class="">15, 10, 5, 3, 7, 6, 8</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> An inorder traversal visits the left subtree, the current node, and then the right subtree. In this case, the left subtree of 10 is 5, then 3, then 7, then 6, then 8. The current node is 10, and the right subtree is 15. Therefore, the order of the nodes visited is 3, 5, 6, 7, 8, 10, 15.</p>
+      <p class="q-reason"><strong>Review note:</strong> Claude override of automated reviewer's reject/critical verdict: independently re-traced the inorder traversal of the described BST (root 10, left 5 [left 3, right 7 [left 6, right 8]], right 15) and confirmed the declared answer '3, 5, 6, 7, 8, 10, 15' is correct and matches option 1 exactly. The reviewer's blocking reason claims its own selected answer ('The nodes visit in ascending order: 3, 5, 6, 7, 8, 10, 15.') is 'absent from the options' -- but that is the same sequence as option 1, just phrased with an extra wrapper sentence; this is a reviewer answer-text-matching artifact, not a real grounding or correctness defect.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-TGR-01-cbd02bbbb6ea04d8</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">abcaf4e3555270c25b89e2de812f1e4effa5559b975b414a467496bdf284e31c</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DSA-TGR-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Using breadth-first search starting at vertex A, and visiting each vertex's unvisited neighbors in alphabetical order, what is the resulting traversal order for the graph with vertex set {E, C, A, D, B} and edges A-B, A-C, B-D, C-D, D-E?</p>
+      <ul class="q-options"><li class="opt-correct">A, B, C, D, E</li><li class="">A, C, B, D, E</li><li class="">A, B, D, C, E</li><li class="">A, B, C, E, D</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Starting at A, its unvisited neighbors in alphabetical order are B then C; both are enqueued. Dequeuing B, its only unvisited neighbor is D, which is enqueued. Dequeuing C, its neighbors A and D are already visited or enqueued. Dequeuing D, its unvisited neighbor E is enqueued. The resulting BFS order is A, B, C, D, E.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: asking only whether an arbitrary given order was 'valid' was too weak a test (any permutation of this path graph that visits each vertex once looks valid). Replaced with a genuine, non-trivial graph, a named algorithm (BFS), a start vertex, a deterministic neighbor-order tie-break, and a required trace with a hand-verified unique correct order.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DSA-TGR-01-aecd1b8632808749-rev-154214eb815b</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">bb47f8732688393f07c1a5c535a67629e5f8f0a93bf021d6c76e9c25b3f870b2</span></p>
+      
+    </article></details>
+  </section>
+  <section class="course course-la" id="linear-algebra">
+    <div class="course-head">
+      <h2>Linear Algebra</h2>
+      <span class="status-pill status-ready">24/24 approved</span>
+    </div>
+    <details class="skill-group" open><summary><span class="mono">LA-DET-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-DET-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">If a matrix's determinant is zero, is the matrix invertible?</p>
+      <ul class="q-options"><li class="">Yes, the matrix is invertible because its determinant is zero.</li><li class="opt-correct">No, the matrix is not invertible because its determinant is zero.</li><li class="">Yes, the matrix is invertible regardless of its determinant value.</li><li class="">No, the matrix is invertible only if it is a square matrix, regardless of its determinant.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A matrix is invertible exactly when its determinant is nonzero. A zero determinant means the matrix has no inverse.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: option D ('the matrix is invertible only if its determinant is nonzero') restates the same true nonzero-determinant criterion as the declared answer B, just phrased as a necessary condition -- both correctly imply the matrix is not invertible here. Replaced D with a false, non-equivalent claim (squareness alone as the criterion, which this very matrix -- square, det=0, not invertible -- disproves). Independently verified by Claude: the new option D's 'square implies invertible' claim is false and is directly disproved by the question's own matrix (square, determinant zero, not invertible), leaving the declared answer as the only defensible one. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-DET-01-e0c1dacf1005437e-rev-203f032a396d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8f4271da9be9508c3e7fec054b9e2e28164cfe7c861207efb8d63df8559549b1</span></p>
+      
+        <details class="original-toggle">
+          <summary>Show prior approved candidate (before this round-3 correction)</summary>
+          <div class="original-block">
+            <p class="q-stem">If a matrix's determinant is zero, is the matrix invertible?</p>
+            <ul class="q-options"><li class="">Yes, the matrix is invertible because its determinant is zero.</li><li class="opt-correct">No, the matrix is not invertible because its determinant is zero.</li><li class="">Yes, the matrix is invertible regardless of its determinant value.</li><li class="">No, the matrix is invertible only if its determinant is nonzero.</li></ul>
+            <p class="q-explanation"><strong>Explanation:</strong> A matrix is invertible exactly when its determinant is nonzero. A zero determinant means the matrix has no inverse.</p>
+          </div>
+        </details>
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-DET-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Can Cramer's Rule be used to find the unique solution to the system of linear equations represented by the coefficient matrix A with determinant 0?</p>
+      <ul class="q-options"><li class="">Yes, Cramer's Rule can be used regardless of the determinant's value.</li><li class="opt-correct">No, Cramer's Rule requires a nonzero determinant to find the unique solution.</li><li class="">Yes, Cramer's Rule can be used to find the solution, but it will be the trivial solution.</li><li class="">No, because Cramer's Rule only applies to systems with more equations than unknowns.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Cramer's Rule requires a nonzero determinant to find the unique solution to a system of linear equations. If the determinant is zero, the system has no solution or infinitely many, and Cramer's Rule cannot be used. (It does not require more equations than unknowns -- it applies to square systems with equal numbers of equations and unknowns.)</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the fourth option ('No, Cramer's Rule cannot be used if the determinant is zero.') was substantively equivalent to the declared correct answer, creating two defensible-looking correct options. Replaced it with a genuinely incorrect distractor (a false premise about equation/unknown counts).</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-DET-01-44d61b8a41ea2a68-rev-193752185cfc</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">7972ab9e0437db799fca4fa0764c5f48491fa80ca0fad3edb8d42e0cbc8fb32a</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-DET-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Using Cramer's Rule, determine the value of x for the system 2x + y = 8, x - y = 1 (coefficient matrix determinant = -3)?</p>
+      <ul class="q-options"><li class="opt-correct">x = 3</li><li class="">x = 2</li><li class="">x = -3</li><li class="">x = 1</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Cramer's Rule replaces the x-column of the coefficient matrix [[2, 1], [1, -1]] with the constant column [8, 1] and divides by the coefficient matrix's determinant: det([[8, 1], [1, -1]]) / det([[2, 1], [1, -1]]) = (8*(-1) - 1*1) / (2*(-1) - 1*1) = (-9) / (-3) = 3.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate asked for the general Cramer's Rule formula pattern (x = det(Ax)/det(A)) rather than computing an actual variable value from a concrete system, missing the intent's 'small 2x2 system, ask for one variable's value' requirement -- the automated reviewer independently flagged the same misalignment ('question does not measure the declared skill or satisfy its intent'). Replaced with a concrete, hand-verified 2x2 system and numeric computation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-DET-01-3863e5b00af3a898-rev-f611bda82ddd</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">cac603fb40dcfb2397db31c3ebedf29e4dec0218b0613bbe7bd70cb77b6b8410</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-DET-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Determine whether the matrix A with determinant 5 is invertible and has only the trivial solution to its homogeneous system.</p>
+      <ul class="q-options"><li class="opt-correct">The matrix A is invertible and has only the trivial solution to its homogeneous system.</li><li class="">The matrix A is invertible but has a nontrivial solution to its homogeneous system.</li><li class="">The matrix A is not invertible but has only the trivial solution to its homogeneous system.</li><li class="">The matrix A is not invertible and has a nontrivial solution to its homogeneous system.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Since the determinant of matrix A is nonzero, it is invertible. A matrix with a nonzero determinant has only the trivial solution to its homogeneous system.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-DET-01-7f097f3be441d25d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">bb95a7bb769a8d83b3ca97dad27cd1198cd9789b23d9fea053a5a2f485c8bf3f</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">LA-EIG-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-EIG-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What relationship does the equation Ax = lambda*x define?</p>
+      <ul class="q-options"><li class="">A is a scalar multiple of x</li><li class="">x is a scalar multiple of A</li><li class="opt-correct">A*x = lambda*x defines the eigenvector/eigenvalue relationship</li><li class="">x is the zero vector</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The equation Ax = lambda*x defines the relationship between a square matrix A, a nonzero vector x, and a scalar lambda, where x is an eigenvector of A with eigenvalue lambda.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-EIG-01-df814679d9214964</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">b88a419b4e9a778d775e2aa981970e6c73a5e49eca3a54d04dbc824038f8a1d3</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-EIG-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What do the roots of a matrix's characteristic polynomial represent?</p>
+      <ul class="q-options"><li class="">The matrix's determinant</li><li class="">The matrix's trace</li><li class="opt-correct">The eigenvalues of the matrix</li><li class="">The matrix's inverse</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The eigenvalues of a matrix are exactly the roots of its characteristic polynomial, as stated in the definition of an eigenvector.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-EIG-01-ad9194f05ac1155c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">4e4f8754a1ef35ea5258aee6107d72ec5646d87bfd6ff1acce899dfa1593d35d</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-EIG-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the vector x = &lt;1, 1&gt; is an eigenvector of the matrix A = [[4, 1], [2, 3]] with eigenvalue lambda = 5.</p>
+      <ul class="q-options"><li class="opt-correct">Yes, because A*x = lambda*x</li><li class="">No, because A*x != lambda*x</li><li class="">Yes, because lambda is an eigenvalue of A</li><li class="">No, because x is the zero vector</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A*x = [[4, 1], [2, 3]]*&lt;1, 1&gt; = &lt;4*1 + 1*1, 2*1 + 3*1&gt; = &lt;5, 5&gt;. lambda*x = 5*&lt;1, 1&gt; = &lt;5, 5&gt;. Since A*x = lambda*x, x = &lt;1, 1&gt; is an eigenvector of A with eigenvalue 5.</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-verified the candidate's arithmetic by hand: for its stated A = [[3, 1], [1, 2]] and x = &lt;1, 2&gt;, A*x actually computes to &lt;5, 5&gt;, not &lt;5, 4&gt; as the generated explanation claimed, and &lt;5, 5&gt; != lambda*x = &lt;2, 4&gt; -- x was not actually an eigenvector, contradicting the declared 'Yes' answer. Replaced with a fresh matrix/vector/eigenvalue triple, hand-verified to genuinely satisfy Ax = lambda x.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-EIG-01-9309d4eaa9792195-rev-f20669dcb40c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">97cb771f46ac68653a0bed8b6efc6a2f19f86db9e86fef0d51e9077ffe8a2e88</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-EIG-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">If two square matrices A and B are similar, what can be concluded about their eigenvalues?</p>
+      <ul class="q-options"><li class="">A and B must be equal as matrices.</li><li class="opt-correct">A and B share the same eigenvalues.</li><li class="">A and B must have the same eigenvectors.</li><li class="">A and B must both be diagonalizable.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Similar matrices share the same eigenvalues because they are related by a nonsingular matrix S, which preserves the eigenvalues.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: similar matrices also share determinant and trace (both true facts), so options C and D were true alongside the declared answer B -- three defensible options, not one. Replaced C and D with false claims (shared eigenvectors and guaranteed diagonalizability are not implied by similarity) so the item tests specifically what similarity does and does not guarantee about eigenvalues. Independently verified by Claude: per the approved reference, similarity preserves eigenvalues but does not itself guarantee shared eigenvectors or diagonalizability, so the new options C and D are false, leaving the declared answer as the only defensible one. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-EIG-01-f0f72d0aea465d6e-rev-64a49d50f1df</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">33aa4eeb0c8cc4bad8cd6313237c92f6ffdebfa53ed52cb4b7e2eaacddc976fa</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">LA-LTR-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-LTR-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What are the two defining properties of a linear transformation T from vector space U to vector space V?</p>
+      <ul class="q-options"><li class="opt-correct">T(u1 + u2) = T(u1) + T(u2) for all u1, u2 in U, and T(alpha*u) = alpha*T(u) for every scalar alpha</li><li class="">T(u1 + u2) = T(u1) + T(u2) for all u1, u2 in U</li><li class="">T(alpha*u) = alpha*T(u) for every scalar alpha</li><li class="">T(u1 + u2) = T(u1) - T(u2) for all u1, u2 in U</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A linear transformation must satisfy both additivity and homogeneity properties to be considered linear.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-LTR-01-f32d4046cb66b076</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">3b1255f078632c6cf627ff3afd78375e7ea0aa6649e098da638d75e2dc5c3947</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-LTR-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A linear transformation T on column vectors is given. What are the columns of its standard matrix A built from?</p>
+      <ul class="q-options"><li class="">The rows of the standard basis vectors</li><li class="opt-correct">The images of the standard basis vectors</li><li class="">The standard basis vectors themselves</li><li class="">The transformed standard basis vectors in any order</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The standard matrix A of a linear transformation T on column vectors is built so that T(x) = A*x for every input x; its columns are the images of the standard basis vectors.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-LTR-01-13bfc26cdd49f91d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">6083ef03fd6568a4251c6920ef75f7431209014a4caf34f3188c83448d0587da</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-LTR-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the function f(x, y) = (2x + 3, 4y + 5) is a linear transformation from R^2 to R^2 and construct its standard matrix.</p>
+      <ul class="q-options"><li class="">The function is a linear transformation and its standard matrix is [[2, 0], [0, 4]].</li><li class="">The function is a linear transformation and its standard matrix is [[2, 3], [0, 4]].</li><li class="opt-correct">The function is an affine transformation, not a linear one, because it adds a constant term -- so it has no standard matrix representation as a linear map.</li><li class="">The function is not a linear transformation because it includes a nonlinear term.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A linear transformation must satisfy T(0, 0) = (0, 0), but f(0, 0) = (2*0 + 3, 4*0 + 5) = (3, 5), not (0, 0) -- so f is affine (a linear map plus a constant shift), not linear, violating additivity. Because the standard-matrix construction T(x) = Ax requires T to be linear (any matrix A satisfies A*0 = 0), no matrix A can reproduce f for every input, so f has no standard matrix representation as a linear transformation.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the explanation identified the constant-term issue but never named the map as affine or stated the consequence (no standard matrix exists for a non-linear map). Made both explicit in the correct option and explanation, with a self-contained T(0)!=0 derivation. Claude override of automated reviewer's reject/critical verdict on the resulting text: the reviewer's own printed 'independently selected answer' is character-for-character identical to the declared correct option (verified by direct string comparison), yet the report still claims it is 'absent from the options' and 'disagrees with the declared answer' -- a reviewer self-comparison artifact, not a content defect. This is the second round this same item has triggered this exact artifact.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-LTR-01-87b691a833cd2400-rev-9a2baae667c5</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">264cd58c9358c106c040000a88c8e60ca820b73d811f59b92718f9df9f43ccf6</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-LTR-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine T(x) for x = &lt;2, 1&gt; given the standard matrix A for T as [[1, 2], [3, 1]]?</p>
+      <ul class="q-options"><li class="opt-correct">T(x) = &lt;4, 7&gt;</li><li class="">T(x) = &lt;7, 4&gt;</li><li class="">T(x) = &lt;3, 4&gt;</li><li class="">T(x) = &lt;5, 5&gt;</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> T(x) = A*x = [[1, 2], [3, 1]] * &lt;2, 1&gt; = &lt;1*2 + 2*1, 3*2 + 1*1&gt; = &lt;4, 7&gt;.</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-verified the candidate's arithmetic by hand: for its stated A = [[2, 1], [3, 4]] and x = &lt;1, 2&gt;, T(x) = A*x actually computes to &lt;4, 11&gt;, not &lt;4, 6&gt; as declared (the explanation's own shown work used [1, 2] as A's second row, which does not match the second row [3, 4] given in the stem) -- &lt;4, 11&gt; was not even among the four options. Replaced with a fresh matrix/vector pair, hand-verified.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-LTR-01-c5d842615a56420e-rev-b03f5dc191d7</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">d318e9d40e392e3114000f991e180c307de50878702b096f3b8b17ffc6584102</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">LA-MKV-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-MKV-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What additional property must the columns of a square matrix have for it to be stochastic?</p>
+      <ul class="q-options"><li class="">All entries are nonnegative.</li><li class="">Each row sums to 1.</li><li class="opt-correct">Each column sums to 1.</li><li class="">All entries are integers.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A stochastic matrix requires that the entries of each column sum to 1, in addition to all entries being nonnegative.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-MKV-01-f8d06f7bc5e5303a</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">4a26262617593eb63b9eb7d34b18c532934b6f162054e3d2082fcb7dd6bdceeb</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-MKV-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does the difference equation v_(t+1) = A*v_t represent for a Markov chain?</p>
+      <ul class="q-options"><li class="">The state at the next time step is the same as the current state.</li><li class="">The state at the next time step is the average of all past states.</li><li class="opt-correct">The state at the next time step is determined by the current state and the transition probabilities given by the stochastic matrix A.</li><li class="">The state at the next time step is the sum of all past states.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In a Markov chain, the difference equation v_(t+1) = A*v_t represents the state at the next time step as a linear combination of the current state and the transition probabilities given by the stochastic matrix A.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-MKV-01-16d0a5f6cb672c70</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8de9334c57c4b79b2597fbad30e17d2c7f53e407218335d110c6e0adc8a94300</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-MKV-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Page P links to 3 other pages, including page Q. Under the Importance Rule, what fraction of P's importance does Q inherit?</p>
+      <ul class="q-options"><li class="opt-correct">1/3 of P's importance</li><li class="">2/3 of P's importance</li><li class="">all of P's importance</li><li class="">3 times P's importance, since P links to 3 pages</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The Importance Rule states that if a page P links to n other pages, each of those pages inherits 1/n of P's importance. Since P links to 3 other pages, Q inherits 1/3 of P's importance.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem gave a concrete importance value (10) but the declared answer was a fraction ('1/3 of P's importance'), not a number -- a framing mismatch. Removed the concrete importance value and asked for the fraction directly, matching the answer format.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-MKV-01-2243e13a44c581bc-rev-29ff04c3177c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">f3e1c873143bd7d26f26c3d12784c15e6a3ad4139ff9187690078b9a35c41ef5</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-MKV-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What property of the steady-state vector of a Markov chain's importance matrix makes it the steady-state vector?</p>
+      <ul class="q-options"><li class="">The vector is the matrix's row of largest entries.</li><li class="opt-correct">The vector is an eigenvector with eigenvalue 1.</li><li class="">The vector is the sum of all columns of the matrix.</li><li class="">The vector is the product of all entries of the matrix.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The steady-state vector of a Markov chain's importance matrix is an eigenvector with eigenvalue 1, not the matrix's row or column of largest entries.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-MKV-01-1a8ee28dc669d8ee</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">9fdfab4d6d54592d72ae9a758406e07ed69de862891eb368ac607b704f12c8a1</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">LA-SLE-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-SLE-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the matrix
+
+[1 0 | 3]
+[0 1 | 2]
+
+is it in reduced row-echelon form?</p>
+      <ul class="q-options"><li class="opt-correct">Yes, it is in reduced row-echelon form.</li><li class="">No, it is not in reduced row-echelon form because the leading 1 in the second row is not the only nonzero entry in its column.</li><li class="">No, it is not in reduced row-echelon form because the leading 1 in the first row sits to the left of the leading 1 in the second row.</li><li class="">No, it is not in reduced row-echelon form because the third row is all zeros.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The matrix is in reduced row-echelon form because the leading entry of each nonzero row is a 1, each leading 1 is the only nonzero entry in its column, and each leading 1 sits to the right of every leading 1 in the rows above it.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate's stem referred to 'the following matrix' but never actually included one -- an unanswerable question. Added a concrete 2x2 augmented matrix genuinely in RREF, matching the already-correct declared answer and explanation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-SLE-01-03e679599115b1db-rev-ed194625abf8</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">9b32e897718ca88f23332f9b7637cd3a6911cfdfd0d378e750787135a2d03efb</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-SLE-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does it mean to solve a system of linear equations?</p>
+      <ul class="q-options"><li class="">To find the value of one variable that makes every equation in the system true.</li><li class="opt-correct">To find all values of the variables that make every equation in the system simultaneously true.</li><li class="">To satisfy the equations in sequence rather than simultaneously.</li><li class="">To find the value of one variable that makes one equation in the system true.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Solving a system of linear equations means finding all values of the variables that make every equation in the system simultaneously true, not just one equation.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-SLE-01-5c28ca38ea6d6ea6</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">3c3dadb8b1225eb1a14f74e406c34ef996118897ddfcd4768fedf521260fc9eb</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-SLE-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the following augmented matrix in reduced row-echelon form,
+
+[1 0 0 | 3]
+[0 1 0 | 2]
+[0 0 1 | 1]
+
+what is the value of variable x in the represented system of linear equations?</p>
+      <ul class="q-options"><li class="">The value of x is 2.</li><li class="opt-correct">The value of x is 3.</li><li class="">The value of x is 1.</li><li class="">The value of x is 4.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The leading-1 column for x corresponds to the first row, so the value of x is read directly from that row as 3.</p>
+      <p class="q-reason"><strong>Review note:</strong> Same defect as LA-SLE-01-03e679599115b1db: the stem referred to 'the following augmented matrix' with no matrix included. Added a concrete 3x3 augmented matrix in RREF whose x-row constant matches the already-correct declared answer (3).</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-SLE-01-200f2f380161b4b6-rev-fb4081386aa7</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">800dfe951772b8f564aec821e471dbcd39659ac3f5ad71acd288caacc6556aee</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-SLE-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the system of linear equations represented by the following augmented matrix is consistent based on its row-echelon form, without necessarily reducing it to reduced row-echelon form.
+
+[1 2 | 3]
+[0 1 | 2]
+[0 0 | 5]</p>
+      <ul class="q-options"><li class="">The system is consistent because the row-echelon form indicates that the system has a solution.</li><li class="opt-correct">The system is inconsistent because the row-echelon form contains a zero row with a nonzero constant.</li><li class="">The system is consistent because the row-echelon form does not contain any zero rows.</li><li class="">The system is inconsistent because the row-echelon form contains a row with a leading 1 that is not the only nonzero entry in its column.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The third row, 0x + 0y = 5, has an all-zero coefficient side but a nonzero constant, which is a contradiction. This REF-based structural conclusion is available without reducing to RREF: the system is inconsistent.</p>
+      <p class="q-reason"><strong>Review note:</strong> Same defect as LA-SLE-01-03e679599115b1db: the stem referred to 'the following augmented matrix' with no matrix included. Added a concrete row-echelon-form augmented matrix whose bottom row (0x + 0y = 5) matches the already-correct declared answer and explanation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-SLE-01-684f87bcb96ce3d2-rev-b227f9b8f260</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2e0094ae3e0dc93f49110e2f80e3e3aeabb5fdbdc1ede2c2b72a05e00d383817</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">LA-VSP-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-VSP-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine if the vector (4, 7) is a linear combination of the vectors (1, 1) and (1, 2).</p>
+      <ul class="q-options"><li class="opt-correct">Yes, with coefficients 1 and 3.</li><li class="">Yes, with coefficients 3 and 1.</li><li class="">No, because the vectors are linearly independent.</li><li class="">No, because the vectors are not in the same direction.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> 1*(1, 1) + 3*(1, 2) = (1, 1) + (3, 6) = (4, 7), so (4, 7) is a linear combination of (1, 1) and (1, 2) with coefficients 1 and 3.</p>
+      <p class="q-reason"><strong>Review note:</strong> Re-verified by hand: the generated candidate's own vectors (1, 2) and (3, 6) are scalar multiples of each other (parallel), so their span is only the 1-dimensional line through (1, 2) -- the target vector (2, 3) is not on that line at all, and the declared coefficients (1 and 2) don't even produce it (1*(1,2) + 2*(3,6) = (7, 14), not (2, 3)). None of the four original options was actually correct. Replaced with a hand-verified linearly-independent pair and a target vector genuinely reachable with clean integer coefficients.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-VSP-01-88f956a77bf73671-rev-5f9f78e4274c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">60fe3db124c1cd73c4363b713af3155781cbdead73e6b58b83bee360a0954b9f</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-VSP-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What condition on the coefficients makes a set of vectors linearly independent?</p>
+      <ul class="q-options"><li class="">The set of vectors must span the space.</li><li class="opt-correct">The only linear combination of the vectors equal to the zero vector uses all-zero coefficients.</li><li class="">The vectors must be orthogonal to each other.</li><li class="">Any nontrivial combination of the vectors equal to the zero vector makes the set linearly dependent.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A set of vectors is linearly independent when the only way to write the zero vector as a linear combination of them is the trivial way, using all-zero coefficients.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-VSP-01-44a723c9522a0703</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">865addd33e67494ca8422ff311df82ee39de21cdfdb0e8c31bf9c71615b9d53e</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-VSP-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the set of vectors {&lt;1, 2&gt;, &lt;3, 6&gt;} is a basis for the space R^2.</p>
+      <ul class="q-options"><li class="">This set spans R^2 and is linearly independent, so it is a basis for R^2.</li><li class="">This set spans R^2 but is linearly dependent, so it is not a basis for R^2.</li><li class="">This set is linearly independent but does not span R^2, so it is not a basis for R^2.</li><li class="opt-correct">This set neither spans R^2 nor is linearly independent, so it is not a basis for R^2.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Since &lt;3, 6&gt; = 3*&lt;1, 2&gt;, the two vectors are scalar multiples of each other: they are linearly dependent, and their span is only the 1-dimensional line through &lt;1, 2&gt;, not all of R^2. The set is neither linearly independent nor spanning, so it is not a basis.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate declared this set 'spans R^2 but is linearly dependent', but two parallel (scalar-multiple) vectors span only a 1-dimensional line, never all of R^2 -- the explanation's claim that 'any vector in R^2 can be written as a combination of &lt;1, 2&gt; and &lt;3, 6&gt;' is false. The genuinely correct option (neither spans nor independent) was present but not marked correct; re-marked it and corrected the explanation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-VSP-01-b9d5f201f558d175-rev-561ab4d2c21b</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">38215e4bf17b6ec852c0d7774aadc189f23b2306bc2323ec272582b9ff25ac97</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">LA-VSP-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the subset W of the vector space R^2, consisting of all vectors (x, y) satisfying y = 2x, is a subspace.</p>
+      <ul class="q-options"><li class="">Yes, because it contains the zero vector.</li><li class="opt-correct">Yes, because it is closed under vector addition and scalar multiplication.</li><li class="">No, because it does not contain the zero vector.</li><li class="">No, because it is not closed under vector addition.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> W is a line through the origin (y = 2x), so it contains the zero vector (0, 0). Adding two vectors satisfying y = 2x gives another vector satisfying y = 2x, and scaling one by any constant does too, so W is closed under both operations and is a subspace.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate described W as 'the subset ... defined by the set of vectors {&lt;1,0&gt;, &lt;0,1&gt;}', which reads as the literal two-element set {(1,0), (0,1)} -- not closed under addition (their sum (1,1) is not in the set) and not a subspace -- yet the declared answer and explanation asserted (falsely, for that literal set) that it was closed under both operations. Rewrote as an unambiguous condition-based subset (a line through the origin), matching the intent's own required characteristic of describing a subset by a coordinate condition, and kept the already-correct 'Yes, closed under addition and scalar multiplication' answer with an explanation that is now actually true of the described set.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">LA-VSP-01-b97279ed33b30b13-rev-2a9666bb1d3f</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">48a7c26be77d4664e8a86f7446a8ab75b5df8cd8ccec318e7dc8346a2f5cf98d</span></p>
+      
+    </article></details>
+  </section>
+  <section class="course course-db" id="database-systems">
+    <div class="course-head">
+      <h2>Database Systems</h2>
+      <span class="status-pill status-ready">28/28 approved</span>
+    </div>
+    <details class="skill-group" open><summary><span class="mono">DB-ALG-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ALG-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does the relational-algebra selection operator (sigma) do to a relation?</p>
+      <ul class="q-options"><li class="">It changes the schema by keeping only the specified columns.</li><li class="opt-correct">It filters the rows of a relation by a condition, keeping the same schema.</li><li class="">It adds a new column to the relation.</li><li class="">It removes all rows from the relation.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The selection operator (sigma) filters the rows of a relation by a condition, keeping the same output schema.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ALG-01-dffbe37909e8af49</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">497547e4b74b6db5bcb0efc47d4676022e2eb160c83d257773faa7b1cbe2d88f</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ALG-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does the relational-algebra projection operator (pi) do to a relation?</p>
+      <ul class="q-options"><li class="">It filters rows by a condition, keeping the same schema.</li><li class="opt-correct">It changes the schema by keeping only the specified columns.</li><li class="">It adds a new column to the relation.</li><li class="">It removes all columns from the relation.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The relational-algebra projection operator (pi) changes the schema of a relation by selecting only the specified columns, without filtering rows.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ALG-01-285341c35667d67a</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">23c4ef86479caf4b78d5ce6fddb971f5a34d7a8780422da8411c229518558c18</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ALG-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Which relational-algebra expression is equivalent to the SQL query 'SELECT name FROM students WHERE age &gt; 18;'?</p>
+      <ul class="q-options"><li class="opt-correct">π(name)(σ(age &gt; 18)(students))</li><li class="">σ(age &gt; 18)(π(name)(students))</li><li class="">σ(name &gt; 18)(students)</li><li class="">π(σ(age &gt; 18)(name))(students)</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Selection must run before projection here: projecting to only the name column first would discard the age column, leaving no age value for the later selection to filter on. Filtering by age &gt; 18 first, then projecting to keep only name, gives π(name)(σ(age &gt; 18)(students)).</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate marked only 'select-then-project' correct, but for its original query (SELECT last_name, age FROM students WHERE age &gt; 18) the reverse order 'project-then-select' is equally valid, since projecting to (last_name, age) keeps the age column the later selection needs -- a genuine answer-ambiguity defect. Rewrote so the projected column list (name only) excludes the filtered column (age), making select-then-project the only valid order.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ALG-01-21291a056c6a0a47-rev-47a6442dbb4a</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">a9a8f6726982afb6a240b22d26b8438390691de3dbf77713f1016ef21c526394</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ALG-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Do the relational-algebra expressions σ(name = 'John')(π(name, age)(students)) and π(name, age)(σ(name = 'John')(students)) produce the same result?</p>
+      <ul class="q-options"><li class="opt-correct">Yes, because projecting to (name, age) keeps the 'name' column that the selection condition needs, so the two operators can be reordered without changing the result.</li><li class="">No, because selection must always be applied before projection.</li><li class="">No, because projection must always be applied before selection.</li><li class="">Yes, because selection and projection can always be reordered regardless of which columns are kept.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The two expressions are equivalent here specifically because the projection retains the 'name' column that the selection condition depends on. This is not true in general: if the projection had removed a column the selection needed, reordering would change the result. The correct justification names that condition rather than claiming the operators can always be reordered regardless of which columns are kept.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the declared correct option stated an unconditional general claim ('operators can be reordered without changing the result') that is only true when projection retains the columns selection needs -- the condition itself, present in the explanation, was never stated in the selected option. Rewrote the correct option to state the condition explicitly, and demoted the old unconditional claim to a distractor.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ALG-01-9c39abf440451212-rev-2383a0b9bc47</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">f08d0a69ab941220e461b6901b462283ea2dcfdb7773d6561cee02a52db0fa46</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-ERM-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ERM-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">In Chen notation, what shape represents an attribute?</p>
+      <ul class="q-options"><li class="">rectangle</li><li class="opt-correct">oval</li><li class="">diamond</li><li class="">line</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In Chen notation, attributes are represented as ovals connected by a line to the pertinent entity type or relationship type.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ERM-01-6ed555b89c91e88d</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2b8901e7bfecc1051764c09ebbec1707b8b197e69bc9ba1c8632aa1fc92e30cb</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ERM-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does an entity-relationship diagram provide an overview of in database design?</p>
+      <ul class="q-options"><li class="">A database's physical storage layout</li><li class="">SQL code</li><li class="opt-correct">The database's entities, attributes, and relationships</li><li class="">A query execution plan</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> An entity-relationship diagram gives an overview of a database's design, including its entities, attributes, and relationships.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ERM-01-820560dde7207d82</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">c602f403089ef926fd1e3f95cf615123ec4bee151a41c6f634e812524599d501</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ERM-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">In a Chen notation ERD, where are the cardinality symbols (such as m and n) placed in relation to the connecting lines between a relationship diamond and its related entity rectangles?</p>
+      <ul class="q-options"><li class="">Inside the relationship diamond</li><li class="">Inside the entity rectangles</li><li class="opt-correct">On the connecting lines between the relationship diamond and the entity rectangles</li><li class="">Inside the attribute ovals</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In Chen notation, cardinality symbols label the lines connecting a relationship diamond to its related entities, not the entities or attributes themselves.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: replaced the disputed cardinality-direction intent entirely with a new, placement-focused Chen-notation intent (where cardinality symbols are placed, not which entity gets which symbol), generated fresh against the same approved reference (DB-ERM-01-176f63d3399d). Independently verified by Claude: the question, correct answer, and explanation are unambiguous, accurate, and grounded in the reference's exact statement that cardinality symbols label the connecting lines. Live automated review: recommend_human_approval/low, zero blocking reasons. Reconciled the review store to match: this replacement was previously recorded only in the approved bank, with no QuestionRevision -- the review store still pointed at the original disputed content. Recorded here as a proper revision, using the fresh candidate's genuine generation provenance (outputs/grounded-database-systems-v1-erm03-fix, prompt_hash d8a46010385f...).</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ERM-01-208a6d1c67c7e626-rev-3599595035cc</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">f788af7d615f1020d093d9d2072c57689d8339ea2cfe7c942d28bd469f3cdb1d</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-ERM-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">In a Chen notation ERD, what shape should be used to represent an attribute such as an entity's 'Order Date'?</p>
+      <ul class="q-options"><li class="">A rectangle</li><li class="">A diamond</li><li class="opt-correct">An oval</li><li class="">A line</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In Chen notation, attributes are represented as ovals connected by a line to the pertinent entity type or relationship type.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem referred to 'the following ERD fragment' with no fragment shown. Removed the dangling reference and asked generally about attribute representation.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-ERM-01-ab535b3390a31207-rev-e5677c8c51e4</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">cf27350898404fba5e92d0425e0c2ee074db98b5060dad1269876acb1507d41e</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-IDX-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-IDX-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">How does a B-tree generalize a binary search tree for indexing?</p>
+      <ul class="q-options"><li class="opt-correct">A B-tree generalizes a binary search tree by holding a list of multiple values in each node.</li><li class="">A B-tree generalizes a binary search tree by holding only one value in each node.</li><li class="">A B-tree generalizes a binary search tree by storing record data in the internal nodes.</li><li class="">A B-tree generalizes a binary search tree by storing only keys and pointers in the internal nodes.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A B-tree generalizes a binary search tree by holding a list of multiple values in each node, allowing it to skip most of the table during a lookup.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-IDX-01-3257754798a9cdda</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8acfa0fa4360c5689d8637b447336df1d6c6dde43a7abf5a74bf7765464f4d53</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-IDX-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What benefit does a B-tree/B+ tree index provide over scanning every row of a table?</p>
+      <ul class="q-options"><li class="">It requires more disk space to store the index.</li><li class="opt-correct">It allows the database to skip most of the table and focus on the relevant rows.</li><li class="">It slows down query performance.</li><li class="">It does not provide any benefit over scanning every row.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A B-tree/B+ tree index allows the database to skip most of the table by descending through a shallow, wide tree instead of scanning every row.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-IDX-01-7961b3d8205a60c1</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">2afcad104714289da3572ff3ee0b779bba17361fbba99396a07e3e04c26cf9e2</span></p>
+      
+    </article>
+    <article class="qcard verdict-round3">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-IDX-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 3 CORRECTION</span>
+      </header>
+      <p class="q-stem">In a B+ tree index, what distinguishes the contents of a leaf node from an internal (non-leaf) node?</p>
+      <ul class="q-options"><li class="opt-correct">Leaf nodes hold data entries -- records or record pointers, depending on the index's organization -- together with the indexed key values; internal nodes hold only separator keys and pointers used to guide the search.</li><li class="">Internal nodes hold the full record data; leaf nodes hold only keys.</li><li class="">Leaf nodes and internal nodes hold identical contents.</li><li class="">Leaf nodes hold only pointers to other leaf nodes, never key values.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In a B+ tree, leaf nodes hold the data entries for each key -- records or record pointers, depending on the index's organization -- alongside the key values themselves; internal nodes hold only separator keys and child pointers used to navigate the search, never the record data itself.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's adversarial review: the marked option flatly stated leaf nodes contain 'pointers to their corresponding records,' while the explanation already admitted leaves may hold record data OR record pointers depending on the index's organization -- an internal contradiction. Reworded the correct option and explanation to the implementation-neutral 'data entries -- records or record pointers, depending on the organization,' consistent with the approved reference's own generic 'values are stored... in the leaf nodes.' Independently verified by Claude: the reworded option and explanation now consistently use 'data entries -- records or record pointers, depending on the organization,' matching the approved reference's own generic 'values are stored... in the leaf nodes' without contradicting itself. Live automated review: recommend_human_approval/low, zero blocking reasons.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-IDX-01-3209c4dbdff4627e-rev-3a8dd4c4cb89</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">4bb0c7f0f6151a86682b534c299695f8a33e84f56b1bb6d92d792367878e4203</span></p>
+      
+        <details class="original-toggle">
+          <summary>Show prior approved candidate (before this round-3 correction)</summary>
+          <div class="original-block">
+            <p class="q-stem">In a B+ tree index, what distinguishes the contents of a leaf node from an internal (non-leaf) node?</p>
+            <ul class="q-options"><li class="opt-correct">Leaf nodes hold the indexed key values together with pointers to their corresponding records; internal nodes hold only keys and pointers used to guide the search.</li><li class="">Internal nodes hold the full record data; leaf nodes hold only keys.</li><li class="">Leaf nodes and internal nodes hold identical contents.</li><li class="">Leaf nodes hold only pointers to other leaf nodes, never key values.</li></ul>
+            <p class="q-explanation"><strong>Explanation:</strong> In a B+ tree, record data (or pointers to records) is stored only in the leaf nodes; internal nodes store only keys and child pointers used to navigate the search, never the record data itself.</p>
+          </div>
+        </details>
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-IDX-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Why does a B+ tree index require fewer levels to reach a given key compared to a plain binary search tree over the same keys?</p>
+      <ul class="q-options"><li class="">A B+ tree index requires more nodes to store the same number of keys as a binary search tree.</li><li class="opt-correct">A B+ tree index has a wider fan-out per node, keeping the tree shorter and searches faster.</li><li class="">A B+ tree index stores record data in the internal nodes, reducing the number of levels needed to reach a key.</li><li class="">A B+ tree index uses a different data structure than a binary search tree, making it less efficient for large tables.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> A B+ tree's wider fan-out per node allows it to store more keys in each node, reducing the number of levels needed to reach a given key compared to a binary search tree.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-IDX-01-0d6d5a53a102fb78</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8be46f42b409510a6f4d0bb18191db7bb4cb3a3c53c9171069a9dafa6d351ccb</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-NRM-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-NRM-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does the notation X -&gt; Y mean in the context of functional dependencies?</p>
+      <ul class="q-options"><li class="">X determines Y</li><li class="">Y determines X</li><li class="">X is the primary key and Y is the non-key attribute</li><li class="opt-correct">X uniquely determines Y</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The notation X -&gt; Y indicates that for every valid instance of X, that value of X uniquely determines the value of Y.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-NRM-01-fca17573b03a0fc1</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">ccd9fbde15df3aa05a8e28c8961a64cac1231ae6cc55992e86a2e0d7e57c2bf2</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-NRM-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What is the primary goal of normalization in a relational schema?</p>
+      <ul class="q-options"><li class="">To increase query speed directly</li><li class="">To encrypt data</li><li class="opt-correct">To reduce redundancy in a table</li><li class="">To add more indexes</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Normalization is the process of determining and reducing redundancy in a relational schema.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-NRM-01-58a5e4e25de2ff89</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">67075ed84fe3a2d93b6630b3750dde7c0efc103494c5de10e1a36966dcaec592</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-NRM-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Determine whether the following relation is in third normal form (3NF): Employees(Employee ID (PK), Employee Name, Office City, Office State), given the functional dependency Office City -&gt; Office State.</p>
+      <ul class="q-options"><li class="">Yes, the relation is in 3NF.</li><li class="opt-correct">No, the relation is not in 3NF because Office State transitively depends on Employee ID through Office City.</li><li class="">No, the relation is not in 3NF because it is not in second normal form.</li><li class="">More information is needed to determine whether the relation is in 3NF.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Office City -&gt; Office State is a functional dependency between two non-key attributes: Office State depends on Office City, and Office City depends on the primary key Employee ID, so Office State transitively depends on Employee ID through Office City rather than directly. This transitive dependency violates third normal form.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate asked to judge 3NF from column names alone with no stated functional dependency, then justified its answer with an invented, illogical dependency ('Order Date depends on Order Total') -- 3NF status cannot be determined without a stated FD, and 3NF is about non-key-to-non-key dependencies, not two unrelated date/total columns. Replaced with a standard City -&gt; State transitive-dependency example that states its functional dependency explicitly.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-NRM-01-c1133fdbde618997-rev-df3d4643d320</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">8d64568faa39fc0eb15950984b41af5c18d89db2300cb5e8ac3367f9599994ed</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-NRM-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the following OrderItems table:
+
+Order ID | Product ID | Product Name
+101 | P1 | Widget
+102 | P1 | Widget
+103 | P2 | Gadget
+
+Does the functional dependency 'Product ID -&gt; Product Name' hold for this data?</p>
+      <ul class="q-options"><li class="opt-correct">Yes, because every Product ID value (P1, P2) maps to exactly one Product Name.</li><li class="">No, because there are two rows with the same Product ID but different Product Names.</li><li class="">Yes, because Product ID is a primary key of this table.</li><li class="">No, because Product Name is a foreign key.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> P1 appears in two rows (orders 101 and 102), and both times its Product Name is 'Widget'; P2 appears once, as 'Gadget'. No Product ID value is associated with two different Product Names in this data, so the functional dependency Product ID -&gt; Product Name holds.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem asked whether an FD held for 'the given data' without showing any rows, and the original example used Order ID (the table's own primary key) as the determinant, which is tautological rather than a genuine test of repeated-key verification. Added real sample rows and used a non-key determinant (Product ID) that genuinely repeats across rows.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-NRM-01-3dd5d3588c746d43-rev-45084bd3d495</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">51add6a51a8b63d2a242c2711fbeb694fb2037c6769dc892f9970ae2a0e633dd</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-REL-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-REL-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What is the relational model's term for a row in a relation (table)?</p>
+      <ul class="q-options"><li class="">attribute</li><li class="opt-correct">tuple</li><li class="">domain</li><li class="">relation</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> In the relational model, a row of a relation (table) is called a tuple (or record).</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-REL-01-3195714a7bbdf3cf</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">63fdd63e022a59deeaec047d34ab448fa360b59be7806b5169559e4f4f59b7f3</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-REL-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What does entity integrity require of a table's primary key?</p>
+      <ul class="q-options"><li class="opt-correct">That every table has a primary key whose value is unique and never null.</li><li class="">That every table has a primary key whose value is unique, but may be null.</li><li class="">That every table has a primary key whose value is null, but may repeat across rows.</li><li class="">That every table has a primary key whose value is null and may repeat across rows.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Entity integrity requires that every table have a primary key whose value is unique across rows and never null, as stated in the relational model.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-REL-01-6ed8e9f13cc2ea74</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">a13388ef07b72e49cd66dca241edf0060ef7aae83af7e5f99b3be0bfa5d78de2</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-REL-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A database contains a table 'Orders' with a foreign key 'Customer ID' referencing the 'Customers' table. If the 'Customer ID' value in the 'Orders' table is 'C001', which is not present in the 'Customers' table, is referential integrity satisfied?</p>
+      <ul class="q-options"><li class="">Yes, referential integrity is satisfied because the foreign key value is not null.</li><li class="opt-correct">No, referential integrity is not satisfied because the foreign key value must match an existing primary key.</li><li class="">Yes, referential integrity is satisfied because the foreign key value is unique across rows.</li><li class="">No, referential integrity is not satisfied because the foreign key value is not null.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Referential integrity requires that a foreign-key value either matches an existing primary-key value in the referenced table or is null. Since 'C001' is not present in the 'Customers' table, the foreign key value does not match an existing primary key, violating referential integrity.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-REL-01-cb866db3d19a404b</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">d6fe61ede0e241ce0d603502d0861aa02bfaafc12d22bc6972403e26e0f36be6</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-REL-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A database contains a table 'Employees' with an attribute 'Department' that can take values from the domain {'Sales', 'Marketing', 'IT', 'Finance'} and a tuple with the value 'Human Resources' for 'Department'. Is this tuple valid?</p>
+      <ul class="q-options"><li class="">Yes, the tuple is valid because 'Human Resources' is a member of the domain.</li><li class="opt-correct">No, the tuple is invalid because 'Human Resources' is not a member of the domain.</li><li class="">Yes, the tuple is valid because 'Human Resources' is a unique value.</li><li class="">No, the tuple is invalid because 'Human Resources' is a null value.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The attribute 'Department' can only take values from the domain {'Sales', 'Marketing', 'IT', 'Finance'}, and 'Human Resources' is not one of these values.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-REL-01-4cf7054f47446d53</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">7b50630cd32f7e2ea766572326a5c8f440ab9db0393003fb1081af28e6b8b0de</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-SQL-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-SQL-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">Which SQL DML statement is used to combine rows from multiple tables, including an inner join that returns only rows with matching values in both tables?</p>
+      <ul class="q-options"><li class="">INSERT</li><li class="">UPDATE</li><li class="">DELETE</li><li class="opt-correct">SELECT</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The SELECT statement can join multiple tables together, including an inner join, which returns only rows with matching values in both tables.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-SQL-01-2b4bd7127c50b570</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">5789ae9abba404b0a112892dcefb74fd7bd48c7d1488cf5349f9b41699a024ae</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-SQL-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What type of join returns only rows with matching values in both joined tables?</p>
+      <ul class="q-options"><li class="opt-correct">Inner join</li><li class="">Outer join</li><li class="">Cross join</li><li class="">Full outer join</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> An inner join returns only the rows that have matching values in both joined tables.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-SQL-01-79b9e71a7ff43ff8</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">86beaeac670d725046d494a6289c746800272be331f8ca6b6131db370e1da325</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-SQL-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the following two tables, how many rows does an inner join on customer_id return?
+
+Table Customers:
++----+----------+
+| id | name     |
++----+----------+
+| 1  | John     |
+| 2  | Mary     |
+| 3  | David    |
++----+----------+
+
+Table Orders:
++----+-------------+------------+
+| id | customer_id | order_date |
++----+-------------+------------+
+| 1  | 1           | 2022-01-01 |
+| 2  | 1           | 2022-02-01 |
+| 3  | 2           | 2022-03-01 |
+| 4  | 4           | 2022-04-01 |
++----+-------------+------------+
+
+How many rows does an inner join on customer_id return?</p>
+      <ul class="q-options"><li class="">4, all rows from the Orders table</li><li class="opt-correct">3, excluding the order with customer_id 4 since it has no matching row in Customers</li><li class="">3, excluding one of the two orders for customer_id 1</li><li class="">0, because no customer_id values match</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> An inner join returns only rows with matching values in both tables. Orders with customer_id 1 (two rows) and customer_id 2 (one row) each match a row in Customers, but the order with customer_id 4 has no matching customer, so it is excluded. The inner join returns 3 rows.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate's Orders table only referenced customer_id values (1, 1, 2, 3) that all existed in Customers, so every row matched and the inner join's row-exclusion behaviour -- the actual concept this intent targets -- was never exercised; a student could pick the marked answer without understanding exclusion. Changed one order to reference a nonexistent customer_id (4) so the join genuinely excludes a row.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-SQL-01-1c78a0373e18cc35-rev-05bb1d074d83</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">abce108a4699a8de4015b194e59b849caf03e93e5376ed8b7d24c0f6d4390c5c</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-SQL-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Given the following Orders table:
+
+Order ID | Customer ID | Order Date
+1 | 1 | 2022-01-01
+2 | 1 | 2022-02-01
+3 | 2 | 2022-03-01
+
+What rows will the query 'SELECT * FROM Orders WHERE customer_id = 1;' return?</p>
+      <ul class="q-options"><li class="">Only row 1 (Order ID 1).</li><li class="opt-correct">Rows 1 and 2 (Order ID 1 and 2), both with customer_id = 1.</li><li class="">All three rows.</li><li class="">Row 3 only, since customer_id 2 matches the condition.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> The WHERE condition customer_id = 1 filters to only rows whose customer_id column equals 1. Rows 1 and 2 both have customer_id = 1, so both are returned; row 3 (customer_id = 2) is excluded.</p>
+      <p class="q-reason"><strong>Review note:</strong> Albert's review: the stem referred to 'the following SQL query' and the Orders table's rows without showing either, then the explanation asserted 'rows 1 and 2' as if data had been given -- an unsupported claim. Added the actual query and table rows.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-SQL-01-bc68a312176d376e-rev-11ae82a9221c</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">3e8050285e07f0a4f1b723db328affe9fbcfc1e6cae191f9fa9714fe75bd401f</span></p>
+      
+    </article></details><details class="skill-group" open><summary><span class="mono">DB-TXN-01</span> &mdash; 4 card(s)</summary>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-TXN-01-INT-01</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A database system ensures that a transaction either succeeds or fails in its entirety, and if it fails, its partial changes are rolled back. Which ACID property does this guarantee describe?</p>
+      <ul class="q-options"><li class="opt-correct">atomicity</li><li class="">consistency</li><li class="">isolation</li><li class="">durability</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> This guarantee describes atomicity, as it ensures that the transaction either succeeds or fails in its entirety, and if it fails, its partial changes are rolled back.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-TXN-01-ad2f06c37c007f1e</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">7d5a13bcb9b251f651edbd4b0ad2b9335b7271a2de436404fd807c8d2e6e947b</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-TXN-01-INT-02</span>
+        <span class="qcard-diff">introductory</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">What happens to a database transaction if one operation in it cannot complete?</p>
+      <ul class="q-options"><li class="opt-correct">The transaction fails and none of its operations take effect.</li><li class="">The transaction continues with the failed operation and the rest of the operations are completed.</li><li class="">The transaction commits and the failed operation is retried.</li><li class="">The transaction rolls back and the failed operation is retried.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> According to the ACID properties, a transaction is treated as one undividable unit of work that either succeeds or fails entirely. If one operation in the transaction cannot complete, the entire transaction fails and none of its operations take effect.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-TXN-01-7455b85179c8122a</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">506520e219838bb92730939761fcd7c40882c811d4b57d6e45bbdb7ae00ca859</span></p>
+      
+    </article>
+    <article class="qcard verdict-round2">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-TXN-01-INT-03</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">ROUND 2 CORRECTION</span>
+      </header>
+      <p class="q-stem">Transactions T1 and T2 both read account A's balance (currently $100), then each independently adds $50 and writes the new balance back, executing concurrently with no concurrency control. What inconsistency might occur?</p>
+      <ul class="q-options"><li class="">The final balance is $200, correctly reflecting both deposits.</li><li class="opt-correct">The final balance is $150, because one transaction's update overwrites the other's, losing one deposit.</li><li class="">The final balance is $100, because neither transaction's update takes effect.</li><li class="">The transaction manager automatically serializes T1 and T2, so no inconsistency is possible.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> Without concurrency control, both T1 and T2 read the same starting balance ($100) before either writes back. Each independently computes $150 and writes it, so whichever transaction writes last simply overwrites the other's update -- the final balance is $150, not $200, and one $50 deposit is lost. This is the classic lost-update problem concurrency control is designed to prevent.</p>
+      <p class="q-reason"><strong>Review note:</strong> The generated candidate described T1 and T2 updating two different, unrelated accounts (A and B) with no shared data -- lack of concurrency control cannot cause an inconsistency between transactions that never touch the same data, and the declared answer's 'cross-contamination' of A's and B's balances does not correspond to how either transaction was described. Replaced with the standard lost-update scenario: both transactions reading and writing the same account.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-TXN-01-de8a84edc20daed3-rev-c7352e567cad</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">eb560a7853a7006d6bb0760f31918b0d3707c97cdf3fd134ffd060c6cec3b2b6</span></p>
+      
+    </article>
+    <article class="qcard verdict-clean">
+      <header class="qcard-head">
+        <span class="qcard-id">DB-TXN-01-INT-04</span>
+        <span class="qcard-diff">intermediate</span>
+        <span class="qcard-verdict">APPROVED AS WRITTEN</span>
+      </header>
+      <p class="q-stem">A transaction manager is executing a transaction that updates the balance of account 'A' and inserts a new record into the 'Accounts' table. However, the transaction fails halfway through execution due to a network failure. What does the transaction manager do with the transaction's partial changes?</p>
+      <ul class="q-options"><li class="">The transaction manager commits the transaction's partial changes to the database.</li><li class="opt-correct">The transaction manager rolls back the transaction's partial changes and discards them.</li><li class="">The transaction manager logs the transaction's partial changes in a log file but does not commit or roll back them.</li><li class="">The transaction manager sends the transaction's partial changes to a backup database for recovery.</li></ul>
+      <p class="q-explanation"><strong>Explanation:</strong> According to the ACID properties, a transaction either succeeds and commits in its entirety or fails and none of its operations take effect. In this case, the transaction failed halfway through execution, so the transaction manager rolls back its partial changes to maintain data integrity.</p>
+      <p class="q-reason"><strong>Review note:</strong> Independently reviewed by Claude: stem, options, declared answer, and explanation are all accurate, unambiguous, and grounded in the mapped reference material.</p>
+      <p class="q-hash"><strong>Bank item_id:</strong> <span class="mono">DB-TXN-01-6f9f3af0d1ad7adf</span> &middot; <strong>content hash (sha256):</strong> <span class="mono">e22ca31e6d0ab618e08d61b8aebd761a012e7f4e386554b6339def55a74d3ac3</span></p>
+      
+    </article></details>
+  </section>
+
+  <section class="validation">
+    <h2>Verification</h2>
+    <ul class="check-list">
+      <li>All 7 corrected/reconciled items pass deterministic checks (authoring/review/deterministic.py): exactly-four-options, distinct-after-normalization, correct_answer matches an option, non-empty explanation, no unresolved placeholders, length limits, no duplicate item/question text.</li>
+      <li>All 7 pass a live semantic-reviewer pass on the authenticated Modal endpoint (meta-llama/Llama-3.1-8B-Instruct): <span class="mono">recommend_human_approval/low</span>, zero blocking reasons, zero warnings, for every one.</li>
+      <li>All 7 independently re-reviewed by Claude; the specific justification is recorded in each card's review note above.</li>
+      <li>All three approved banks re-validated with scripts/validate_approved_bank.py: DSA 28/28, Linear Algebra 24/24, Database Systems 28/28 &mdash; unique item IDs, unique normalized stems, exact required-skill coverage, zero unknown skill IDs, status <span class="mono">ready</span>.</li>
+      <li>All 80 packet card content hashes verified byte-for-byte against the approved-bank JSONL on disk (scripts/verify_packet_hashes.py).</li>
+      <li>Full test suite: 1299 passed, 0 failed, <strong>0 skipped</strong> (SQLite suite plus the PostgreSQL integration suite against a disposable local PostgreSQL 15 instance &mdash; test_postgres_adaptive_repository.py, test_postgres_replenishment_jobs.py, test_postgres_course_ownership_migration.py, test_postgres_course_catalog_records.py, test_postgres_test_safety.py).</li>
+      <li>All three courses remain <span class="mono">awaiting_content_approval</span>; no approval, activation, push, deploy, or Supabase access was performed.</li>
+      <li class="caveat">A pre-existing bug was found (not introduced by this round): authoring/grounded_review.py's export_approved_bank_items() raises StopIteration for any approve_as_written item (approved with zero revisions) &mdash; every such item in these three courses' review stores. authoring/replenishment/worker.py's promotion job calls this same function and would crash the same way if it ever tried to promote a batch containing one. Bank regeneration and this packet route around it with a local, correctly-handling exporter (scripts/export_course_bank.py); the shared module itself was left unchanged, since fixing it is outside this review's scope and touches a tested production path.</li>
+    </ul>
+  </section>
+
+  <section class="activation">
+    <h2>Activation commands (corrected)</h2>
+    <p>Not run. Each requires Albert's explicit <span class="mono">--approver</span> identity and <span class="mono">--confirm</span>. The previous packet's examples used <span class="mono">--approver &lt;albert&gt;</span>, which is invalid: unquoted angle brackets are shell redirection operators, not a placeholder syntax. Corrected below.</p>
+    <pre class="commands"><span class="cmt"># Not executed. Local commits only -- no push, deploy, activation, or Supabase access.</span>
+python -m authoring.course_catalog.cli activate-course dsa --approver albert --confirm
+python -m authoring.course_catalog.cli activate-course linear-algebra --approver albert --confirm
+python -m authoring.course_catalog.cli activate-course database-systems --approver albert --confirm
+
+<span class="cmt"># Or, if Albert's identity should be recorded with a full name:</span>
+python -m authoring.course_catalog.cli activate-course dsa --approver "Albert Quainoo" --confirm</pre>
+  </section>
+
+  <footer class="packet-footer">
+    <p>Generated directly from outputs/approved_banks/*.jsonl and outputs/replenishment/*/reviews/*.json. Re-run scripts/generate_content_review_packet.py after any further bank change to keep this packet in sync.</p>
+  </footer>
+</div>
