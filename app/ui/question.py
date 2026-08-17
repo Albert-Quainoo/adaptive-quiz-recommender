@@ -10,7 +10,12 @@ def render_question(
     disabled: bool = False,
 ) -> tuple[str | None, bool]:
     st.caption(f"{question.topic} · {question.concept} · {question.difficulty}")
-    st.subheader(question.question_text)
+    # st.subheader renders as a single markdown heading, where a lone "\n"
+    # collapses to a space (standard Markdown line-break rules) -- multi-line
+    # stems (e.g. a matrix written across several lines) would otherwise
+    # flatten onto one line. "  \n" is markdown's hard line break.
+    question_text = question.question_text.replace("\n", "  \n")
+    st.markdown(f"### {question_text}")
     option_ids = [option.option_id for option in question.options]
     selected_index = (
         option_ids.index(selected_option_id)
