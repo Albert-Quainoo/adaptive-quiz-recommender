@@ -71,6 +71,22 @@ def test_deficiency_row_reports_proposed_not_enqueued_during_a_dry_run():
     assert proposed.decision == "proposed"
 
 
+def test_deficiency_row_flags_hand_authored_deficiency_as_manual_action_required():
+    row = deficiency_row(
+        ReplenishmentDecision(
+            course_id="intro-ai", skill_id="AI-ETH-01", should_enqueue=False,
+            requested_count=6,
+            reason="supply 0 below threshold 3; hand_authored, not eligible for automated generation",
+            manual_action_required=True,
+        ),
+        difficulty="-",
+        dry_run=True,
+    )
+    assert row.decision == "manual_action_required"
+    assert row.proposed_job_key == "-"
+    assert "hand_authored" in row.reason
+
+
 def test_deficiency_row_override_blocks_unresolved_difficulty():
     blocked = deficiency_row(
         ReplenishmentDecision(

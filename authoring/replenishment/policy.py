@@ -44,6 +44,12 @@ class ReplenishmentDecision:
     should_enqueue: bool
     requested_count: int
     reason: str
+    # True only for a deficient hand_authored skill: a person, not the
+    # automated pipeline, must write its items -- should_enqueue stays False
+    # (never auto-enqueued) but this keeps it visibly distinct from a
+    # genuinely satisfied no_deficiency skill until its human-written supply
+    # reaches the threshold.
+    manual_action_required: bool = False
 
 
 def decide_replenishment(
@@ -102,6 +108,27 @@ def decide_replenishment(
             continue
 
         requested_count = max(config.target_supply - supply, 1)
+
+        if row.generation_strategy == "hand_authored":
+            # A person writes this skill's items directly (see
+            # authoring/builder.py's build_item, which refuses to
+            # auto-generate for this strategy) -- never auto-enqueued, but
+            # still a real deficiency, not a satisfied no_deficiency.
+            decisions.append(
+                ReplenishmentDecision(
+                    course_id=row.course_id,
+                    skill_id=skill_id,
+                    should_enqueue=False,
+                    requested_count=requested_count,
+                    reason=(
+                        f"supply {supply} below threshold {config.low_supply_threshold}; "
+                        "hand_authored, not eligible for automated generation"
+                    ),
+                    manual_action_required=True,
+                )
+            )
+            continue
+
         decisions.append(
             ReplenishmentDecision(
                 course_id=row.course_id,
