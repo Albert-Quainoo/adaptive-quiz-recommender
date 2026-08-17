@@ -55,10 +55,27 @@ class DeficiencyRow:
     course_id: str
     skill_id: str
     difficulty: str
-    decision: str  # "enqueued" | "no_deficiency"
+    # "enqueued" (live) | "proposed" (dry run) | "deferred" | "blocked" | "no_deficiency"
+    decision: str
     requested_count: int
     reason: str
     proposed_job_key: str  # deterministic_job_key(course_id, skill_id), or "-" when not enqueuing
+
+
+@dataclass(frozen=True)
+class PlannedJobRow:
+    """One of the (at most budget.max_new_candidates) deficiencies this run
+    actually plans to work, in the same deterministic order enqueue()/the
+    worker's FIFO claim would process them -- never a priority the policy
+    itself hasn't already decided."""
+
+    rank: int
+    course_id: str
+    skill_id: str
+    difficulty: str
+    requested_count: int
+    proposed_job_key: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -87,30 +104,80 @@ class CycleReport:
     generated_at: str
     dry_run: bool
     deficiencies: list[DeficiencyRow] = field(default_factory=list)
+    execution_plan: list[PlannedJobRow] = field(default_factory=list)
     job_outcomes: list[JobOutcomeRow] = field(default_factory=list)
     pending_approvals: list[PendingApprovalRow] = field(default_factory=list)
     budget: dict = field(default_factory=dict)
     stop_reason: str | None = None
     archived_job_dirs: list[str] = field(default_factory=list)
+    # Actual repository.enqueue() calls made this run -- always 0 for a dry
+    # run (see deficiency_row's dry_run handling above); reported explicitly
+    # so "did this run really write nothing" never has to be taken on faith.
+    queue_rows_written: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 def deficiency_row(
-    decision: ReplenishmentDecision, *, difficulty: str
+    decision: ReplenishmentDecision,
+    *,
+    difficulty: str,
+    dry_run: bool,
+    decision_override: str | None = None,
+    reason_override: str | None = None,
 ) -> DeficiencyRow:
+    """decision_override/reason_override let the caller (run_cycle) downgrade
+    an otherwise-enqueueable decision to "blocked" (unresolved difficulty) or
+    "deferred" (beyond this run's max_new_candidates cap) without losing the
+    original policy reason. Never used to *upgrade* a no_deficiency row."""
+    if decision_override is not None:
+        decision_label = decision_override
+        reason = reason_override or decision.reason
+        proposed_job_key = (
+            "-"
+            if decision_override == "blocked"
+            else deterministic_job_key(decision.course_id, decision.skill_id)
+        )
+    elif decision.should_enqueue:
+        # A dry run enqueues nothing (run_replenishment_cycle.py never calls
+        # repository.enqueue() when dry_run is True) -- "enqueued" would be a
+        # lie about job-queue state, so dry runs get "proposed" instead.
+        decision_label = "enqueued" if not dry_run else "proposed"
+        reason = decision.reason
+        proposed_job_key = deterministic_job_key(decision.course_id, decision.skill_id)
+    else:
+        decision_label = "no_deficiency"
+        reason = decision.reason
+        proposed_job_key = "-"
+
     return DeficiencyRow(
         course_id=decision.course_id,
         skill_id=decision.skill_id,
         difficulty=difficulty,
-        decision="enqueued" if decision.should_enqueue else "no_deficiency",
+        decision=decision_label,
         requested_count=decision.requested_count,
-        reason=decision.reason,
-        proposed_job_key=(
-            deterministic_job_key(decision.course_id, decision.skill_id)
-            if decision.should_enqueue
-            else "-"
+        reason=reason,
+        proposed_job_key=proposed_job_key,
+    )
+
+
+def planned_job_row(
+    *, rank: int, total_eligible: int, decision: ReplenishmentDecision, difficulty: str
+) -> PlannedJobRow:
+    return PlannedJobRow(
+        rank=rank,
+        course_id=decision.course_id,
+        skill_id=decision.skill_id,
+        difficulty=difficulty,
+        requested_count=decision.requested_count,
+        proposed_job_key=deterministic_job_key(decision.course_id, decision.skill_id),
+        reason=(
+            f"selected {rank} of {total_eligible} eligible deficiencies, in "
+            "deterministic course-then-taxonomy scan order (COURSE_IDS order, "
+            "then skills.csv row order within each course) -- the same "
+            "creation order enqueue() assigns and the worker's FIFO claim "
+            "(oldest created_at first) would later process"
         ),
     )
 
@@ -148,17 +215,21 @@ def build_report(
     stop_reason: str | None,
     archived_job_dirs: list[str],
     clock,
+    execution_plan: list[PlannedJobRow] | None = None,
+    queue_rows_written: int = 0,
 ) -> CycleReport:
     now: datetime = clock()
     return CycleReport(
         generated_at=now.isoformat(),
         dry_run=dry_run,
         deficiencies=deficiencies,
+        execution_plan=execution_plan or [],
         job_outcomes=job_outcomes,
         pending_approvals=pending_approvals,
         budget=budget,
         stop_reason=stop_reason,
         archived_job_dirs=archived_job_dirs,
+        queue_rows_written=queue_rows_written,
     )
 
 
@@ -174,12 +245,15 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 
 
 def render_markdown(report: CycleReport) -> str:
+    deferred_count = sum(1 for row in report.deficiencies if row.decision == "deferred")
+    blocked_count = sum(1 for row in report.deficiencies if row.decision == "blocked")
     parts = [
         "# Content Replenishment Cycle Report\n",
         f"Generated: `{report.generated_at}`  \n"
         f"Mode: **{'dry run (scan only, no external calls)' if report.dry_run else 'live'}**  \n"
-        f"Stopped because: {report.stop_reason or 'ran out of claimable work'}\n",
-        "## Deficiency scan\n",
+        f"Stopped because: {report.stop_reason or 'ran out of claimable work'}  \n"
+        f"Job-queue rows written this run: **{report.queue_rows_written}**\n",
+        "## Deficiency scan (complete inventory)\n",
         _table(
             ["Course", "Skill", "Difficulty", "Decision", "Requested", "Reason", "Proposed job"],
             [
@@ -195,6 +269,25 @@ def render_markdown(report: CycleReport) -> str:
                 for row in report.deficiencies
             ],
         ),
+        "## Planned execution (this run)\n",
+        _table(
+            ["Rank", "Course", "Skill", "Difficulty", "Requested", "Proposed job", "Reason"],
+            [
+                [
+                    str(row.rank),
+                    row.course_id,
+                    row.skill_id,
+                    row.difficulty,
+                    str(row.requested_count),
+                    row.proposed_job_key[:8],
+                    row.reason,
+                ]
+                for row in report.execution_plan
+            ],
+        ),
+        f"Planned this run: **{len(report.execution_plan)}**  \n"
+        f"Deferred (eligible, over cap, left for a later run): **{deferred_count}**  \n"
+        f"Blocked (unresolved difficulty, needs a reviewed blueprint): **{blocked_count}**\n",
         "## Job processing outcomes this run\n",
         _table(
             ["Job", "Course", "Skill", "Stage", "Status", "Outcome", "New?", "Error"],

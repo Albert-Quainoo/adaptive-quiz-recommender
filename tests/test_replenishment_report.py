@@ -43,6 +43,7 @@ def test_deficiency_row_distinguishes_enqueued_from_no_deficiency():
             requested_count=6, reason="supply 0 below threshold 3",
         ),
         difficulty="intermediate",
+        dry_run=False,
     )
     assert enqueued.decision == "enqueued"
     assert enqueued.difficulty == "intermediate"
@@ -53,8 +54,37 @@ def test_deficiency_row_distinguishes_enqueued_from_no_deficiency():
             requested_count=0, reason="supply 4 meets threshold 3",
         ),
         difficulty="-",
+        dry_run=False,
     )
     assert satisfied.decision == "no_deficiency"
+
+
+def test_deficiency_row_reports_proposed_not_enqueued_during_a_dry_run():
+    proposed = deficiency_row(
+        ReplenishmentDecision(
+            course_id="intro-ai", skill_id="AI-SRC-08", should_enqueue=True,
+            requested_count=6, reason="supply 0 below threshold 3",
+        ),
+        difficulty="intermediate",
+        dry_run=True,
+    )
+    assert proposed.decision == "proposed"
+
+
+def test_deficiency_row_override_blocks_unresolved_difficulty():
+    blocked = deficiency_row(
+        ReplenishmentDecision(
+            course_id="intro-ai", skill_id="AI-SRC-08", should_enqueue=True,
+            requested_count=6, reason="supply 0 below threshold 3",
+        ),
+        difficulty="unknown",
+        dry_run=True,
+        decision_override="blocked",
+        reason_override="blocked: no reviewed blueprint",
+    )
+    assert blocked.decision == "blocked"
+    assert blocked.reason == "blocked: no reviewed blueprint"
+    assert blocked.proposed_job_key == "-"
 
 
 def test_job_outcome_row_carries_outcome_category_and_new_flag():
@@ -80,6 +110,7 @@ def test_render_markdown_includes_every_section_and_handles_empty_tables():
                     requested_count=6, reason="supply 0 below threshold 3",
                 ),
                 difficulty="unknown",
+                dry_run=True,
             )
         ],
         job_outcomes=[],

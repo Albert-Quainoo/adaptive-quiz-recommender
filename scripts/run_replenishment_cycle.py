@@ -39,7 +39,7 @@ from authoring.replenishment.budget import CycleBudgetConfig, CycleBudgetTracker
 from authoring.replenishment.inventory import compute_course_inventory
 from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
 from authoring.replenishment.manifest import load_preparation_eligible_manifests
-from authoring.replenishment.policy import decide_replenishment
+from authoring.replenishment.policy import ReplenishmentDecision, decide_replenishment
 from authoring.replenishment.snapshot import archive_stale_jobs, snapshot_job_artifacts
 from authoring.replenishment.worker import (
     _blueprint_generation_difficulty,
@@ -176,7 +176,12 @@ def run_cycle(
 
     review_config = cli._review_config()
 
-    deficiency_rows: list[report.DeficiencyRow] = []
+    # Two passes: first resolve every decision's difficulty and whether it is
+    # blocked, in deterministic course-then-taxonomy scan order; only then
+    # cap the first budget_config.max_new_candidates *eligible* (should-
+    # enqueue, not blocked) ones as this run's execution plan, so "the first
+    # N" is decided from the complete picture, not truncated mid-course.
+    candidates: list[tuple[ReplenishmentDecision, str, str | None]] = []
     for course_id in COURSE_IDS:
         manifest = manifests.get(course_id)
         if manifest is None:
@@ -196,13 +201,90 @@ def run_cycle(
             difficulty = (
                 _resolve_difficulty(decision.skill_id) if decision.should_enqueue else "-"
             )
-            deficiency_rows.append(report.deficiency_row(decision, difficulty=difficulty))
-            if decision.should_enqueue and not dry_run:
-                repository.enqueue(
-                    course_id=decision.course_id,
-                    skill_id=decision.skill_id,
-                    requested_count=decision.requested_count,
+            blocked_reason = None
+            if decision.should_enqueue and difficulty == "unknown":
+                # No reviewed blueprint declares one consistent, explicit
+                # difficulty for this skill yet (see worker.py's
+                # _blueprint_generation_difficulty docstring: an automated
+                # run must never guess introductory vs. intermediate). Not a
+                # gate on the job itself -- retrieval/reference review need
+                # no difficulty and still proceed in a live run; this only
+                # keeps the report from calling it "proposed"/"enqueued" (as
+                # if it were a ready-to-generate job) and excludes it from
+                # this run's execution plan below.
+                blocked_reason = (
+                    f"blocked: {decision.skill_id} has no reviewed blueprint "
+                    "declaring one consistent, explicit difficulty; automated "
+                    "replenishment cannot guess introductory vs. intermediate "
+                    "-- author and review a blueprint for this skill before "
+                    "it can be planned as a generation-ready job"
                 )
+            candidates.append((decision, difficulty, blocked_reason))
+
+    eligible_indices = [
+        index
+        for index, (decision, _difficulty, blocked_reason) in enumerate(candidates)
+        if decision.should_enqueue and blocked_reason is None
+    ]
+    planned_indices = set(eligible_indices[: budget_config.max_new_candidates])
+    total_eligible = len(eligible_indices)
+
+    deficiency_rows: list[report.DeficiencyRow] = []
+    planned_rows: list[report.PlannedJobRow] = []
+    queue_rows_written = 0
+    plan_rank = 0
+    for index, (decision, difficulty, blocked_reason) in enumerate(candidates):
+        is_planned = index in planned_indices
+        is_deferred = (
+            decision.should_enqueue and blocked_reason is None and not is_planned
+        )
+        deficiency_rows.append(
+            report.deficiency_row(
+                decision,
+                difficulty=difficulty,
+                dry_run=dry_run,
+                decision_override=(
+                    "blocked" if blocked_reason is not None
+                    else "deferred" if is_deferred
+                    else None
+                ),
+                reason_override=(
+                    blocked_reason
+                    if blocked_reason is not None
+                    else (
+                        f"{decision.reason}; deferred: exceeds this run's "
+                        f"max_new_candidates cap ({budget_config.max_new_candidates})"
+                    )
+                    if is_deferred
+                    else None
+                ),
+            )
+        )
+        if is_planned:
+            plan_rank += 1
+            planned_rows.append(
+                report.planned_job_row(
+                    rank=plan_rank,
+                    total_eligible=total_eligible,
+                    decision=decision,
+                    difficulty=difficulty,
+                )
+            )
+        if decision.should_enqueue and not dry_run:
+            # blocked_reason only withholds the report's "proposed"/"enqueued"
+            # label and excludes this skill from the execution plan below --
+            # it does not withhold the job itself. Retrieval and reference
+            # review (this job's first stages) need no difficulty at all;
+            # only generation does, and worker.py's own
+            # _blueprint_generation_difficulty already refuses to guess one,
+            # permanent-failing that stage with error_code
+            # "generation_config_error" if it's still unresolved by then.
+            repository.enqueue(
+                course_id=decision.course_id,
+                skill_id=decision.skill_id,
+                requested_count=decision.requested_count,
+            )
+            queue_rows_written += 1
 
     job_outcomes: list[report.JobOutcomeRow] = []
     archived: list[str] = []
@@ -274,15 +356,29 @@ def run_cycle(
 
     pending_rows = [report.pending_approval_row(job) for job in repository.list_waiting()]
 
+    if dry_run:
+        budget_summary = {
+            "planned_new_candidates": len(planned_rows),
+            "max_new_candidates": budget_config.max_new_candidates,
+            "max_cost_usd": budget_config.max_cost_usd,
+            # No Brave/Modal/reviewer call is ever made in dry-run mode, so
+            # this is a fact, not an estimate.
+            "estimated_cost_usd": 0.0,
+        }
+    else:
+        budget_summary = tracker.to_dict()
+
     return report.build_report(
         dry_run=dry_run,
         deficiencies=deficiency_rows,
+        execution_plan=planned_rows,
         job_outcomes=job_outcomes,
         pending_approvals=pending_rows,
-        budget=tracker.to_dict() if not dry_run else {},
+        budget=budget_summary,
         stop_reason=stop_reason,
         archived_job_dirs=archived,
         clock=clock,
+        queue_rows_written=queue_rows_written,
     )
 
 

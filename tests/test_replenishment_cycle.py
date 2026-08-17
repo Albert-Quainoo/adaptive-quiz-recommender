@@ -292,7 +292,7 @@ def _dump_jobs(database) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def test_dry_run_reports_proposed_jobs_without_writing_anything(
-    tmp_path, isolated, database, monkeypatch
+    tmp_path, isolated, database, reviewed_blueprint, monkeypatch
 ):
     def _boom(*args, **kwargs):
         raise AssertionError("dry run must never construct a search/model/reviewer provider")
@@ -307,22 +307,60 @@ def test_dry_run_reports_proposed_jobs_without_writing_anything(
     assert report.dry_run is True
     assert report.job_outcomes == []
     assert report.pending_approvals == []
-    assert report.budget == {}
+    assert report.budget == {
+        "planned_new_candidates": 1,
+        "max_new_candidates": 3,
+        "max_cost_usd": 5.0,
+        "estimated_cost_usd": 0.0,
+    }
     assert report.archived_job_dirs == []
+    assert report.queue_rows_written == 0
 
     proposed = [row for row in report.deficiencies if row.skill_id == SKILL_ID]
     assert len(proposed) == 1
     row = proposed[0]
     assert row.course_id == "intro-ai"
-    assert row.decision == "enqueued"
-    assert row.difficulty
+    # A dry run never calls repository.enqueue() -- "proposed", not
+    # "enqueued", so the decision label never overstates job-queue state.
+    assert row.decision == "proposed"
+    assert row.difficulty == "intermediate"  # resolved from reviewed_blueprint
     assert row.reason
     assert row.proposed_job_key == cycle.report.deterministic_job_key("intro-ai", SKILL_ID)
+
+    assert len(report.execution_plan) == 1
+    assert report.execution_plan[0].skill_id == SKILL_ID
+    assert report.execution_plan[0].rank == 1
 
     # Zero writes: the queue table holds no rows (schema init alone is not a
     # data mutation), and no snapshot/branch artifact directory was created.
     assert _dump_jobs(database) == []
     assert not (tmp_path / "snapshots").exists()
+
+
+def test_dry_run_blocks_a_deficiency_with_no_resolvable_difficulty(
+    tmp_path, isolated, database, monkeypatch
+):
+    """No reviewed blueprint exists for SKILL_ID in this scenario (the
+    `reviewed_blueprint` fixture is not requested), so the deficiency scan
+    can only resolve difficulty="unknown" for it -- must never be reported
+    (or, in a live run, enqueued) as a plannable job in that state."""
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("dry run must never construct a search/model/reviewer provider")
+
+    monkeypatch.setattr(cli, "_search_provider_factory", _boom)
+    monkeypatch.setattr(cli, "_fetcher_factory", _boom)
+    monkeypatch.setattr(cli, "_model_factory", _boom)
+    monkeypatch.setattr(cli, "_reviewer_factory", _boom)
+
+    report = _run(database, tmp_path / "snapshots", dry_run=True)
+
+    row = next(row for row in report.deficiencies if row.skill_id == SKILL_ID)
+    assert row.decision == "blocked"
+    assert row.difficulty == "unknown"
+    assert row.proposed_job_key == "-"
+    assert not any(planned.skill_id == SKILL_ID for planned in report.execution_plan)
+    assert report.queue_rows_written == 0
 
 
 def test_dry_run_leaves_existing_job_rows_logically_unchanged(

@@ -93,6 +93,7 @@ jobs:
           fi
 
       - name: Run the replenishment cycle
+        id: cycle
         env:
           BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
           QUIZ_DATABASE_URL: ${{ secrets.QUIZ_DATABASE_URL }}
@@ -108,6 +109,11 @@ jobs:
           DRY_RUN_FLAG=""
           if [ "${{ github.event_name }}" != "schedule" ] && [ "${{ github.event.inputs.dry_run }}" != "false" ]; then
             DRY_RUN_FLAG="--dry-run"
+          fi
+          if [ -n "$DRY_RUN_FLAG" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
           fi
           python -m scripts.run_replenishment_cycle \
             $DRY_RUN_FLAG \
@@ -128,8 +134,18 @@ jobs:
 
       - name: Commit and push job-scoped artifacts to content-ops
         id: commit
+        # A dry run writes only a local report for the job summary/artifact
+        # upload above -- per run_replenishment_cycle.py's own contract it
+        # enqueues nothing and must produce no branch or PR change, so this
+        # step (and the PR step below, gated on its "changed" output) never
+        # runs for a dry run.
+        if: steps.cycle.outputs.dry_run != 'true'
         run: |
-          git add outputs/replenishment outputs/approved_banks
+          # -f: outputs/* is gitignored by default (see .gitignore) with
+          # carve-outs only for approved_banks/ and the bkt_* model files --
+          # outputs/replenishment/ is this workflow's own deliberate
+          # git-committable exception, scoped to the content-ops branch only.
+          git add -f outputs/replenishment outputs/approved_banks
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
