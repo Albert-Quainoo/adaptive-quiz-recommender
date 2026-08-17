@@ -18,7 +18,7 @@
   "next_retry_at": null,
   "requested_count": 1,
   "skill_id": "AI-FND-03",
-  "snapshotted_at": "2026-08-17T09:27:41.517532+00:00",
+  "snapshotted_at": "2026-08-17T09:51:29.758400+00:00",
   "started_at": "2026-08-17T09:17:15.546284+00:00",
   "status": "waiting_for_question_review"
 }

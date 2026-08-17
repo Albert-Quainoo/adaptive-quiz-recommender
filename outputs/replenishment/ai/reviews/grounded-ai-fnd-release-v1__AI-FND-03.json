@@ -2,14 +2,14 @@
   "batch_id": "grounded-ai-fnd-release-v1",
   "items": [
     {
-      "final_review_status": "pending",
+      "final_review_status": "approved",
       "intent_id": "AI-FND-03-INT-01",
       "original_question_id": "AI-FND-03-216e939347f36d4f",
       "recommendation": "propose_revision",
       "recommendation_reason": "Automated review (low): no issues found.",
       "rejection_reason": null,
-      "reviewed_at": null,
-      "reviewed_by": null,
+      "reviewed_at": "2026-08-17T09:42:12.546494Z",
+      "reviewed_by": "Albert Quainoo",
       "revisions": [
         {
           "changed_fields": [
@@ -20,7 +20,7 @@
           "content_hash": "d052d66a20f9e10b2d2fbe619afc287ebb9699f2ab2bd4f5de25c0ff90cdafe9",
           "edited_at": "2026-08-17T09:23:17.969772Z",
           "editor": "automated-review-v1",
-          "final_review_status": "pending",
+          "final_review_status": "approved",
           "intent_id": "AI-FND-03-INT-01",
           "model_id": "meta-llama/Llama-3.1-8B-Instruct",
           "model_revision": "unknown",
@@ -46,8 +46,8 @@
           ],
           "rejection_reason": null,
           "review_note": "Automated revision (d9f19100-f9cd-4778-ad10-c824feb2cc8a): reviewer's independently selected answer disagrees with the declared answer",
-          "reviewed_at": null,
-          "reviewed_by": null,
+          "reviewed_at": "2026-08-17T09:42:12.546494Z",
+          "reviewed_by": "Albert Quainoo",
           "revision_id": "AI-FND-03-216e939347f36d4f-rev-880bbd38fda4",
           "skill_id": "AI-FND-03",
           "source_batch_id": "grounded-ai-fnd-release-v1"
