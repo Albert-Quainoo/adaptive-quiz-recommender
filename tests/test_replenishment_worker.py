@@ -18,14 +18,25 @@ import authoring.grounding_briefs as grounding_briefs
 import authoring.question_intents as question_intents
 from api.bank import BankItem
 from api.schemas import QuizQuestion
-from authoring.grounded_batch import BatchGenerationError, PendingQuestion, question_id, read_jsonl
+from authoring.grounded_batch import (
+    BatchConfig,
+    BatchGenerationError,
+    PendingQuestion,
+    generate_batch,
+    question_id,
+    read_jsonl,
+)
 from authoring.grounded_review import (
     GroundedReviewStore,
     RevisionProvenance,
+    approve_as_written,
     approve_revision,
     approved_item_provenance,
+    build_pending_review,
     list_pending,
+    load_source_questions,
     propose_revision,
+    question_content_hash,
     reject_item,
 )
 from authoring.grounding_briefs import CanonicalGroundingBrief
@@ -45,13 +56,17 @@ from authoring.replenishment.worker import (
 from authoring.review.config import ReviewPolicyConfig
 from authoring.review.models import (
     AnswerAssessment,
+    AutomatedReviewReport,
+    DeterministicChecks,
     DifficultyAssessment,
     DuplicateAssessment,
     GroundingAssessment,
     ObjectiveAssessment,
     SemanticReviewResult,
 )
+from authoring.review.reports import AutomatedReviewReportStore, review_report_path
 from authoring.review.reviewer import FakeContentReviewer, ReviewerUnavailableError
+from scripts.import_reference_candidates import import_candidates
 from authoring.retrieval.models import ReferenceCandidate, SearchResult, approve, new_candidate
 from authoring.retrieval.search import FetchedPage
 from authoring.retrieval.store import CandidateStore
@@ -451,6 +466,23 @@ def _introductory_response(question_text: str) -> str:
                     "explanation": "A heuristic estimates the cheapest remaining path cost.",
                     "concept": "Heuristics",
                     "difficulty": "introductory",
+                }
+            ]
+        }
+    )
+
+
+def _intermediate_response(question_text: str) -> str:
+    return json.dumps(
+        {
+            "questions": [
+                {
+                    "question": question_text,
+                    "options": ["Remaining cost to goal", "Total memory used", "Number of nodes", "Branching factor"],
+                    "correct_answer": "Remaining cost to goal",
+                    "explanation": "A heuristic estimates the cheapest remaining path cost.",
+                    "concept": "Heuristics",
+                    "difficulty": "intermediate",
                 }
             ]
         }
@@ -1608,3 +1640,176 @@ def test_human_decision_mid_batch_is_never_overwritten_by_automated_revision(
     assert item.final_review_status == "rejected"
     assert item.reviewed_by == "albert"
     assert item.revisions == []  # automated revision never touched a human-decided item
+
+
+def _minimal_automated_report(content_hash: str, intent_id: str) -> AutomatedReviewReport:
+    """A report with just enough substance to satisfy the promotion gate's
+    latest_for_hash() lookup -- the gate only checks a report exists for the
+    reviewed content, not its verdict."""
+    return AutomatedReviewReport(
+        review_id=f"report-{content_hash[:12]}",
+        candidate_id="candidate",
+        skill_id=SKILL_ID,
+        intent_id=intent_id,
+        review_policy_version="review-v1",
+        reviewer_model_id="fake-reviewer",
+        reviewer_model_revision="fake-rev-1",
+        reviewer_prompt_version="review-v1",
+        reviewer_prompt_template_hash="d" * 64,
+        rendered_review_request_hash="d" * 64,
+        reviewed_content_hash=content_hash,
+        created_at=FIXED_TIME,
+        deterministic_checks=DeterministicChecks(checks=[]),
+        risk_score=0.1,
+        risk_level="low",
+        recommendation="recommend_human_approval",
+    )
+
+
+def test_promotion_exports_only_the_two_approved_items_from_a_mixed_batch(
+    manifest, repository, approved_candidate, tmp_path, monkeypatch
+):
+    """End-to-end promotion: a review store carrying one approve-as-written item, one
+    approved revision, one rejected item, and one still-pending item -- promotion
+    must succeed and the active bank must contain exactly the two approved items,
+    exercising the real _handle_promote_approved_items -> export_approved_bank_items
+    path (the promotion-blocking StopIteration this fixes)."""
+    blueprint_dir = tmp_path / "blueprints"
+    blueprint_dir.mkdir()
+    intents = [
+        _intent(SKILL_ID, n, "intermediate", preferred_reference_ids=[approved_candidate.candidate_id])
+        for n in range(1, 5)
+    ]
+    blueprint = PilotBlueprint(
+        batch_id="mixed-batch-01",
+        prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved",
+        reviewer_id="albert",
+        reviewed_at=FIXED_TIME,
+        base_seed=1,
+        intents=intents,
+    )
+    (blueprint_dir / "mixed-batch-01.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(question_intents, "BLUEPRINT_DIRECTORY", blueprint_dir)
+    monkeypatch.setattr(
+        grounding_briefs,
+        "PILOT_GROUNDING_BRIEFS",
+        {
+            SKILL_ID: CanonicalGroundingBrief(
+                skill_id=SKILL_ID,
+                version="test-v1",
+                statements=["A heuristic estimates the remaining cost to the goal."],
+            )
+        },
+    )
+
+    model = DeterministicFakeModel(
+        responses=[
+            _intermediate_response("Which as-written question stands unedited?"),
+            _intermediate_response("Which revised question needs an edit?"),
+            _intermediate_response("Which rejected question fails review?"),
+            _intermediate_response("Which pending question awaits a decision?"),
+        ]
+    )
+    import_candidates(
+        manifest.candidate_store_path, manifest.skills_path(), manifest.references_path(), manifest.provenance_path()
+    )
+    output_dir = manifest.review_store_path.parent / "batches" / "mixed-batch-01__AI-SRC-08"
+    result = generate_batch(
+        BatchConfig(
+            batch_id="mixed-batch-01",
+            skill_ids=[SKILL_ID],
+            questions_per_skill=len(intents),
+            base_seed=1,
+            model_id=model.model_id,
+            prompt_version=question_intents.PILOT_PROMPT_VERSION,
+            difficulty="intermediate",
+        ),
+        model,
+        output_dir,
+        skills_path=manifest.skills_path(),
+        references_path=manifest.references_path(),
+        provenance_path=manifest.provenance_path(),
+        clock=fixed_clock,
+        git_commit="deadbeef",
+    )
+    assert result.status == "complete"
+
+    review = build_pending_review(output_dir)
+    source_by_id = {q.question_id: q for q in load_source_questions(output_dir)}
+    as_written_item, revised_item, rejected_item, pending_item = review.items
+
+    # 1) approve as written -- the promotion gate requires an automated review
+    # report on file for its exact source content hash.
+    report_store = AutomatedReviewReportStore(
+        review_report_path(manifest.review_store_path, "mixed-batch-01", SKILL_ID)
+    )
+    report_store.append(
+        _minimal_automated_report(
+            question_content_hash(source_by_id[as_written_item.original_question_id].question),
+            as_written_item.intent_id,
+        )
+    )
+    as_written_item = as_written_item.model_copy(update={"recommendation": "approve_as_written"})
+    as_written_item = approve_as_written(as_written_item, "albert", reviewed_at=FIXED_TIME)
+
+    # 2) approve a proposed revision.
+    revised_source = source_by_id[revised_item.original_question_id]
+    revised_edit = QuizQuestion.model_validate(
+        revised_source.question.model_dump() | {"explanation": revised_source.question.explanation + " (edited)"}
+    )
+    proposed = propose_revision(
+        revised_item,
+        revised_source.question,
+        revised_edit,
+        "albert",
+        "reviewer restated wording",
+        edited_at=FIXED_TIME,
+        provenance=RevisionProvenance.from_source(revised_source),
+    )
+    revised_item = approve_revision(proposed, proposed.revisions[0].revision_id, "albert", reviewed_at=FIXED_TIME)
+
+    # 3) explicitly reject.
+    rejected_item = reject_item(rejected_item, "albert", "Not accurate.", reviewed_at=FIXED_TIME)
+
+    # 4) pending_item is left untouched.
+
+    review_path = manifest.review_store_path / "mixed-batch-01__AI-SRC-08.json"
+    store = GroundedReviewStore(review_path)
+    store.save(review)
+    store.replace_item(as_written_item)
+    store.replace_item(revised_item)
+    store.replace_item(rejected_item)
+
+    repository.enqueue(course_id="ai", skill_id=SKILL_ID, requested_count=1, clock=fixed_clock)
+    job = repository.claim_next(clock=fixed_clock)
+    repository.mark_queued(
+        job.job_id,
+        job_type="promote_approved_items",
+        metadata={"batch_id": "mixed-batch-01", "review_path": str(review_path)},
+    )
+    promote_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        promote_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=DeterministicFakeModel, clock=fixed_clock,
+    )
+    after_promote = repository.get(promote_job.job_id)
+    assert after_promote.status == "completed"
+
+    pointer_path = manifest.approved_bank_path.parent / "ai-active-bank.json"
+    pointer = json.loads(pointer_path.read_text())
+    bank_items = [json.loads(line) for line in Path(pointer["path"]).read_text().splitlines()]
+
+    assert len(bank_items) == 2
+    exported_ids = {item["item_id"] for item in bank_items}
+    approved_revision_id = next(
+        revision.revision_id for revision in revised_item.revisions if revision.final_review_status == "approved"
+    )
+    assert exported_ids == {as_written_item.original_question_id, approved_revision_id}
+    as_written_export = next(item for item in bank_items if item["item_id"] == as_written_item.original_question_id)
+    assert as_written_export["question"] == source_by_id[as_written_item.original_question_id].question.model_dump(
+        exclude={"intent_id"}, mode="json"
+    )

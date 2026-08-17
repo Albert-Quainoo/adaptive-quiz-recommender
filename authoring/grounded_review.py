@@ -484,20 +484,54 @@ def reject_item(
     )
 
 
-def export_approved_bank_items(review: GroundedReview) -> list[BankItem]:
+def export_approved_bank_items(
+    review: GroundedReview,
+    source_questions: dict[str, PendingQuestion] | None = None,
+) -> list[BankItem]:
+    """Every approved item, in deterministic original_question_id order.
+
+    An approved item is either an approved revision (its edited content is
+    exported) or approved as written (recommendation == "approve_as_written",
+    zero revisions) -- in which case the immutable original candidate is
+    exported instead, looked up by original_question_id in source_questions.
+    source_questions is only required when the review contains at least one
+    approve-as-written approval; callers load it (typically via
+    load_source_questions on the immutable source batch) and supply it here
+    rather than this function doing that I/O itself, since different callers
+    resolve the batch directory differently (see worker.py's per-skill batch
+    dir vs. the manual pilot batch dir).
+    """
+    source_questions = source_questions or {}
     exported = []
     for item in sorted(review.items, key=lambda value: value.original_question_id):
         if item.final_review_status != "approved":
             continue
-        revision = next(
+        approved_revisions = [
             revision
             for revision in item.revisions
             if revision.final_review_status == "approved"
-        )
+        ]
+        if approved_revisions:
+            revision = approved_revisions[0]
+            exported.append(
+                BankItem(
+                    item_id=revision.revision_id,
+                    question=revision.question,
+                    provenance="generated",
+                    skill_id=item.skill_id,
+                )
+            )
+            continue
+        source = source_questions.get(item.original_question_id)
+        if source is None:
+            raise ValueError(
+                f"{item.original_question_id} was approved as written but its source "
+                "question was not supplied to export_approved_bank_items"
+            )
         exported.append(
             BankItem(
-                item_id=revision.revision_id,
-                question=revision.question,
+                item_id=item.original_question_id,
+                question=QuizQuestion(**source.question.model_dump()),
                 provenance="generated",
                 skill_id=item.skill_id,
             )
@@ -553,8 +587,12 @@ def approved_item_provenance(
     )
 
 
-def write_approved_bank(path: Path, review: GroundedReview) -> None:
-    items = export_approved_bank_items(review)
+def write_approved_bank(
+    path: Path,
+    review: GroundedReview,
+    source_questions: dict[str, PendingQuestion] | None = None,
+) -> None:
+    items = export_approved_bank_items(review, source_questions)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(

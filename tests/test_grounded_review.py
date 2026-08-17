@@ -10,6 +10,7 @@ from authoring.grounded_review import (
     GroundedReview,
     GroundedReviewStore,
     RevisionProvenance,
+    approve_as_written,
     approve_revision,
     approved_item_provenance,
     assert_immutable_source,
@@ -29,7 +30,13 @@ from tests.test_grounded_batch import (
     DeterministicFakeModel,
     config,
 )
-from authoring.grounded_batch import BatchGenerationError, generate_batch, prompt_hash
+from authoring.grounded_batch import (
+    BatchGenerationError,
+    IntentQuestion,
+    PendingQuestion,
+    generate_batch,
+    prompt_hash,
+)
 from authoring.question_intents import intents_by_skill, load_pilot_blueprint
 from taxonomy.loader import course_paths, course_provenance_path
 
@@ -90,6 +97,38 @@ def review_with(*items):
         batch_id="grounded-pilot-20260805-v2",
         source_hashes={},
         items=list(items),
+    )
+
+
+def as_written_item(question_id="AI-SRC-08-as-written-id", intent_id="AI-SRC-08-INT-03"):
+    return CurationItem(
+        original_question_id=question_id,
+        skill_id="AI-SRC-08",
+        intent_id=intent_id,
+        recommendation="approve_as_written",
+        recommendation_reason="Candidate needed no changes.",
+    )
+
+
+def pending_question(question_id="AI-SRC-08-as-written-id", intent_id="AI-SRC-08-INT-03", q=None):
+    base = (q or question()).model_dump()
+    return PendingQuestion(
+        batch_id="grounded-pilot-20260805-v2",
+        question_id=question_id,
+        skill_id="AI-SRC-08",
+        question_index=0,
+        intent_id=intent_id,
+        seed=1,
+        reference_ids=["AI-SRC-08-reference"],
+        prompt_version="v3.3",
+        prompt_hash="a" * 64,
+        model_id="model",
+        model_revision="revision",
+        generation_parameters={},
+        generated_at=REVIEW_TIME,
+        git_commit="deadbeef",
+        raw_response="{}",
+        question=IntentQuestion(**base, intent_id=intent_id),
     )
 
 
@@ -247,6 +286,97 @@ def test_only_explicitly_approved_revision_is_exported():
     assert lookup.skill_id == approved.skill_id
     assert lookup.reference_ids == approved_revision.reference_ids
     assert lookup.reviewer_id == "reviewer"
+
+
+def test_approve_as_written_item_with_zero_revisions_is_exported():
+    source = pending_question()
+    approved = approve_as_written(as_written_item(), "reviewer", reviewed_at=REVIEW_TIME)
+
+    exported = export_approved_bank_items(
+        review_with(approved), {source.question_id: source}
+    )
+
+    assert len(exported) == 1
+    assert exported[0].item_id == approved.original_question_id
+    assert exported[0].question.model_dump() == source.question.model_dump(exclude={"intent_id"})
+    assert type(exported[0].question) is QuizQuestion
+    assert exported[0].provenance == "generated"
+    assert exported[0].skill_id == "AI-SRC-08"
+
+
+def test_approve_as_written_export_without_source_question_raises_clear_error():
+    approved = approve_as_written(as_written_item(), "reviewer", reviewed_at=REVIEW_TIME)
+
+    with pytest.raises(ValueError, match=approved.original_question_id):
+        export_approved_bank_items(review_with(approved))
+
+
+def test_mixed_batch_exports_written_and_revised_items_excluding_rejected_and_pending():
+    source = pending_question()
+    written = approve_as_written(as_written_item(), "reviewer", reviewed_at=REVIEW_TIME)
+
+    revised_candidate = proposed()
+    revised = approve_revision(
+        revised_candidate,
+        revised_candidate.revisions[0].revision_id,
+        "reviewer",
+        reviewed_at=REVIEW_TIME,
+    )
+
+    rejected = reject_item(
+        item().model_copy(
+            update={
+                "original_question_id": "AI-SRC-08-rejected-id",
+                "intent_id": "AI-SRC-08-INT-04",
+            }
+        ),
+        "reviewer",
+        "Not salvageable.",
+        reviewed_at=REVIEW_TIME,
+    )
+
+    pending = as_written_item(question_id="AI-SRC-08-pending-id", intent_id="AI-SRC-08-INT-05")
+
+    review = review_with(written, revised, rejected, pending)
+    exported = export_approved_bank_items(review, {source.question_id: source})
+
+    assert len(exported) == 2
+    exported_ids = [item.item_id for item in exported]
+    assert exported_ids == sorted(exported_ids)
+    assert written.original_question_id in exported_ids
+    revised_revision = next(
+        revision for revision in revised.revisions if revision.final_review_status == "approved"
+    )
+    assert revised_revision.revision_id in exported_ids
+
+
+def test_latest_human_approved_revision_is_exported_not_a_superseded_one():
+    first_pass = proposed()
+    second_pass = propose_revision(
+        first_pass,
+        question(),
+        question("Which second revision is clearer?", correct="Clear"),
+        "second-editor",
+        "Alternative wording.",
+        edited_at=REVIEW_TIME.replace(hour=15),
+        provenance=provenance(),
+    )
+    approved = approve_revision(
+        second_pass,
+        second_pass.revisions[1].revision_id,
+        "reviewer",
+        reviewed_at=REVIEW_TIME.replace(hour=16),
+    )
+
+    exported = export_approved_bank_items(review_with(approved))
+
+    assert len(exported) == 1
+    assert exported[0].item_id == second_pass.revisions[1].revision_id
+    assert exported[0].question == second_pass.revisions[1].question
+    superseded = next(
+        revision for revision in approved.revisions if revision.revision_id == second_pass.revisions[0].revision_id
+    )
+    assert superseded.final_review_status == "rejected"
 
 
 def test_revision_without_source_provenance_cannot_be_approved():

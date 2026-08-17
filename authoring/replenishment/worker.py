@@ -1072,6 +1072,12 @@ def _handle_promote_approved_items(
 
     review_path = Path(review_path_value)
     review = GroundedReviewStore(review_path).load()
+    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    source_questions = (
+        {question.question_id: question for question in load_source_questions(output_dir)}
+        if output_dir.is_dir()
+        else {}
+    )
 
     # Promotion safety: an unedited, Llama-generated item (approve_as_written) may not
     # enter the bank without evidence automated review actually looked at it. A human
@@ -1085,12 +1091,6 @@ def _handle_promote_approved_items(
         if item.final_review_status == "approved" and item.recommendation == "approve_as_written"
     ]
     if approve_as_written_items:
-        output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
-        source_questions = (
-            {question.question_id: question for question in load_source_questions(output_dir)}
-            if output_dir.is_dir()
-            else {}
-        )
         report_store = AutomatedReviewReportStore(
             review_report_path(manifest.review_store_path, review.batch_id, job.skill_id)
         )
@@ -1111,7 +1111,7 @@ def _handle_promote_approved_items(
             )
             return
 
-    new_items = export_approved_bank_items(review)
+    new_items = export_approved_bank_items(review, source_questions)
     if not new_items:
         job_repository.mark_permanent_failure(
             job.job_id,

@@ -154,10 +154,13 @@ def main(argv=None) -> int:
         item = next(item for item in review.items if item.original_question_id == arguments.question_id)
         store.replace_item(reject_item(item, arguments.reviewer, arguments.reason))
     else:
+        source_questions = {
+            question.question_id: question for question in load_source_questions(arguments.batch)
+        }
         if arguments.output:
-            write_approved_bank(arguments.output, review)
+            write_approved_bank(arguments.output, review, source_questions)
         else:
-            for item in export_approved_bank_items(review):
+            for item in export_approved_bank_items(review, source_questions):
                 print(json.dumps(item.model_dump(mode="json"), sort_keys=True))
     return 0
 
