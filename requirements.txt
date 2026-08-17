@@ -23,3 +23,14 @@ psycopg[binary]==3.3.4
 
 pytest
 python-dotenv
+
+# Hybrid option-equivalence gate (authoring/review/equivalence_gate.py) -- isolated
+# from the transformers/torch stack above: sympy/pint are pure-Python and onnxruntime
+# is CPU-only, so none of this touches or requires the generation/review Modal
+# environment's torch pin. huggingface_hub is pinned explicitly (not left as an
+# implicit transitive dependency of transformers) since equivalence_nli.py imports it
+# directly to fetch the pinned NLI model.
+sympy==1.14.0
+pint==0.25.3
+onnxruntime==1.23.2
+huggingface_hub==1.24.0

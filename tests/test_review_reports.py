@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from authoring.grounded_review import CurationItem, GroundedReview
 from authoring.review.deterministic import run_deterministic_checks
-from authoring.review.models import AnswerAssessment, AutomatedReviewReport
+from authoring.review.models import AnswerAssessment, AutomatedReviewReport, EquivalenceAssessment, OptionPairEvidence
 from authoring.review.reports import (
     AutomatedReviewReportStore,
     count_pending_review_items,
@@ -59,6 +59,47 @@ def test_append_and_load_all_round_trips(tmp_path: Path):
     loaded = store.load_all()
     assert len(loaded) == 1
     assert loaded[0].reviewed_content_hash == "hash-1"
+
+
+def test_historical_report_without_equivalence_assessment_loads_with_none(tmp_path: Path):
+    """Every real report written before the hybrid option-equivalence gate existed has
+    no equivalence_assessment field at all -- reading it back must default to None, not
+    error, exactly like option_assessments' own precedent below."""
+    store = AutomatedReviewReportStore(tmp_path / "reports.json")
+    report = _report()
+    assert report.equivalence_assessment is None
+    store.append(report)
+    reloaded = store.load_all()
+    assert reloaded[0].equivalence_assessment is None
+
+
+def test_report_with_equivalence_assessment_round_trips(tmp_path: Path):
+    report = _report().model_copy(
+        update={
+            "equivalence_assessment": EquivalenceAssessment(
+                gate_version="equivalence-gate-v1",
+                nli_model_repository="cross-encoder/nli-deberta-v3-xsmall",
+                nli_model_revision="a150876415327c80daeff35ca6f68f5ed8cf5c24",
+                nli_threshold=0.25,
+                threshold_version="equivalence-threshold-v1-2026-08-17",
+                evidence=[
+                    OptionPairEvidence(
+                        option_index_a=0, option_index_b=1, detector="unit_conversion",
+                        verdict="equivalent", score_or_normalized_form="0.75 cup vs 0.75 cup",
+                        reason="both options convert to the same canonical quantity",
+                    )
+                ],
+                escalated=True,
+            )
+        }
+    )
+    store = AutomatedReviewReportStore(tmp_path / "reports.json")
+    store.append(report)
+    reloaded = store.load_all()[0]
+    assert reloaded.equivalence_assessment.escalated is True
+    assert reloaded.equivalence_assessment.nli_threshold == 0.25
+    assert len(reloaded.equivalence_assessment.evidence) == 1
+    assert reloaded.equivalence_assessment.evidence[0].detector == "unit_conversion"
 
 
 def test_latest_for_hash_returns_none_when_absent(tmp_path: Path):

@@ -58,6 +58,48 @@ def test_reviewer_output_errors_force_critical_require_full_human_review():
     assert decision.recommendation == "require_full_human_review"
 
 
+def test_equivalence_escalation_forces_require_full_human_review_never_reject():
+    """A candidate that would otherwise be "low"/recommend_human_approval is escalated
+    -- never auto-rejected -- by a credible option-equivalence signal from the hybrid
+    gate (authoring/review/equivalence_gate.py)."""
+    decision = score_risk(
+        _clean_checks(),
+        [CORRECTED_REVIEW_RESULT],
+        config=CONFIG,
+        equivalence_escalation_reasons=[
+            "unit_conversion flags options 0/1 as equivalent (0.75 cup vs 0.75 cup)"
+        ],
+    )
+    assert decision.risk_level == "high"
+    assert decision.recommendation == "require_full_human_review"
+    assert "unit_conversion flags options 0/1 as equivalent (0.75 cup vs 0.75 cup)" in decision.blocking_reasons
+
+
+def test_equivalence_escalation_never_downgrades_an_existing_critical_reject_to_less_severe():
+    """A candidate that was already critical/reject for an unrelated reason (here: a
+    reviewer disagreeing with the declared answer, via ORIGINAL_REVIEW_RESULT) stays at
+    critical severity when equivalence evidence also escalates it -- the recommendation
+    moves from reject to require_full_human_review (a human always looks, never a
+    silent auto-reject), but never drops below critical."""
+    decision = score_risk(
+        _clean_checks(),
+        [ORIGINAL_REVIEW_RESULT],
+        config=CONFIG,
+        equivalence_escalation_reasons=["nli_semantic flags options 0/1 as equivalent (entailment=0.9)"],
+    )
+    assert decision.risk_level == "critical"
+    assert decision.recommendation == "require_full_human_review"
+
+
+def test_no_equivalence_evidence_leaves_decision_unaffected():
+    with_none = score_risk(_clean_checks(), [CORRECTED_REVIEW_RESULT], config=CONFIG)
+    with_empty = score_risk(
+        _clean_checks(), [CORRECTED_REVIEW_RESULT], config=CONFIG, equivalence_escalation_reasons=[]
+    )
+    assert with_none.recommendation == with_empty.recommendation == "recommend_human_approval"
+    assert with_none.risk_level == with_empty.risk_level == "low"
+
+
 def test_no_passes_is_critical_require_full_human_review():
     decision = score_risk(_clean_checks(), [], config=CONFIG)
     assert decision.risk_level == "critical"
