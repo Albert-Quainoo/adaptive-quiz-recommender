@@ -40,7 +40,7 @@ SKILLS_PER_TOPIC = {
 # code, and hand-authored ones because a person writes them. This list should
 # shrink to nothing as references.csv is filled in.
 AWAITING_REFERENCE_MATERIAL = [
-    "AI-FND-02", "AI-FND-03", "AI-FND-04",
+    "AI-FND-02",
     "AI-AGT-02", "AI-AGT-03", "AI-AGT-04", "AI-AGT-05",
     "AI-SRC-07", "AI-SRC-11",
     "AI-ML-01", "AI-ML-02", "AI-ML-03", "AI-ML-04", "AI-ML-05",
@@ -66,6 +66,10 @@ PILOT_REFERENCE_IDS = {
     "AI-FND-01-b50c85fa00a5",
     "AI-FND-01-d03d77e0aca2",
     "AI-FND-01-f7c5eb1ccf76",
+    "AI-FND-03-1277170ce874",
+    "AI-FND-03-81534113035f",
+    "AI-FND-04-1d9f2a7b336c",
+    "AI-FND-04-0a36a4f50e30",
     "AI-AGT-01-31af4c58c9a1",
     "AI-AGT-01-8efa49112c14",
     "AI-SRC-01-4024dce75930",
