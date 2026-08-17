@@ -41,6 +41,28 @@ from tests.review_fnd_fixtures import (
     FND04_SKILL,
 )
 from tests.review_fixtures import APPROVED_REFERENCES, CORRECTED_QUESTION, INTENT, SKILL
+from tests.review_generalized_fixtures import (
+    GEN_CLOSE_CANDIDATE,
+    GEN_CLOSE_INTENT,
+    GEN_CLOSE_QUESTION,
+    GEN_CLOSE_REFERENCE,
+    GEN_CLOSE_SKILL,
+    GEN_MATH_CANDIDATE,
+    GEN_MATH_INTENT,
+    GEN_MATH_QUESTION,
+    GEN_MATH_REFERENCE,
+    GEN_MATH_SKILL,
+    GEN_NEGATION_CANDIDATE,
+    GEN_NEGATION_INTENT,
+    GEN_NEGATION_QUESTION,
+    GEN_NEGATION_REFERENCE,
+    GEN_NEGATION_SKILL,
+    GEN_PARAPHRASE_CANDIDATE,
+    GEN_PARAPHRASE_INTENT,
+    GEN_PARAPHRASE_QUESTION,
+    GEN_PARAPHRASE_REFERENCE,
+    GEN_PARAPHRASE_SKILL,
+)
 
 
 class _FakeBatchModel:
@@ -327,3 +349,86 @@ def test_malformed_response_after_repair_exhaustion_fails_closed():
     assert context is not None
     assert context.request_count == 2
     assert "missing assessment" in str(excinfo.value)
+
+
+# --- Generalized (non-AI-FND-04) captured fixtures -----------------------------------
+#
+# The AI-FND-04 case above is one real instance of "multiple options express the same
+# claim." These four prove the fix generalizes across unrelated domains and failure
+# shapes -- see tests/review_generalized_fixtures.py for the full rationale. Each
+# drives a hand-built compact payload (representing what a reviewer that correctly
+# follows the new review-v7 ANSWERING METHODOLOGY would report) through the real
+# ModelBackedContentReviewer -> review_candidate() pipeline, exactly like tests 1-3.
+
+
+def _gen_report(tmp_path, candidate, skill, intent, references, question, option_assessments, *, multiple_defensible_answers=False):
+    selected_index = question.options.index(question.correct_answer)
+    payload = _compact_payload(
+        selected_option_index=selected_index,
+        independent_answer_text=question.correct_answer,
+        option_assessments=option_assessments,
+        consulted_reference_ids=[r.reference_id for r in references],
+        supporting_reference_ids=[r.reference_id for r in references],
+        multiple_defensible_answers=multiple_defensible_answers,
+    )
+    model = _FakeBatchModel([json.dumps(payload)])
+    reviewer = ModelBackedContentReviewer(model)
+    return review_candidate(
+        candidate, skill, intent, references,
+        reviewer=reviewer,
+        config=ReviewPolicyConfig(reviewer_passes=1),
+        report_store=AutomatedReviewReportStore(tmp_path / "reports.json"),
+    )
+
+
+def test_generalized_paraphrase_candidate_is_blocked(tmp_path):
+    """Three of four options (firewall purpose) restate the same claim in different
+    words -- an unrelated domain from AI-FND-04, same shape of defect."""
+    report = _gen_report(
+        tmp_path, GEN_PARAPHRASE_CANDIDATE, GEN_PARAPHRASE_SKILL, GEN_PARAPHRASE_INTENT,
+        [GEN_PARAPHRASE_REFERENCE], GEN_PARAPHRASE_QUESTION,
+        option_assessments=[[0, "correct"], [1, "defensible"], [2, "defensible"], [3, "incorrect"]],
+    )
+    assert report.answer_assessment.multiple_defensible_answers is True
+    assert report.risk_level == "critical"
+    assert report.recommendation == "reject"
+
+
+def test_generalized_math_equivalent_candidate_is_blocked(tmp_path):
+    """0.75 cups and 75/100 cups are the same value in different notation --
+    mathematical, not textual, equivalence."""
+    report = _gen_report(
+        tmp_path, GEN_MATH_CANDIDATE, GEN_MATH_SKILL, GEN_MATH_INTENT,
+        [GEN_MATH_REFERENCE], GEN_MATH_QUESTION,
+        option_assessments=[[0, "correct"], [1, "defensible"], [2, "incorrect"], [3, "incorrect"]],
+    )
+    assert report.answer_assessment.multiple_defensible_answers is True
+    assert report.risk_level == "critical"
+    assert report.recommendation == "reject"
+
+
+def test_generalized_close_distractor_candidate_is_not_falsely_blocked(tmp_path):
+    """All four options are atmospheric gases (topically/lexically close), but only
+    carbon dioxide is correct -- surface similarity must not trigger a false block."""
+    report = _gen_report(
+        tmp_path, GEN_CLOSE_CANDIDATE, GEN_CLOSE_SKILL, GEN_CLOSE_INTENT,
+        [GEN_CLOSE_REFERENCE], GEN_CLOSE_QUESTION,
+        option_assessments=[[0, "correct"], [1, "incorrect"], [2, "incorrect"], [3, "incorrect"]],
+    )
+    assert report.answer_assessment.multiple_defensible_answers is False
+    assert report.risk_level == "low"
+    assert report.recommendation == "recommend_human_approval"
+
+
+def test_generalized_negation_candidate_is_not_falsely_blocked(tmp_path):
+    """Two options share a "Yes" prefix and two share a "No" prefix, but only one of
+    the four is actually true -- a negation/structural pattern is not semantic
+    equivalence and must not trigger a false block."""
+    report = _gen_report(
+        tmp_path, GEN_NEGATION_CANDIDATE, GEN_NEGATION_SKILL, GEN_NEGATION_INTENT,
+        [GEN_NEGATION_REFERENCE], GEN_NEGATION_QUESTION,
+        option_assessments=[[0, "correct"], [1, "incorrect"], [2, "incorrect"], [3, "incorrect"]],
+    )
+    assert report.answer_assessment.multiple_defensible_answers is False
+    assert report.risk_level == "low"
+    assert report.recommendation == "recommend_human_approval"
