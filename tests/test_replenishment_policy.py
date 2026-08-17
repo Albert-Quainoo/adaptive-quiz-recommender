@@ -71,6 +71,43 @@ def test_templated_skills_are_never_enqueued():
     assert all(decision.should_enqueue is False for decision in decisions)
 
 
+def test_hand_authored_skills_are_never_enqueued():
+    inventory = {
+        "AI-ETH-01": row(
+            "AI-ETH-01", "content_exhausted", generation_strategy="hand_authored", total=0
+        ),
+        "AI-ETH-07": row(
+            "AI-ETH-07", "ready", generation_strategy="hand_authored", total=6
+        ),
+    }
+    decisions = decide_replenishment(inventory, DEFAULT)
+    assert all(decision.should_enqueue is False for decision in decisions)
+
+
+def test_deficient_hand_authored_skill_needs_manual_action_not_no_deficiency():
+    inventory = {
+        "AI-ETH-01": row(
+            "AI-ETH-01", "content_exhausted", generation_strategy="hand_authored", total=0
+        )
+    }
+    [decision] = decide_replenishment(inventory, DEFAULT)
+    assert decision.should_enqueue is False
+    assert decision.manual_action_required is True
+    assert decision.requested_count == 6
+    assert "hand_authored" in decision.reason
+
+
+def test_satisfied_hand_authored_skill_is_plain_no_deficiency():
+    inventory = {
+        "AI-ETH-01": row(
+            "AI-ETH-01", "ready", generation_strategy="hand_authored", total=6
+        )
+    }
+    [decision] = decide_replenishment(inventory, DEFAULT)
+    assert decision.should_enqueue is False
+    assert decision.manual_action_required is False
+
+
 def test_monitors_every_active_skill_not_only_the_first():
     inventory = {
         skill_id: row(skill_id, "taxonomy_only", total=0)

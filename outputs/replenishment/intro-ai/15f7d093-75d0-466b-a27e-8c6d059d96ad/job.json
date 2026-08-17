@@ -1,0 +1,24 @@
+{
+  "attempts": 5,
+  "completed_at": null,
+  "course_id": "intro-ai",
+  "created_at": "2026-08-17T09:17:01.824671+00:00",
+  "error_code": null,
+  "error_message": null,
+  "job_id": "15f7d093-75d0-466b-a27e-8c6d059d96ad",
+  "job_type": "automated_review",
+  "metadata": {
+    "automated_revision_attempts": {
+      "AI-FND-03-216e939347f36d4f": 1
+    },
+    "batch_id": "grounded-ai-fnd-release-v1",
+    "note": "bounded intro-ai foundations release candidate, isolated job db",
+    "review_path": "outputs/replenishment/ai/reviews/grounded-ai-fnd-release-v1__AI-FND-03.json"
+  },
+  "next_retry_at": null,
+  "requested_count": 1,
+  "skill_id": "AI-FND-03",
+  "snapshotted_at": "2026-08-17T09:51:29.758400+00:00",
+  "started_at": "2026-08-17T09:17:15.546284+00:00",
+  "status": "waiting_for_question_review"
+}

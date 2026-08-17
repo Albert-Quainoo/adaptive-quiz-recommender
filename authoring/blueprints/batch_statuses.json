@@ -20,5 +20,34 @@
     "status": "blueprint-approved",
     "prompt_version": "v3.3",
     "question_review_status": "approved-after-revision"
+  },
+  "grounded-ai-fnd-release-v1": {
+    "status": "blueprint-approved",
+    "prompt_version": "v3.3",
+    "question_inventory": 2,
+    "llama_run_status": "not-run",
+    "reviewer_id": "claude (intro-ai foundations release candidate, delegated blueprint authoring by Albert Quainoo)",
+    "reviewed_at": "2026-08-17T09:37:54Z",
+    "source_packet": "outputs/review_packets/intro-ai-blueprint-queue-v3.html",
+    "source_packet_sha256": "e3f58853fe231b2682c1729e3711921822a2f4e480ba8c1403e5ca715716876d",
+    "source_packet_scope_note": "Packet declares 31 approved generated-skill blueprints (90 intents) plus 2 hand_authored skills. This batch materializes only the AI-FND-02/AI-FND-03/AI-FND-04 subset of that packet, as a bounded, explicitly authorized release candidate; the other 28 generated skills are untouched.",
+    "coordinated_release_scope": {
+      "deterministic_selection_order": ["AI-FND-02", "AI-FND-03", "AI-FND-04"],
+      "AI-FND-02": "failed_closed -- insufficient direct reference support within manifest allowed_domains (1 candidate found, below the 2-4 minimum); dropped from this run, no blueprint intent authored",
+      "AI-FND-03": "materialized -- AI-FND-03-INT-01, 2 approved references",
+      "AI-FND-04": "materialized -- AI-FND-04-INT-02, 2 approved references"
+    },
+    "approval_time_amendments": {
+      "AI-SRC-11": "Applicable only if AI-SRC-11 intents are in scope; not present in this batch (AI-SRC-11 is outside the AI-FND-02/03/04 scope) -- correctly skipped, not forced in.",
+      "AI-NN-03": "Applicable only if AI-NN-03 intents are in scope; not present in this batch (AI-NN-03 is outside the AI-FND-02/03/04 scope) -- correctly skipped, not forced in.",
+      "AI-FND-04-INT-02": "Applied. Wording reads 'identify what it claims to test or argue' (not 'test or demonstrate') in both assessment_focus and cognitive_demand, with the amendment restated verbatim in generation_constraints."
+    },
+    "reference_decision_log": "outputs/replenishment/ai/reviews/reference_decisions/intro-ai-fnd-release-v1.json",
+    "scaffold": "outputs/replenishment/ai/scaffolds/intro-ai-fnd-release-v1-scaffold.json",
+    "human_question_review": {
+      "AI-FND-03-216e939347f36d4f": "approved as the existing automated-repair revision (AI-FND-03-216e939347f36d4f-rev-880bbd38fda4), by Albert Quainoo, 2026-08-17 -- genuine human review, not delegated",
+      "AI-FND-04-b4cd5c51a8cab3c4": "rejected as written by Albert Quainoo, 2026-08-17: four options were semantically overlapping (multiple options restated the same proposition in different words). Original preserved unmutated as calibration evidence; human revision AI-FND-04-b4cd5c51a8cab3c4-rev-ac7c2a7defa5 proposed, given a fresh full deterministic+semantic review (recommend_human_approval/low, multiple_defensible_answers=false), and left pending -- not approved by Claude.",
+      "reviewer_regression_finding": "The live automated reviewer did not itself flag the AI-FND-04 semantic-overlap case (see tests/test_review_ai_fnd_04_semantic_overlap_regression.py, strict xfail). Not a scoring-logic defect -- authoring/review/risk.py already blocks correctly on multiple_defensible_answers/duplicate_or_rephrased_distractors when populated; the reviewer model did not populate them for this candidate. No narrow code fix was available."
+    }
   }
 }

@@ -1,0 +1,66 @@
+{
+  "batch_id": "grounded-ai-fnd-release-v1",
+  "items": [
+    {
+      "final_review_status": "approved",
+      "intent_id": "AI-FND-04-INT-02",
+      "original_question_id": "AI-FND-04-b4cd5c51a8cab3c4",
+      "recommendation": "propose_revision",
+      "recommendation_reason": "Automated review (low): no issues found.",
+      "rejection_reason": null,
+      "reviewed_at": "2026-08-17T10:07:31.713650Z",
+      "reviewed_by": "Albert Quainoo",
+      "revisions": [
+        {
+          "changed_fields": [
+            "correct_answer",
+            "explanation",
+            "options",
+            "question"
+          ],
+          "content_hash": "655120e192b8313f764015b47187377760a1be4f20c7be9bea4452d64235d845",
+          "edited_at": "2026-08-17T09:42:12.546494Z",
+          "editor": "Albert Quainoo",
+          "final_review_status": "approved",
+          "intent_id": "AI-FND-04-INT-02",
+          "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+          "model_revision": "unknown",
+          "original_question_id": "AI-FND-04-b4cd5c51a8cab3c4",
+          "prompt_hash": "385ea632a795a55d721ba5511fbd9e81c0afd9e15a029d5b112ee5734ea60821",
+          "prompt_version": "v3.3",
+          "question": {
+            "concept": "the Chinese Room argument as a challenge to whether behavior alone establishes understanding",
+            "correct_answer": "Correct rule-based symbol manipulation can produce appropriate responses without genuine understanding.",
+            "difficulty": "introductory",
+            "explanation": "The Chinese Room argues that manipulating symbols according to formal rules can produce convincing responses without semantic understanding. Therefore, successful language behaviour alone may not establish genuine understanding.",
+            "options": [
+              "Correct rule-based symbol manipulation can produce appropriate responses without genuine understanding.",
+              "Passing the Turing Test proves that a machine genuinely understands language.",
+              "Replacing symbolic programs with neural networks automatically creates genuine understanding.",
+              "The speed at which a machine processes language determines whether it understands it."
+            ],
+            "question": "What does the Chinese Room thought experiment argue about machine intelligence?"
+          },
+          "reference_ids": [
+            "AI-FND-04-1d9f2a7b336c",
+            "AI-FND-04-0a36a4f50e30"
+          ],
+          "rejection_reason": null,
+          "review_note": "The four options are semantically overlapping: multiple options describe materially the same proposition in different words despite being textually distinct, so more than one could be argued correct. Replaced with four options that are semantically distinct.",
+          "reviewed_at": "2026-08-17T10:07:31.713650Z",
+          "reviewed_by": "Albert Quainoo",
+          "revision_id": "AI-FND-04-b4cd5c51a8cab3c4-rev-ac7c2a7defa5",
+          "skill_id": "AI-FND-04",
+          "source_batch_id": "grounded-ai-fnd-release-v1"
+        }
+      ],
+      "skill_id": "AI-FND-04"
+    }
+  ],
+  "source_hashes": {
+    "audit.jsonl": "aa716c7a17ce01126f2880af410017e4152be69de796a8a243e155fb2659a3b4",
+    "manifest.json": "32860a0a32bb675f22431a93decb10e9cd8bb8878452fd787221817c74e518eb",
+    "pending_questions.jsonl": "e9c4fc9cf22bb6f2db6c9e4cbf87b06c6a3c078285ba7aac6831c56e38892d3d",
+    "summary.json": "69c52e736689e21e3690b18cf7d349ee5d50f339f36135d7d2ebf4f29dbb7aa6"
+  }
+}

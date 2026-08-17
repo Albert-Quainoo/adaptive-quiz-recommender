@@ -55,7 +55,8 @@ class DeficiencyRow:
     course_id: str
     skill_id: str
     difficulty: str
-    # "enqueued" (live) | "proposed" (dry run) | "deferred" | "blocked" | "no_deficiency"
+    # "enqueued" (live) | "proposed" (dry run) | "deferred" | "blocked"
+    # | "manual_action_required" | "no_deficiency"
     decision: str
     requested_count: int
     reason: str
@@ -146,6 +147,13 @@ def deficiency_row(
         decision_label = "enqueued" if not dry_run else "proposed"
         reason = decision.reason
         proposed_job_key = deterministic_job_key(decision.course_id, decision.skill_id)
+    elif decision.manual_action_required:
+        # A deficient hand_authored skill: never auto-enqueued, but not a
+        # satisfied no_deficiency either -- stays visibly reported until a
+        # person's own writing brings its supply to threshold.
+        decision_label = "manual_action_required"
+        reason = decision.reason
+        proposed_job_key = "-"
     else:
         decision_label = "no_deficiency"
         reason = decision.reason
@@ -247,6 +255,9 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 def render_markdown(report: CycleReport) -> str:
     deferred_count = sum(1 for row in report.deficiencies if row.decision == "deferred")
     blocked_count = sum(1 for row in report.deficiencies if row.decision == "blocked")
+    manual_count = sum(
+        1 for row in report.deficiencies if row.decision == "manual_action_required"
+    )
     parts = [
         "# Content Replenishment Cycle Report\n",
         f"Generated: `{report.generated_at}`  \n"
@@ -287,7 +298,8 @@ def render_markdown(report: CycleReport) -> str:
         ),
         f"Planned this run: **{len(report.execution_plan)}**  \n"
         f"Deferred (eligible, over cap, left for a later run): **{deferred_count}**  \n"
-        f"Blocked (unresolved difficulty, needs a reviewed blueprint): **{blocked_count}**\n",
+        f"Blocked (unresolved difficulty, needs a reviewed blueprint): **{blocked_count}**  \n"
+        f"Manual action required (hand_authored, needs a person to write items): **{manual_count}**\n",
         "## Job processing outcomes this run\n",
         _table(
             ["Job", "Course", "Skill", "Stage", "Status", "Outcome", "New?", "Error"],

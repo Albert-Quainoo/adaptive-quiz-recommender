@@ -1,0 +1,121 @@
+{
+  "_notice": "Reference retrieval/review decisions -- delegated review by Claude Code on behalf of Albert Quainoo -- for the bounded intro-ai foundations release candidate (AI-FND-02, AI-FND-03, AI-FND-04). Constrained to manifest allowed_domains from authoring/replenishment/manifests/intro-ai.json.",
+  "allowed_domains": [
+    "redblobgames.com",
+    "inst.eecs.berkeley.edu",
+    "ocw.mit.edu",
+    "cs50.harvard.edu",
+    "plato.stanford.edu",
+    "d2l.ai",
+    "deeplearningbook.org",
+    "aima.cs.berkeley.edu",
+    "scikit-learn.org",
+    "pytorch.org",
+    "ai.berkeley.edu"
+  ],
+  "skills": [
+    {
+      "skill_id": "AI-FND-02",
+      "outcome": "failed_closed",
+      "reason": "Only one in-domain, on-topic candidate found (below the required 2-4 minimum). Dropped from this run rather than authoring content without sufficient direct grounding.",
+      "candidates_considered": [
+        {
+          "decision": "would_accept_but_insufficient_count",
+          "title": "Artificial Intelligence (Stanford Encyclopedia of Philosophy)",
+          "source_url": "https://plato.stanford.edu/entries/artificial-intelligence/",
+          "source_domain": "plato.stanford.edu",
+          "retrieved_at": "2026-08-17T09:07:54Z",
+          "passage": "Moreover, while in certain focussed areas machines out-perform minds (IBM’s famous Deep Blue prevailed in chess over Gary Kasparov, e.g.; and more recently, AI systems have prevailed in other games, e.g. Jeopardy! and Go, about which more will momentarily be said), minds have a (Cartesian) capacity for cultivating their expertise in virtually any sphere. (If it were announced to Deep Blue, or any current successor, that ch",
+          "content_hash": "9075c3ad75581f026fa29c9317ed3dcaccdc23d5f108c52ea11f048ede41a4f9",
+          "note": "Genuinely relevant (narrow, focused-domain competence vs. general capacity), but it is the only such passage found within allowed_domains for this skill; not added to taxonomy/data/ai/reference_provenance.csv because the skill did not clear the 2-4 minimum."
+        },
+        {
+          "decision": "rejected_unreadable",
+          "title": "Artificial Intelligence: A Modern Approach, Global Edition -- Preface",
+          "source_url": "https://aima.cs.berkeley.edu/global-Preface.pdf",
+          "source_domain": "aima.cs.berkeley.edu",
+          "note": "PDF did not yield readable prose discussing narrow vs. general intelligence when fetched and rendered; not usable as a grounding passage."
+        },
+        {
+          "decision": "rejected_off_topic",
+          "title": "UC Berkeley AI Hub (institutional resource landing page)",
+          "source_url": "https://ai.berkeley.edu/",
+          "source_domain": "ai.berkeley.edu",
+          "note": "Institutional AI-tooling/policy hub page, not educational content; no discussion of narrow AI vs. AGI."
+        },
+        {
+          "decision": "rejected_off_topic",
+          "title": "Dive into Deep Learning -- Introduction",
+          "source_url": "https://d2l.ai/chapter_introduction/index.html",
+          "source_domain": "d2l.ai",
+          "note": "Covers ML problem categories and applications, not the narrow-vs-general-intelligence distinction this intent needs."
+        },
+        {
+          "decision": "rejected_off_topic",
+          "title": "6.034 Artificial Intelligence, Fall 2010 (MIT OCW)",
+          "source_url": "https://ocw.mit.edu/courses/6-034-artificial-intelligence-fall-2010/",
+          "source_domain": "ocw.mit.edu",
+          "note": "Course logistics page only; description does not discuss narrow vs. general AI."
+        }
+      ]
+    },
+    {
+      "skill_id": "AI-FND-03",
+      "outcome": "accepted",
+      "reason": "Two in-domain, on-topic candidates found and accepted, meeting the 2-4 minimum.",
+      "candidates_considered": [
+        {
+          "decision": "accepted",
+          "reference_id": "AI-FND-03-1277170ce874",
+          "title": "CS50's Introduction to Artificial Intelligence with Python",
+          "source_url": "https://cs50.harvard.edu/ai/2024/",
+          "source_domain": "cs50.harvard.edu",
+          "retrieved_at": "2026-08-17T09:07:54Z",
+          "passage": "This course explores the concepts and algorithms at the foundation of modern artificial intelligence, diving into the ideas that give rise to technologies like game-playing engines, handwriting recognition, and machine translation.",
+          "content_hash": "1277170ce874150402521f9465c13f4ff3754106969342bf3028174af50b35c8",
+          "note": "Directly names real-world AI application examples (game-playing engines, handwriting recognition, machine translation) tied to the course's six AI subfields. Added to taxonomy/data/ai/reference_provenance.csv."
+        },
+        {
+          "decision": "accepted",
+          "reference_id": "AI-FND-03-81534113035f",
+          "title": "Introduction to the A* Algorithm -- Red Blob Games",
+          "source_url": "https://www.redblobgames.com/pathfinding/a-star/introduction.html",
+          "source_domain": "redblobgames.com",
+          "retrieved_at": "2026-08-17T09:07:54Z",
+          "passage": "Graph search algorithms let us find the shortest path on a map represented as a graph.",
+          "content_hash": "81534113035fc777e027d7bf5f5257c2caaee4fa334db028de81a14585bf04bc",
+          "note": "Concrete real-world application of the 'search' AI subfield (pathfinding/navigation, games). Added to taxonomy/data/ai/reference_provenance.csv."
+        }
+      ]
+    },
+    {
+      "skill_id": "AI-FND-04",
+      "outcome": "accepted",
+      "reason": "Two in-domain, canonical, on-topic candidates found and accepted, meeting the 2-4 minimum.",
+      "candidates_considered": [
+        {
+          "decision": "accepted",
+          "reference_id": "AI-FND-04-1d9f2a7b336c",
+          "title": "The Turing Test (Stanford Encyclopedia of Philosophy)",
+          "source_url": "https://plato.stanford.edu/entries/turing-test/",
+          "source_domain": "plato.stanford.edu",
+          "retrieved_at": "2026-08-17T09:07:54Z",
+          "passage": "Suppose that we have a person, a machine, and an interrogator. The interrogator is in a room separated from the other person and the machine. The object of the game is for the interrogator to determine which of the other two is the person, and which is the machine.",
+          "content_hash": "1d9f2a7b336c150c53a991641d46ec6cb6e52ce0ef4cfb2a95a1a8e2dee73dac",
+          "note": "Canonical statement of what the Turing Test tests (behavioral indistinguishability via conversation). Added to taxonomy/data/ai/reference_provenance.csv."
+        },
+        {
+          "decision": "accepted",
+          "reference_id": "AI-FND-04-0a36a4f50e30",
+          "title": "The Chinese Room Argument (Stanford Encyclopedia of Philosophy)",
+          "source_url": "https://plato.stanford.edu/entries/chinese-room/",
+          "source_domain": "plato.stanford.edu",
+          "retrieved_at": "2026-08-17T09:07:54Z",
+          "passage": "The point of the argument is this: if the man in the room does not understand Chinese on the basis of implementing the appropriate program for understanding Chinese then neither does any other digital computer solely on that basis because no computer, qua computer, has anything the man does not have.",
+          "content_hash": "0a36a4f50e30752cd65982302fa8ab1e29638b8f97a9d511365b14e34990d9f4",
+          "note": "Canonical statement of what the Chinese Room argument challenges (behavior without genuine understanding). Added to taxonomy/data/ai/reference_provenance.csv."
+        }
+      ]
+    }
+  ]
+}

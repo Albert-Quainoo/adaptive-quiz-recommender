@@ -1,0 +1,101 @@
+{
+  "_notice": "NON-GENERATION SCAFFOLD. This is a verbatim extract of the approved pedagogical scoping/intent packet (outputs/review_packets/intro-ai-blueprint-queue-v3.html) for the three skills in this coordinated release candidate. It is NOT a reviewed PilotBlueprint and MUST NEVER be passed to generation directly -- it lacks assessment_focus, question_archetype, preferred_reference_ids, required_concepts, prohibited_conflations, and every other QuestionIntent field the replenishment worker requires. The reviewed, generation-ready blueprint authored from this scaffold (for the skills that passed reference approval) is authoring/blueprints/grounded-ai-fnd-release-v1.json.",
+  "source_packet": "outputs/review_packets/intro-ai-blueprint-queue-v3.html",
+  "source_packet_sha256": "e3f58853fe231b2682c1729e3711921822a2f4e480ba8c1403e5ca715716876d",
+  "deterministic_selection_order": [
+    "AI-FND-02",
+    "AI-FND-03",
+    "AI-FND-04"
+  ],
+  "skills": [
+    {
+      "skill_id": "AI-FND-02",
+      "subtopic": "Types of AI",
+      "name": "Narrow AI and General AI",
+      "cognitive_process": "understand",
+      "learning_objective": "Distinguish between narrow artificial intelligence and artificial general intelligence.",
+      "generation_strategy": "generated",
+      "intents": [
+        {
+          "intent_id": "AI-FND-02-INT-01",
+          "description": "Select the statement that correctly defines narrow AI (competence limited to one task) as distinct from artificial general intelligence (human-like breadth across tasks).",
+          "supply": 2,
+          "difficulty": "introductory",
+          "justification": "direct recognition of a defined concept"
+        },
+        {
+          "intent_id": "AI-FND-02-INT-02",
+          "description": "Given a system description, classify it as narrow AI (single-task competence) or artificial general intelligence (human-like breadth).",
+          "supply": 2,
+          "difficulty": "introductory",
+          "justification": "straightforward, single-step application"
+        },
+        {
+          "intent_id": "AI-FND-02-INT-03",
+          "description": "Given two system descriptions, compare their scope of competence and identify which is narrow AI and which is (claimed) artificial general intelligence.",
+          "supply": 2,
+          "difficulty": "intermediate",
+          "justification": "comparison between two named concepts"
+        }
+      ],
+      "topic": "Foundations of Artificial Intelligence"
+    },
+    {
+      "skill_id": "AI-FND-03",
+      "subtopic": "AI applications",
+      "name": "Real-world AI systems",
+      "cognitive_process": "apply",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "generation_strategy": "generated",
+      "intents": [
+        {
+          "intent_id": "AI-FND-03-INT-01",
+          "description": "Given one clear real-world scenario, identify the single AI subfield or technique it exemplifies (e.g. search, ML, NLP, vision).",
+          "supply": 3,
+          "difficulty": "introductory",
+          "justification": "straightforward, single-step application"
+        },
+        {
+          "intent_id": "AI-FND-03-INT-02",
+          "description": "Given a scenario combining several plausible AI application areas, select the one that is the best fit and explain why the others are less appropriate.",
+          "supply": 3,
+          "difficulty": "intermediate",
+          "justification": "multi-step application requiring several components at once"
+        }
+      ],
+      "topic": "Foundations of Artificial Intelligence"
+    },
+    {
+      "skill_id": "AI-FND-04",
+      "subtopic": "Philosophy of AI",
+      "name": "Machine intelligence",
+      "cognitive_process": "understand",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "generation_strategy": "generated",
+      "intents": [
+        {
+          "intent_id": "AI-FND-04-INT-01",
+          "description": "Select the statement that correctly defines what the Turing Test measures, as distinct from what the Chinese Room argument challenges.",
+          "supply": 2,
+          "difficulty": "introductory",
+          "justification": "direct recognition of a defined concept"
+        },
+        {
+          "intent_id": "AI-FND-04-INT-02",
+          "description": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or demonstrate.",
+          "supply": 2,
+          "difficulty": "introductory",
+          "justification": "straightforward, single-step application"
+        },
+        {
+          "intent_id": "AI-FND-04-INT-03",
+          "description": "Compare the claim the Turing Test makes about machine intelligence (behavioural indistinguishability) with the objection the Chinese Room argument raises against that claim (behaviour without understanding).",
+          "supply": 2,
+          "difficulty": "intermediate",
+          "justification": "comparison between two named concepts"
+        }
+      ],
+      "topic": "Foundations of Artificial Intelligence"
+    }
+  ]
+}
