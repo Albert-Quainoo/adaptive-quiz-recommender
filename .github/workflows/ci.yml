@@ -59,10 +59,37 @@ jobs:
             --required-skill-id AI-SRC-08 \
             --output "${RUNNER_TEMP}/pilot-approved-bank-43-v1-validation.json"
 
+      - name: Validate the committed 45-item Intro AI bank (active)
+        run: |
+          python scripts/validate_approved_bank.py \
+            --bank outputs/approved_banks/pilot-approved-bank-45-v1-proposed.jsonl \
+            --course ai \
+            --expected-count 45 \
+            --required-skill-id AI-FND-01 \
+            --required-skill-id AI-AGT-01 \
+            --required-skill-id AI-SRC-01 \
+            --required-skill-id AI-SRC-02 \
+            --required-skill-id AI-SRC-03 \
+            --required-skill-id AI-SRC-08 \
+            --required-skill-id AI-FND-03 \
+            --required-skill-id AI-FND-04 \
+            --output "${RUNNER_TEMP}/pilot-approved-bank-45-v1-validation.json"
+
+      - name: Verify the active-bank pointer resolves to the 45-item bank
+        run: |
+          python -c "
+          from authoring.replenishment.manifest import load_course_manifest, active_bank_path
+          manifest = load_course_manifest('intro-ai')
+          resolved = active_bank_path(manifest)
+          print('resolved active bank path:', resolved)
+          assert str(resolved) == 'outputs/approved_banks/pilot-approved-bank-45-v1-proposed.jsonl'
+          "
+
       - name: Verify the committed BKT model checksum
         run: |
           cd outputs
           shasum -a 256 -c bkt_dev_model_v4.pkl.sha256
+          shasum -a 256 -c bkt_dev_model_v5.pkl.sha256
 
       - name: Verify the committed BKT model loads
         run: |
@@ -72,4 +99,14 @@ jobs:
           skills = sorted(set(model.get_parameters().index.get_level_values('skill')))
           print('BKT model loaded, skills:', skills)
           assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']
+          "
+
+      - name: Verify the active Intro AI BKT model (v5) loads and covers the 45-item bank
+        run: |
+          python -c "
+          from app.bootstrap import load_fitted_bkt_model
+          model = load_fitted_bkt_model('outputs/bkt_dev_model_v5.pkl', model_version='bkt-synthetic-v5', course_id='intro-ai')
+          skills = sorted(set(model.get_parameters().index.get_level_values('skill')))
+          print('BKT model loaded, skills:', skills)
+          assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-FND-03', 'AI-FND-04', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']
           "
