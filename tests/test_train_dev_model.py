@@ -163,7 +163,7 @@ def test_moderated_profile_is_fixed_and_has_gradual_trajectories(tmp_path):
         parameters = model.coef_[skill_id]
         assert parameters["prior"] == pytest.approx(0.20)
         assert parameters["learns"][0] == pytest.approx(0.04)
-        assert parameters["guesses"][0] == pytest.approx(0.40)
+        assert parameters["guesses"][0] == pytest.approx(0.25)
         assert parameters["slips"][0] == pytest.approx(0.20)
         roster = Roster(students=["learner"], skills=skill_id, model=model)
         roster.update_state(skill_id, "learner", 0)
@@ -178,6 +178,6 @@ def test_moderated_profile_is_fixed_and_has_gradual_trajectories(tmp_path):
         after_first_correct = fresh_roster.get_mastery_prob(skill_id, "fresh-learner")
         fresh_roster.update_state(skill_id, "fresh-learner", 1)
         after_second_correct = fresh_roster.get_mastery_prob(skill_id, "fresh-learner")
-        assert after_first_correct < 0.40
-        assert after_second_correct < 0.60
+        assert after_first_correct < 0.55
+        assert after_second_correct < 0.80
     MODERATED_PILOT_PARAMETERS,

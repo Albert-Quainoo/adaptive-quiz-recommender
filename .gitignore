@@ -82,22 +82,25 @@ kaggle.json
 !outputs/bkt_dev_model_v4.metadata.json
 !outputs/bkt_dev_model_v4.pkl.sha256
 
-# intro-ai's active BKT model as of the 45-item bank promotion (extends v4's
-# moderated-pilot profile with AI-FND-03/AI-FND-04, same fixed parameters) --
-# same rationale as bkt_dev_model_v4 above. v4 stays tracked too: other
-# tests/fixtures still pin it directly.
-!outputs/bkt_dev_model_v5.pkl
-!outputs/bkt_dev_model_v5.metadata.json
-!outputs/bkt_dev_model_v5.pkl.sha256
+# intro-ai's active BKT model (extends v4's moderated-pilot profile with
+# AI-FND-03/AI-FND-04, then corrected guesses 0.40 -> 0.25 to match the
+# real 4-option chance rate) -- same rationale as bkt_dev_model_v4 above.
+# v4 stays tracked too: other tests/fixtures still pin it directly. v5 is
+# superseded (guesses=0.40, never pinned elsewhere) and no longer tracked.
+!outputs/bkt_dev_model_v6.pkl
+!outputs/bkt_dev_model_v6.metadata.json
+!outputs/bkt_dev_model_v6.pkl.sha256
 
 # Cold-start BKT models each new course's manifest.bkt_model_path points
-# to -- same rationale as bkt_dev_model_v4 above.
-!outputs/bkt_dsa_model_v1.pkl
-!outputs/bkt_dsa_model_v1.metadata.json
-!outputs/bkt_linear_algebra_model_v1.pkl
-!outputs/bkt_linear_algebra_model_v1.metadata.json
-!outputs/bkt_database_systems_model_v1.pkl
-!outputs/bkt_database_systems_model_v1.metadata.json
+# to -- same rationale as bkt_dev_model_v4 above. v2 corrects guesses
+# 0.40 -> 0.25 (true chance for this project's 4-option items); v1 is
+# superseded and no longer tracked.
+!outputs/bkt_dsa_model_v2.pkl
+!outputs/bkt_dsa_model_v2.metadata.json
+!outputs/bkt_linear_algebra_model_v2.pkl
+!outputs/bkt_linear_algebra_model_v2.metadata.json
+!outputs/bkt_database_systems_model_v2.pkl
+!outputs/bkt_database_systems_model_v2.metadata.json
 
 # Misc
 .python-version

@@ -31,7 +31,10 @@ ParameterProfile = Literal["fitted-synthetic", "moderated-pilot"]
 MODERATED_PILOT_PARAMETERS = {
     "prior": 0.20,
     "learns": 0.04,
-    "guesses": 0.40,
+    # True chance rate for this project's 4-option multiple-choice items
+    # (1/4) -- was 0.40, well above chance, which understated how much
+    # evidence a correct answer actually carries.
+    "guesses": 0.25,
     "slips": 0.20,
     "forgets": 0.0,
 }
@@ -138,9 +141,14 @@ def validate_moderated_trajectories(model: Model, skill_ids: Sequence[str]) -> N
             )
         if repeated_correct != sorted(repeated_correct):
             raise ValueError(f"correct responses did not increase {skill_id} mastery")
-        if repeated_correct[1] > 0.40 or repeated_correct[2] > 0.60:
+        # Thresholds retuned for guesses=0.25 (previously 0.40/0.60/0.80,
+        # tuned for the old guesses=0.40): a true-chance guess rate makes
+        # each correct answer more informative, so mastery legitimately
+        # rises faster than before -- these still catch a genuinely
+        # miscalibrated profile without flagging the accurate one.
+        if repeated_correct[1] > 0.55 or repeated_correct[2] > 0.80:
             raise ValueError(f"early correct responses overstate {skill_id} mastery")
-        if repeated_correct[-1] > 0.80:
+        if repeated_correct[-1] > 0.95:
             raise ValueError(f"three correct responses overstate {skill_id} mastery")
 
 

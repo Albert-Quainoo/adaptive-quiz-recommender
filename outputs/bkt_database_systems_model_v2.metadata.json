@@ -1,23 +1,22 @@
 {
-  "created_at": "2026-08-17T12:23:14.329566+00:00",
+  "created_at": "2026-08-17T14:44:50.490211+00:00",
   "description": "Development model using a fixed, reviewed pilot parameter profile; it is not learner-trained or empirically calibrated.",
   "included_skill_ids": [
-    "AI-AGT-01",
-    "AI-FND-01",
-    "AI-FND-03",
-    "AI-FND-04",
-    "AI-SRC-01",
-    "AI-SRC-02",
-    "AI-SRC-03",
-    "AI-SRC-08"
+    "DB-ALG-01",
+    "DB-ERM-01",
+    "DB-IDX-01",
+    "DB-NRM-01",
+    "DB-REL-01",
+    "DB-SQL-01",
+    "DB-TXN-01"
   ],
-  "model_artifact_path": "outputs/bkt_dev_model_v5.pkl",
-  "model_version": "bkt-synthetic-v5",
+  "model_artifact_path": "outputs/bkt_database_systems_model_v2.pkl",
+  "model_version": "bkt-database-systems-v2",
   "opportunity_count": 10,
   "parameter_profile": "moderated-pilot",
   "parameters": {
     "forgets": 0.0,
-    "guesses": 0.4,
+    "guesses": 0.25,
     "learns": 0.04,
     "prior": 0.2,
     "slips": 0.2

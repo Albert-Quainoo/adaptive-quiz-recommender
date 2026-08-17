@@ -89,7 +89,7 @@ jobs:
         run: |
           cd outputs
           shasum -a 256 -c bkt_dev_model_v4.pkl.sha256
-          shasum -a 256 -c bkt_dev_model_v5.pkl.sha256
+          shasum -a 256 -c bkt_dev_model_v6.pkl.sha256
 
       - name: Verify the committed BKT model loads
         run: |
@@ -101,11 +101,11 @@ jobs:
           assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']
           "
 
-      - name: Verify the active Intro AI BKT model (v5) loads and covers the 45-item bank
+      - name: Verify the active Intro AI BKT model (v6) loads and covers the 45-item bank
         run: |
           python -c "
           from app.bootstrap import load_fitted_bkt_model
-          model = load_fitted_bkt_model('outputs/bkt_dev_model_v5.pkl', model_version='bkt-synthetic-v5', course_id='intro-ai')
+          model = load_fitted_bkt_model('outputs/bkt_dev_model_v6.pkl', model_version='bkt-synthetic-v6', course_id='intro-ai')
           skills = sorted(set(model.get_parameters().index.get_level_values('skill')))
           print('BKT model loaded, skills:', skills)
           assert skills == ['AI-AGT-01', 'AI-FND-01', 'AI-FND-03', 'AI-FND-04', 'AI-SRC-01', 'AI-SRC-02', 'AI-SRC-03', 'AI-SRC-08']

@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-16T21:13:29.784059+00:00",
+  "created_at": "2026-08-17T14:44:41.312048+00:00",
   "description": "Development model using a fixed, reviewed pilot parameter profile; it is not learner-trained or empirically calibrated.",
   "included_skill_ids": [
     "DSA-CPX-01",
@@ -10,19 +10,19 @@
     "DSA-STK-01",
     "DSA-TGR-01"
   ],
-  "model_artifact_path": "outputs/bkt_dsa_model_v1.pkl",
-  "model_version": "bkt-dsa-v1",
+  "model_artifact_path": "outputs/bkt_dsa_model_v2.pkl",
+  "model_version": "bkt-dsa-v2",
   "opportunity_count": 10,
   "parameter_profile": "moderated-pilot",
   "parameters": {
     "forgets": 0.0,
-    "guesses": 0.4,
+    "guesses": 0.25,
     "learns": 0.04,
     "prior": 0.2,
     "slips": 0.2
   },
   "pybkt_version": "1.4.3",
-  "seed": 20260816,
+  "seed": 20260811,
   "synthetic_learner_count": 8,
   "training_source": "synthetic"
 }
