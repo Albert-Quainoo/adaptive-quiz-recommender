@@ -128,6 +128,11 @@ changes.
 | `QUIZ_REPLENISHMENT_INFERENCE_PROVIDER` | `local` (in-process `transformers`/`torch`) or `modal` (a deployed Modal endpoint) | `local` |
 | `MODAL_INFERENCE_ENDPOINT` | Modal web endpoint URL (`modal` provider only) | — |
 | `MODAL_PROXY_TOKEN_ID`, `MODAL_PROXY_TOKEN_SECRET` | Modal proxy auth token, sent as `Modal-Key`/`Modal-Secret` headers (`modal` provider only; omit for an unprotected endpoint) | — |
+| `QUIZ_REPLENISHMENT_MAX_NEW_CANDIDATES` | `scripts/run_replenishment_cycle.py`: brand-new skill episodes (never claimed before) a single run may start | `3` |
+| `QUIZ_REPLENISHMENT_MAX_GENERATION_CALLS` | `scripts/run_replenishment_cycle.py`: combined generation+review calls a single run may make | `20` |
+| `QUIZ_REPLENISHMENT_MAX_COST_USD`, `QUIZ_REPLENISHMENT_COST_PER_GENERATION_CALL_USD`, `QUIZ_REPLENISHMENT_COST_PER_REVIEW_CALL_USD`, `QUIZ_REPLENISHMENT_COST_PER_SEARCH_CALL_USD` | `scripts/run_replenishment_cycle.py`'s dollar ceiling and its per-call estimate (coarse -- no per-token accounting is plumbed out of generation today) | `5.00`, `0.05`, `0.02`, `0.00` |
+| `QUIZ_REPLENISHMENT_MAX_TICKS` | Safety valve bounding total job-processing ticks in one run, independent of the caps above | `500` |
+| `QUIZ_REPLENISHMENT_RETENTION_DAYS` | Days a terminal job's snapshot under `outputs/replenishment/<course>/<job_id>/` keeps its full artifacts before being compacted to `archived.json` | `14` |
 
 ### Modal inference provider
 
@@ -266,6 +271,42 @@ process — locally, via `cron`/`systemd`, or as a separate scheduled job —
 against the same database. The Streamlit app itself only ever
 reads job/inventory state for the admin sidebar; it never starts a worker
 thread.
+
+### Scheduled GitHub Actions replenishment
+
+`.github/workflows/replenishment.yml` is one such separate scheduled job: it
+runs `scripts/run_replenishment_cycle.py` on a daily schedule (currently left
+disabled pending a reviewed manual dry run -- see the workflow file's own
+rollout comment) plus on-demand via `workflow_dispatch`. It is a thin
+orchestration layer over the unmodified pipeline above:
+
+- Scans the four active courses and enqueues deficient skills exactly like
+  `cli.py scan` (idempotent -- the job repository's uniqueness constraint
+  prevents duplicates regardless of how many times it runs).
+- Drives the worker loop for at most `QUIZ_REPLENISHMENT_MAX_NEW_CANDIDATES`
+  brand-new skill episodes under an explicit call/cost budget
+  (`authoring/replenishment/budget.py`), stopping between ticks so the next
+  scheduled run can always resume cleanly.
+- Snapshots every job it touches to a deterministic, job-scoped directory --
+  `outputs/replenishment/<course_id>/<job_id>/` (candidates, review, review
+  reports, batch manifest, content hashes, call counts, cost estimate;
+  never a credential, DSN, or raw API response) -- and commits those,
+  idempotently, to a dedicated `content-ops/replenishment` branch. The
+  PostgreSQL job queue (`QUIZ_DATABASE_URL`) remains the authoritative
+  source of job status; this branch exists purely so a GitHub-hosted
+  (ephemeral) runner can resume later runs and an admin can actually see and
+  act on pending content.
+- Opens or updates a standing PR from `content-ops/replenishment` into the
+  default branch so an admin has a reviewable diff of everything pending --
+  opening/updating that PR is never itself an approval or promotion.
+  Content approval still requires the existing explicit admin action
+  (`propose_revision`/`approve_revision` in `authoring/grounded_review.py`),
+  and promotion still only ever writes to `content-ops/replenishment`,
+  never directly to the default branch; merging the PR is the separate,
+  human, final step that ships it.
+- Compacts old terminal jobs' snapshots to a small `archived.json` summary
+  after `QUIZ_REPLENISHMENT_RETENTION_DAYS` so the branch does not grow
+  without bound.
 
 ### Production migration path
 
