@@ -86,6 +86,7 @@ def _compact_payload(
     intent_aligned: bool = True,
     difficulty_appropriate: bool = True,
     duplicate_option_pairs: list[tuple[int, int]] | None = None,
+    option_assessments: list[tuple[int, str]] | None = None,
     confidence: float = 0.9,
 ) -> dict:
     if supporting_reference_ids is None:
@@ -96,6 +97,15 @@ def _compact_payload(
             if selected_option_index is not None
             else question.correct_answer
         )
+    if option_assessments is None:
+        # Every case below only ever names its one selected/correct option -- the
+        # rest default to "incorrect" (or all "incorrect" for no_defensible_option).
+        option_assessments = [
+            (index, "incorrect" if no_defensible_option else (
+                "correct" if index == selected_option_index else "incorrect"
+            ))
+            for index in range(len(question.options))
+        ]
     return {
         "grounded": grounded,
         "consulted_reference_ids": consulted_reference_ids,
@@ -105,6 +115,7 @@ def _compact_payload(
         "no_defensible_option": no_defensible_option,
         "declared_answer_matches": declared_answer_matches,
         "multiple_defensible_answers": multiple_defensible_answers,
+        "option_assessments": [list(pair) for pair in option_assessments],
         "unsupported_claims": unsupported_claims or [],
         "contradictions": contradictions or [],
         "objective_aligned": objective_aligned,

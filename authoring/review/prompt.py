@@ -20,14 +20,19 @@ from authoring.question_intents import QuestionIntent
 from authoring.review.models import CompactReviewResult
 from taxonomy.schemas import ReferenceProvenance, SkillDefinition
 
-# Bumped from "review-v4" when duplicate_option_pairs was added: the compact contract
-# had no way to report two options that say the same thing in different words
-# (deterministic exact-duplicate detection only catches identical text after
-# normalization), so authoring/review/risk.py's duplicate-distractor risk rule was
-# unreachable in practice -- caught by an offline calibration batch, not a live call.
-# A real behavior change to what the reviewer is asked to produce, not a version this
-# module may ever infer on its own.
-REVIEW_PROMPT_VERSION = "review-v5"
+# Bumped from "review-v5" when option_assessments was added: the compact contract
+# used to ask only for a single top-level multiple_defensible_answers boolean, with no
+# per-option correctness/defensibility judgment behind it -- a real live-Modal run
+# (AI-FND-04-b4cd5c51a8cab3c4, 2026-08-17) generated four options that all restated the
+# same proposition in different words, and the reviewer left both
+# multiple_defensible_answers and duplicate_or_rephrased_distractors unset for it (see
+# tests/test_review_ai_fnd_04_semantic_overlap_regression.py). Requiring an explicit
+# judgment for every option gives derive_assessments() a second, independent signal to
+# derive multiple_defensible_answers from, one that does not depend on the model
+# separately remembering to also set the top-level flag. A real behavior change to
+# what the reviewer is asked to produce, not a version this module may ever infer on
+# its own.
+REVIEW_PROMPT_VERSION = "review-v6"
 
 
 def _response_schema_hint() -> str:
@@ -106,6 +111,18 @@ REVIEW RULES:
   must name two different option numbers that actually appear below; do not list the
   same pair twice or in both orders. Leave it empty ([]) if no options are rephrased
   duplicates of each other -- this is the common case, not an error.
+- option_assessments must contain exactly one [option_number, judgment] entry for
+  every option shown below -- every option number 0-3 that appears below exactly
+  once, no fewer (incomplete) and no more (an invented option number). judgment is one
+  of "correct" (this is your own independently-derived correct answer), "defensible"
+  (not your primary pick, but you could reasonably also argue this option is correct
+  -- for example, it restates the same underlying claim as your pick in different
+  words), or "incorrect" (clearly wrong). The option at selected_option_index must be
+  judged "correct". If no_defensible_option is true, every option must be judged
+  "incorrect". If you judge more than one option "correct" or "defensible", also set
+  multiple_defensible_answers to true -- this is exactly the case where two options
+  are worded differently but mean the same thing, so do not let their different
+  wording talk you out of flagging it.
 - blocking_reasons lists any fatal problems you found (ungrounded, contradicted,
   wrong/ambiguous answer, off-objective); warnings lists lesser concerns. Leave a list
   empty if it does not apply -- never invent an entry to fill it.

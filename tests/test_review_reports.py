@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from authoring.grounded_review import CurationItem, GroundedReview
 from authoring.review.deterministic import run_deterministic_checks
-from authoring.review.models import AutomatedReviewReport
+from authoring.review.models import AnswerAssessment, AutomatedReviewReport
 from authoring.review.reports import (
     AutomatedReviewReportStore,
     count_pending_review_items,
@@ -16,7 +16,13 @@ from authoring.review.reports import (
 )
 from authoring.review.risk import score_risk
 from authoring.review.config import ReviewPolicyConfig
-from tests.review_fixtures import APPROVED_REFERENCES, CORRECTED_CANDIDATE, INTENT, SKILL
+from tests.review_fixtures import (
+    APPROVED_REFERENCES,
+    CORRECTED_CANDIDATE,
+    CORRECTED_REVIEW_RESULT,
+    INTENT,
+    SKILL,
+)
 
 FIXED_TIME = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
 
@@ -70,6 +76,66 @@ def test_latest_for_hash_returns_most_recent(tmp_path: Path):
     store.append(newer)
     latest = store.latest_for_hash("hash-1")
     assert latest.review_id == newer.review_id
+
+
+def test_historical_report_with_empty_option_assessments_still_round_trips(tmp_path: Path):
+    """A stored report produced before CompactReviewResult.option_assessments existed
+    (every real report written before this milestone) carries
+    AnswerAssessment.option_assessments={} -- the schema must keep accepting that on
+    read; only the live parsing path (authoring/review/response_parser.py's
+    validate_compact_reviewer_output, exercised only for a freshly-parsed reviewer
+    response) requires a complete assessment. This never rewrites historical data --
+    it round-trips a report shaped exactly like historical ones through the same
+    store every report (old or new) goes through."""
+    checks = run_deterministic_checks(CORRECTED_CANDIDATE, SKILL, INTENT, APPROVED_REFERENCES)
+    assert CORRECTED_REVIEW_RESULT.answer_assessment.option_assessments == {}
+    report = AutomatedReviewReport(
+        review_id=str(uuid4()),
+        candidate_id=CORRECTED_CANDIDATE.question_id,
+        skill_id="AI-SRC-08",
+        intent_id=INTENT.intent_id,
+        review_policy_version="review-policy-v1",
+        reviewer_model_id=CORRECTED_REVIEW_RESULT.reviewer_model_id,
+        reviewer_model_revision=CORRECTED_REVIEW_RESULT.reviewer_model_revision,
+        reviewer_prompt_version=CORRECTED_REVIEW_RESULT.reviewer_prompt_version,
+        reviewer_prompt_template_hash=CORRECTED_REVIEW_RESULT.reviewer_prompt_template_hash,
+        rendered_review_request_hash=CORRECTED_REVIEW_RESULT.rendered_review_request_hash,
+        reviewed_content_hash="historical-hash-1",
+        created_at=FIXED_TIME,
+        deterministic_checks=checks,
+        grounding_assessment=CORRECTED_REVIEW_RESULT.grounding_assessment,
+        answer_assessment=CORRECTED_REVIEW_RESULT.answer_assessment,
+        objective_assessment=CORRECTED_REVIEW_RESULT.objective_assessment,
+        difficulty_assessment=CORRECTED_REVIEW_RESULT.difficulty_assessment,
+        duplicate_assessment=CORRECTED_REVIEW_RESULT.duplicate_assessment,
+        risk_score=0.1,
+        risk_level="low",
+        recommendation="recommend_human_approval",
+    )
+
+    store = AutomatedReviewReportStore(tmp_path / "reports.json")
+    store.append(report)
+
+    reloaded = AutomatedReviewReportStore(tmp_path / "reports.json").load_all()
+    assert len(reloaded) == 1
+    assert reloaded[0].answer_assessment.option_assessments == {}
+    assert reloaded[0].reviewed_content_hash == "historical-hash-1"
+
+
+def test_real_historical_ai_fnd_04_report_with_empty_option_assessments_loads(tmp_path: Path):
+    """Same compatibility guarantee, proven against the actual committed production
+    artifact this whole regression is about -- not a synthetic stand-in."""
+    real_report_path = (
+        Path(__file__).resolve().parent.parent
+        / "outputs/replenishment/ai/reviews/automated_review_reports"
+        / "grounded-ai-fnd-release-v1__AI-FND-04.json"
+    )
+    store = AutomatedReviewReportStore(real_report_path)
+    reports = store.load_all()
+    assert reports, "expected the real historical AI-FND-04 report file to be present"
+    for report in reports:
+        assert report.answer_assessment is not None
+        assert report.answer_assessment.option_assessments == {}
 
 
 def test_append_is_atomic_write_no_partial_file(tmp_path: Path):
