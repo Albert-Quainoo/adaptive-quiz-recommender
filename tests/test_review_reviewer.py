@@ -74,6 +74,14 @@ class _FakeBatchModel:
 
 # CORRECTED_QUESTION.options[0] is CORRECTED_QUESTION.correct_answer -- see
 # tests/review_fixtures.py.
+def _option_assessments_correct_at(index: int) -> list[list]:
+    return [[i, "correct" if i == index else "incorrect"] for i in range(4)]
+
+
+def _all_incorrect_option_assessments() -> list[list]:
+    return [[i, "incorrect"] for i in range(4)]
+
+
 def _compact_payload(**overrides) -> dict:
     payload = {
         "grounded": True,
@@ -83,6 +91,7 @@ def _compact_payload(**overrides) -> dict:
         "no_defensible_option": False,
         "declared_answer_matches": True,
         "multiple_defensible_answers": False,
+        "option_assessments": _option_assessments_correct_at(0),
         "unsupported_claims": [],
         "contradictions": [],
         "objective_aligned": True,
@@ -241,6 +250,7 @@ def test_model_backed_reviewer_no_defensible_option_is_a_valid_outcome_not_an_er
                 no_defensible_option=True,
                 independent_answer_text="The remaining cost from the current state n to a goal state",
                 declared_answer_matches=False,
+                option_assessments=_all_incorrect_option_assessments(),
             )
         ]
     )

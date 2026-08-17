@@ -17,6 +17,10 @@ from pydantic import BaseModel, Field, model_validator
 
 RiskLevel = Literal["low", "medium", "high", "critical"]
 
+# Per-option correctness/defensibility judgment the reviewer must give for every
+# candidate option -- see CompactReviewResult.option_assessments below.
+OptionJudgment = Literal["correct", "defensible", "incorrect"]
+
 ReviewRecommendation = Literal[
     "recommend_human_approval",
     "propose_revision",
@@ -146,6 +150,18 @@ class CompactReviewResult(BaseModel):
     no_defensible_option: bool
     declared_answer_matches: bool
     multiple_defensible_answers: bool
+    # One judgment per candidate option, keyed by its 0-based index -- the real
+    # per-option assessment the model must produce, replacing the old parser shortcut
+    # that hardcoded AnswerAssessment.option_assessments to {} regardless of what, if
+    # anything, the model said about individual options. "correct" = the reviewer's
+    # own independently-derived correct answer; "defensible" = not the reviewer's
+    # primary pick but could reasonably also be argued correct (e.g. it restates the
+    # same underlying claim in different words); "incorrect" = clearly wrong. Every
+    # option shown to the reviewer must get exactly one entry -- completeness and
+    # index bounds are checked in validate_compact_reviewer_output, which has the real
+    # option list; a duplicated index is rejected right here, the one thing checkable
+    # without it (mirrors duplicate_option_pairs's own validator below).
+    option_assessments: list[tuple[int, OptionJudgment]] = Field(min_length=1)
     unsupported_claims: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     objective_aligned: bool
@@ -182,6 +198,13 @@ class CompactReviewResult(BaseModel):
             seen.add(ordered)
             normalized.append(ordered)
         self.duplicate_option_pairs = normalized
+        return self
+
+    @model_validator(mode="after")
+    def _option_assessments_have_no_duplicate_indices(self) -> "CompactReviewResult":
+        indices = [index for index, _judgment in self.option_assessments]
+        if len(indices) != len(set(indices)):
+            raise ValueError("option_assessments contains a duplicate option index")
         return self
 
     @model_validator(mode="after")

@@ -171,6 +171,51 @@ def validate_compact_reviewer_output(
             f"index(es) {out_of_range_pairs} (candidate has {len(question.options)} options)"
         )
 
+    # option_assessments must cover every real option exactly once -- no fewer
+    # (incomplete), no more (an unknown/hallucinated option index). Duplicated indices
+    # are already rejected at the model-validator level (no real option list needed for
+    # that check); this is the one part that does need it.
+    expected_indices = set(range(len(question.options)))
+    judgments_by_index = dict(compact.option_assessments)
+    actual_indices = set(judgments_by_index)
+    missing_indices = sorted(expected_indices - actual_indices)
+    unknown_indices = sorted(actual_indices - expected_indices)
+    if missing_indices:
+        errors.append(
+            "reviewer output's option_assessments is missing assessment(s) for option "
+            f"index(es) {missing_indices} (candidate has {len(question.options)} options)"
+        )
+    if unknown_indices:
+        errors.append(
+            "reviewer output's option_assessments references unknown option "
+            f"index(es) {unknown_indices} (candidate has {len(question.options)} options)"
+        )
+
+    if compact.no_defensible_option:
+        # "None of the four options is a defensible answer" (see prompt.py) means
+        # exactly that -- not merely "none is my primary pick." A "correct" or
+        # "defensible" judgment anywhere here directly contradicts the claim.
+        not_incorrect = sorted(
+            index for index, judgment in judgments_by_index.items() if judgment != "incorrect"
+        )
+        if not_incorrect:
+            errors.append(
+                "reviewer output's no_defensible_option is true but option_assessments "
+                f"judges option index(es) {not_incorrect} as not 'incorrect'"
+            )
+    elif compact.selected_option_index is not None and compact.selected_option_index in judgments_by_index:
+        # Bounds on selected_option_index itself are checked above; only compare
+        # against option_assessments when it actually names a real option, so this
+        # never masks the out-of-range error with an unrelated KeyError.
+        selected_judgment = judgments_by_index[compact.selected_option_index]
+        if selected_judgment != "correct":
+            errors.append(
+                f"reviewer output selected option {compact.selected_option_index} as its "
+                f"independent answer but judged it {selected_judgment!r} in "
+                "option_assessments, not 'correct' -- the selected option and its own "
+                "declared-answer judgment are inconsistent"
+            )
+
     return errors
 
 
@@ -256,13 +301,19 @@ def derive_assessments(
 ) -> DerivedAssessments:
     """Fixed, deterministic mapping from the compact contract to the detailed
     per-dimension assessments authoring/review/risk.py scores. Fields the compact
-    contract does not collect at all (option-level notes, intent-duplication) get a
-    fixed, conservative default rather than being left to the model.
-    duplicate_or_rephrased_distractors is the one exception that *is* derived from a
-    model-reported field (duplicate_option_pairs) rather than defaulted: exact-text
-    duplicates are still caught deterministically by
-    authoring/review/deterministic.py, but a semantic/rephrased duplicate needs the
-    reviewer's judgment, which is exactly what duplicate_option_pairs supplies.
+    contract does not collect at all (intent-duplication) get a fixed, conservative
+    default rather than being left to the model. option_assessments and
+    duplicate_or_rephrased_distractors are both derived from real model-reported
+    fields (compact.option_assessments and compact.duplicate_option_pairs
+    respectively) rather than defaulted: exact-text duplicates are still caught
+    deterministically by authoring/review/deterministic.py, but a semantic/rephrased
+    duplicate, or a semantically-equivalent-but-textually-distinct correct option,
+    needs the reviewer's own per-option judgment, which is exactly what these two
+    fields supply. multiple_defensible_answers is likewise strengthened, not just
+    passed through: it is true if either the model's own top-level flag says so, or
+    more than one option was independently judged "correct"/"defensible" -- the
+    second signal exists because a model can flag one without the other (see
+    tests/test_review_ai_fnd_04_semantic_overlap_regression.py).
 
     is_definition_recall_only is derived from intent.cognitive_demand (known, local
     intent metadata, never asked of the reviewer), not independently judged from the
@@ -303,11 +354,29 @@ def derive_assessments(
     duplicate_or_rephrased_distractors = [
         question.options[index] for index in implicated_option_indices
     ]
+    # The existing option_assessments schema (AnswerAssessment.option_assessments,
+    # dict[str, str]) keyed by option text, populated for real now instead of the old
+    # hardcoded {} -- validate_compact_reviewer_output already guarantees every option
+    # index appears in compact.option_assessments exactly once.
+    option_assessments = {
+        question.options[index]: judgment for index, judgment in compact.option_assessments
+    }
+    # A candidate where the reviewer independently judged more than one option
+    # "correct" or "defensible" (e.g. semantically equivalent restatements of the same
+    # proposition) has multiple defensible answers regardless of whether the model's
+    # own top-level multiple_defensible_answers flag caught it -- this is the fix for
+    # the AI-FND-04-b4cd5c51a8cab3c4 semantic-overlap gap: the old parser shortcut
+    # (option_assessments hardcoded to {}) meant there was never a second, independent
+    # signal to catch a case where the model forgot to set the top-level flag.
+    defensible_count = sum(
+        1 for judgment in option_assessments.values() if judgment in ("correct", "defensible")
+    )
+    multiple_defensible_answers = compact.multiple_defensible_answers or defensible_count > 1
     answer_assessment = AnswerAssessment(
         selected_option_text=selected_option_text,
         matches_declared_answer=matches_declared_answer,
-        option_assessments={},
-        multiple_defensible_answers=compact.multiple_defensible_answers,
+        option_assessments=option_assessments,
+        multiple_defensible_answers=multiple_defensible_answers,
         obviously_signalled_answer=False,
         duplicate_or_rephrased_distractors=duplicate_or_rephrased_distractors,
         answer_confidence=compact.confidence,

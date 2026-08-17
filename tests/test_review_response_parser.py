@@ -32,6 +32,14 @@ from tests.review_fixtures import (
 
 # CORRECTED_QUESTION.options[0] is CORRECTED_QUESTION.correct_answer -- see
 # tests/review_fixtures.py.
+def _option_assessments_correct_at(index: int) -> list[list]:
+    return [[i, "correct" if i == index else "incorrect"] for i in range(4)]
+
+
+def _all_incorrect_option_assessments() -> list[list]:
+    return [[i, "incorrect"] for i in range(4)]
+
+
 def _compact_payload(**overrides) -> dict:
     payload = {
         "grounded": True,
@@ -41,6 +49,7 @@ def _compact_payload(**overrides) -> dict:
         "no_defensible_option": False,
         "declared_answer_matches": True,
         "multiple_defensible_answers": False,
+        "option_assessments": _option_assessments_correct_at(0),
         "unsupported_claims": [],
         "contradictions": [],
         "objective_aligned": True,
@@ -209,6 +218,7 @@ def test_no_defensible_option_true_with_null_index_is_a_valid_assessment():
             no_defensible_option=True,
             independent_answer_text="an answer not among the options",
             declared_answer_matches=False,
+            option_assessments=_all_incorrect_option_assessments(),
         ),
         question=CORRECTED_QUESTION,
         approved_references=APPROVED_REFERENCES,
@@ -407,7 +417,11 @@ def test_duplicate_option_pairs_risk_policy_branch_fires():
 
 def test_derive_assessments_resolves_selected_option_index_to_option_text():
     compact = parse_reviewer_output(
-        _valid_raw_response(selected_option_index=2, declared_answer_matches=False),
+        _valid_raw_response(
+            selected_option_index=2,
+            declared_answer_matches=False,
+            option_assessments=_option_assessments_correct_at(2),
+        ),
         question=CORRECTED_QUESTION,
         approved_references=APPROVED_REFERENCES,
     )
@@ -427,6 +441,7 @@ def test_derive_assessments_forces_declared_answer_mismatch_when_no_option_is_de
             independent_answer_text="an answer not among the options",
             # Deliberately inconsistent model self-report -- must not leak through.
             declared_answer_matches=True,
+            option_assessments=_all_incorrect_option_assessments(),
         ),
         question=ORIGINAL_INACCURATE_QUESTION,
         approved_references=APPROVED_REFERENCES,

@@ -3,29 +3,43 @@
 A live Modal run (batch grounded-ai-fnd-release-v1, 2026-08-17) generated a
 four-option Chinese Room question where every option restated the same underlying
 proposition ("behavioral success without genuine understanding") in different words.
-Albert's own review caught this; the live automated semantic reviewer did not --
-its real response (reconstructed verbatim below from
+Albert's own review caught this; the live automated semantic reviewer did not -- its
+real response (reconstructed verbatim below from
 outputs/replenishment/ai/reviews/automated_review_reports/grounded-ai-fnd-release-v1__AI-FND-04.json)
-reported multiple_defensible_answers=False, duplicate_or_rephrased_distractors=[],
-and recommended human approval at "low" risk.
+reported multiple_defensible_answers=False, duplicate_or_rephrased_distractors=[], and
+recommended human approval at "low" risk.
 
-This is not a scoring-logic defect: authoring/review/risk.py already blocks on both
+REAL_CAPTURED_REVIEW_RESULT below is that real response, preserved verbatim as a
+historical record -- it predates authoring/review/models.py's CompactReviewResult.
+option_assessments field (the compact reviewer output contract had no way to ask for a
+per-option judgment at all yet, and authoring/review/response_parser.py's
+derive_assessments() hardcoded AnswerAssessment.option_assessments to {} regardless of
+what, if anything, the model said about individual options). It is not fed through the
+current pipeline: replaying pre-fix output through post-fix code would not tell us
+anything about whether the fix works, only that historical data is still historical.
+
+This was not a scoring-logic defect: authoring/review/risk.py already blocked on both
 multiple_defensible_answers (test_review_risk.py::test_multiple_defensible_answers_is_blocking)
-and a non-empty duplicate_or_rephrased_distractors. The gap is that the reviewer
-*model* did not populate either field for this candidate on this pass -- a real,
-observed LLM-as-judge limitation (see authoring/review/service.py's module
-docstring), not something a narrow code change can reliably fix. Marked strict
-xfail rather than silently skipped or forced green: if a future reviewer prompt/model
-change ever does catch this, this test starts failing as an XPASS, which is the
-signal to update or remove the xfail marker.
+and a non-empty duplicate_or_rephrased_distractors. The gap was that the reviewer
+*model* was never asked to judge each option individually, so nothing forced it to
+notice three of the four options were restatements of the same claim. Fixed by adding
+CompactReviewResult.option_assessments (authoring/review/models.py) -- one
+correctness/defensibility judgment per option, required on every live review -- and
+deriving multiple_defensible_answers from it directly in derive_assessments()
+(authoring/review/response_parser.py), independent of the model's own top-level flag.
+
+test_original_candidate_is_blocked_once_every_option_is_independently_assessed below
+replays the exact same candidate/skill/intent/references through the real,
+post-fix pipeline (ModelBackedContentReviewer -> parse_reviewer_output ->
+derive_assessments -> score_risk) with a plausible *post-fix* reviewer response -- one
+that gives every option its own judgment, as the contract now requires -- and proves it
+is blocked. No longer marked xfail: the live behavior this regression exists to catch
+is now genuinely fixed, not merely documented as a known gap.
 """
 
-from datetime import datetime, timezone
+import json
 
-import pytest
-
-from authoring.grounded_batch import IntentQuestion, PendingQuestion
-from authoring.question_intents import QuestionIntent
+from authoring.grounded_batch import GenerationOutcome
 from authoring.review.config import ReviewPolicyConfig
 from authoring.review.models import (
     AnswerAssessment,
@@ -36,145 +50,22 @@ from authoring.review.models import (
     SemanticReviewResult,
 )
 from authoring.review.reports import AutomatedReviewReportStore
-from authoring.review.reviewer import FakeContentReviewer
+from authoring.review.reviewer import ModelBackedContentReviewer
 from authoring.review.service import review_candidate
-from taxonomy.schemas import ReferenceProvenance, SkillDefinition
-
-FIXED_TIME = datetime(2026, 8, 17, 9, 22, 57, tzinfo=timezone.utc)
-
-SKILL = SkillDefinition(
-    skill_id="AI-FND-04",
-    topic="Foundations of Artificial Intelligence",
-    subtopic="Philosophy of AI",
-    name="Machine intelligence",
-    learning_objective=(
-        "Explain how the Turing Test and Chinese Room argument relate to machine "
-        "intelligence and understanding."
-    ),
-    cognitive_process="understand",
-    generation_strategy="generated",
-)
-
-INTENT = QuestionIntent(
-    intent_id="AI-FND-04-INT-02",
-    skill_id="AI-FND-04",
-    learning_objective=SKILL.learning_objective,
-    difficulty="introductory",
-    assessment_focus=(
-        "Given a description of the Turing Test or the Chinese Room argument, "
-        "identify what it claims to test or argue."
-    ),
-    cognitive_demand=(
-        "Given a description of the Turing Test or the Chinese Room argument, "
-        "identify what it claims to test or argue."
-    ),
-    question_archetype="Turing Test vs. Chinese Room claim recognition",
-    preferred_reference_ids=["AI-FND-04-1d9f2a7b336c", "AI-FND-04-0a36a4f50e30"],
-    required_question_characteristics=[
-        "Describe either the Turing Test or the Chinese Room argument.",
-        "Ask what that description claims to test or argue about machine intelligence or understanding.",
-    ],
-    prohibited_ambiguity_patterns=[
-        "Do not require the learner to judge whether the argument succeeds.",
-    ],
-    expected_misconception_or_distractor_strategy=[
-        "Distractors should swap the Turing Test's behavioral claim with the Chinese "
-        "Room's understanding-based challenge, or vice versa."
-    ],
-    required_concepts=[
-        "the Turing Test as a behavioral test conducted through conversation",
-        "the Chinese Room argument as a challenge to whether behavior alone establishes understanding",
-    ],
-    prohibited_conflations=[
-        "conflating what the Turing Test measures with what the Chinese Room challenges",
-    ],
-)
-
-APPROVED_REFERENCES = [
-    ReferenceProvenance(
-        reference_id="AI-FND-04-1d9f2a7b336c",
-        skill_id="AI-FND-04",
-        reference_material=(
-            "Suppose that we have a person, a machine, and an interrogator. The "
-            "interrogator is in a room separated from the other person and the "
-            "machine. The object of the game is for the interrogator to determine "
-            "which of the other two is the person, and which is the machine."
-        ),
-        title="The Turing Test (Stanford Encyclopedia of Philosophy)",
-        source_url="https://plato.stanford.edu/entries/turing-test/",
-        source_domain="plato.stanford.edu",
-        content_hash="1d9f2a7b336c150c53a991641d46ec6cb6e52ce0ef4cfb2a95a1a8e2dee73dac",
-        retrieved_at=FIXED_TIME,
-        reviewer_id="claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
-        reviewed_at=FIXED_TIME,
-    ),
-    ReferenceProvenance(
-        reference_id="AI-FND-04-0a36a4f50e30",
-        skill_id="AI-FND-04",
-        reference_material=(
-            "The point of the argument is this: if the man in the room does not "
-            "understand Chinese on the basis of implementing the appropriate program "
-            "for understanding Chinese then neither does any other digital computer "
-            "solely on that basis because no computer, qua computer, has anything the "
-            "man does not have."
-        ),
-        title="The Chinese Room Argument (Stanford Encyclopedia of Philosophy)",
-        source_url="https://plato.stanford.edu/entries/chinese-room/",
-        source_domain="plato.stanford.edu",
-        content_hash="0a36a4f50e30752cd65982302fa8ab1e29638b8f97a9d511365b14e34990d9f4",
-        retrieved_at=FIXED_TIME,
-        reviewer_id="claude (intro-ai foundations release candidate, delegated reference review by Claude Code on behalf of Albert Quainoo)",
-        reviewed_at=FIXED_TIME,
-    ),
-]
-
-# Verbatim: the original, semantically-overlapping four-option candidate as generated
-# (outputs/replenishment/ai/batches/grounded-ai-fnd-release-v1__AI-FND-04/pending_questions.jsonl,
-# question_id AI-FND-04-b4cd5c51a8cab3c4). Every option restates "behavior without
-# understanding" vs. "behavior proves understanding" in different words -- options 1, 3,
-# and 4 are arguably the same proposition as the declared answer in different phrasing.
-ORIGINAL_SEMANTIC_OVERLAP_QUESTION = IntentQuestion(
-    intent_id=INTENT.intent_id,
-    question="What does the Chinese Room argument claim to test or argue about machine intelligence and understanding?",
-    options=[
-        "Whether a machine can pass a behavioral test like the Turing Test without actually understanding the language",
-        "Whether a machine can appear indistinguishable from a human in conversation without having genuine understanding",
-        "Whether a machine can correctly manipulate symbols to pass a test for understanding a language without understanding the language",
-        "Whether a machine can be designed to pass a behavioral test like the Turing Test without any understanding of the language",
-    ],
-    correct_answer="Whether a machine can correctly manipulate symbols to pass a test for understanding a language without understanding the language",
-    explanation=(
-        "The Chinese Room argument challenges whether passing a behavioral test like "
-        "the Turing Test is sufficient to establish genuine understanding, not merely "
-        "correct behavioral output."
-    ),
-    concept="the Chinese Room argument as a challenge to whether behavior alone establishes understanding",
-    difficulty="introductory",
-)
-
-ORIGINAL_SEMANTIC_OVERLAP_CANDIDATE = PendingQuestion(
-    batch_id="grounded-ai-fnd-release-v1-regression-test",
-    question_id="AI-FND-04-regression-original-semantic-overlap",
-    skill_id="AI-FND-04",
-    question_index=0,
-    intent_id=INTENT.intent_id,
-    seed=1,
-    reference_ids=[reference.reference_id for reference in APPROVED_REFERENCES],
-    prompt_version="v3.3",
-    prompt_hash="385ea632a795a55d721ba5511fbd9e81c0afd9e15a029d5b112ee5734ea60821",
-    model_id="meta-llama/Llama-3.1-8B-Instruct",
-    model_revision="unknown",
-    generation_parameters={},
-    generated_at=FIXED_TIME,
-    git_commit="815247398a63e3f91ce12144960a2e659ea68d3e",
-    raw_response="{}",
-    question=ORIGINAL_SEMANTIC_OVERLAP_QUESTION,
+from tests.review_fnd_fixtures import (
+    FND04_APPROVED_REFERENCES as APPROVED_REFERENCES,
+    FND04_INTENT as INTENT,
+    FND04_ORIGINAL_CANDIDATE as ORIGINAL_SEMANTIC_OVERLAP_CANDIDATE,
+    FND04_ORIGINAL_QUESTION as ORIGINAL_SEMANTIC_OVERLAP_QUESTION,
+    FND04_SKILL as SKILL,
 )
 
 # Reconstructed verbatim from the real live-Modal report (not fabricated): the reviewer
 # independently selected the declared answer, reported it grounded and matching, and did
 # NOT flag multiple_defensible_answers or duplicate_or_rephrased_distractors -- this is
-# genuinely what the reviewer returned for this exact candidate.
+# genuinely what the reviewer returned for this exact candidate, before the
+# option_assessments fix existed. Preserved for the historical record; see module
+# docstring for why it is not replayed through the current pipeline.
 REAL_CAPTURED_REVIEW_RESULT = SemanticReviewResult(
     grounding_assessment=GroundingAssessment(
         grounded=True,
@@ -219,23 +110,63 @@ REAL_CAPTURED_REVIEW_RESULT = SemanticReviewResult(
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Known live-Modal reviewer gap, observed 2026-08-17 on "
-        "AI-FND-04-b4cd5c51a8cab3c4: options that restate the same proposition in "
-        "different words are not reliably flagged via multiple_defensible_answers or "
-        "duplicate_or_rephrased_distractors. Not a scoring-logic bug (both fields "
-        "already block correctly when populated -- see test_review_risk.py); the "
-        "reviewer model itself did not populate them for this candidate. No narrow "
-        "code fix exists; a real fix would mean a broader reviewer prompt change, "
-        "out of scope here."
-    ),
-)
-def test_semantically_overlapping_options_should_not_be_recommended_for_human_approval(tmp_path):
-    reviewer = FakeContentReviewer(
-        {ORIGINAL_SEMANTIC_OVERLAP_QUESTION.question: REAL_CAPTURED_REVIEW_RESULT}
+class _FakeBatchModel:
+    """Single-response fake BatchModel -- returns the same canned compact-JSON text on
+    every call. Mirrors tests/test_review_reviewer.py's helper of the same shape."""
+
+    def __init__(self, response: str):
+        self.model_id = "fake-model"
+        self.model_revision = "fake-model-rev"
+        self._response = response
+        self.request_count = 0
+
+    def generate_with_metadata(self, messages, seed, generation_parameters):
+        self.request_count += 1
+        return GenerationOutcome(
+            text=self._response, finish_reason="stop", input_tokens=100, output_tokens=50,
+            max_new_tokens=generation_parameters.get("max_new_tokens", 1000),
+        )
+
+
+def test_original_candidate_is_blocked_once_every_option_is_independently_assessed(tmp_path):
+    """The genuine fix: a post-fix reviewer response for this exact candidate, judging
+    each option individually as the contract now requires -- three of the four
+    options (including the declared answer) judged "correct"/"defensible" restatements
+    of the same claim, matching what a careful independent read of these four options
+    actually shows -- is on its own enough to derive multiple_defensible_answers=True
+    and block the candidate, with no reliance on the model also separately
+    remembering to set the top-level flag (which, per REAL_CAPTURED_REVIEW_RESULT
+    above, it did not)."""
+    selected_index = ORIGINAL_SEMANTIC_OVERLAP_QUESTION.options.index(
+        ORIGINAL_SEMANTIC_OVERLAP_QUESTION.correct_answer
     )
+    payload = {
+        "grounded": True,
+        "consulted_reference_ids": [r.reference_id for r in APPROVED_REFERENCES],
+        "supporting_reference_ids": [APPROVED_REFERENCES[1].reference_id],
+        "selected_option_index": selected_index,
+        "independent_answer_text": ORIGINAL_SEMANTIC_OVERLAP_QUESTION.correct_answer,
+        "no_defensible_option": False,
+        "declared_answer_matches": True,
+        # Deliberately left False, matching REAL_CAPTURED_REVIEW_RESULT above -- the
+        # fix must not depend on the model also getting this top-level flag right.
+        "multiple_defensible_answers": False,
+        "option_assessments": [
+            [index, "correct" if index == selected_index else "defensible"]
+            for index in range(len(ORIGINAL_SEMANTIC_OVERLAP_QUESTION.options))
+        ],
+        "unsupported_claims": [],
+        "contradictions": [],
+        "objective_aligned": True,
+        "intent_aligned": True,
+        "difficulty_appropriate": True,
+        "duplicate_option_pairs": [],
+        "confidence": 0.9,
+        "blocking_reasons": [],
+        "warnings": [],
+    }
+    reviewer = ModelBackedContentReviewer(_FakeBatchModel(json.dumps(payload)))
+
     report = review_candidate(
         ORIGINAL_SEMANTIC_OVERLAP_CANDIDATE,
         SKILL,
@@ -244,10 +175,11 @@ def test_semantically_overlapping_options_should_not_be_recommended_for_human_ap
         reviewer=reviewer,
         config=ReviewPolicyConfig(reviewer_passes=1),
         report_store=AutomatedReviewReportStore(tmp_path / "reports.json"),
-        clock=lambda: FIXED_TIME,
     )
 
     assert report.recommendation != "recommend_human_approval", (
         "a candidate whose four options restate the same proposition in different "
         "words must never be recommended for human approval as clean"
     )
+    assert report.answer_assessment.multiple_defensible_answers is True
+    assert report.risk_level == "critical"
