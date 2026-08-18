@@ -749,7 +749,10 @@
       ],
       "generation_constraints": [
         "Use an intermediate application task.",
-        "Keep every factual claim within the mapped reference."
+        "Keep every factual claim within the mapped reference.",
+        "The matrix must be square (equal rows and columns); a non-square matrix has no determinant.",
+        "Independently recompute the determinant via cofactor expansion twice, then set correct_answer to only the final computed value or expression -- never prefixed with a label such as 'correct_answer:'.",
+        "Compute each of the four options independently and confirm no two option strings are textually identical before finalizing."
       ],
       "intent_id": "LA-DET-01-INT-05",
       "learning_objective": "Compute a matrix determinant, use it to decide whether the matrix is invertible, and apply Cramer's Rule to solve a system of linear equations.",
@@ -757,7 +760,8 @@
         "LA-DET-01-fbfccb2a146b"
       ],
       "prohibited_ambiguity_patterns": [
-        "Do not require expanding along more than one row or column."
+        "Do not require expanding along more than one row or column.",
+        "Do not include ANSI escape codes, terminal color codes, or any Markdown emphasis in question, option, or explanation text -- plain text and standard arithmetic notation only."
       ],
       "prohibited_conflations": [
         "expanding about a different row or column gives a different determinant value"
