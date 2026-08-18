@@ -11,6 +11,19 @@ Bounded: each detector call for each pair runs under a hard wall-clock timeout
 exceeds its budget produces an "error" verdict -- never silently treated as "no
 equivalence" (see authoring/review/models.py's EquivalenceVerdict docstring) -- and
 authoring/review/risk.py escalates on "error" exactly like "equivalent".
+
+The NLI scorer's one-time warm-up (tokenizer/ONNX session load, including the
+onnx/model.onnx checksum verification -- see equivalence_nli.py) is bounded the same
+way, under its own more generous timeout (_WARMUP_TIMEOUT_SECONDS): an OSError,
+checksum mismatch, timeout, or any other initialization failure can never propagate
+out of evaluate_option_equivalence() or terminate the caller (the replenishment
+worker). Because no option pair was ever evaluated in that case, this produces exactly
+one gate-level "nli_initialization" error record -- never six fabricated per-pair
+failures -- and its reason string is sanitized: it never includes a filesystem path,
+URL, environment value, or other exception-message content that an underlying library
+(huggingface_hub, transformers, onnxruntime) might embed (see
+_sanitize_initialization_failure below). authoring/review/risk.py escalates on this
+exactly like any other "error" evidence.
 """
 
 import itertools
@@ -19,6 +32,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from authoring.review.equivalence_math import check_math_equivalence
 from authoring.review.equivalence_nli import (
     FakeNliScorer,
+    NliModelChecksumError,
     NliScorer,
     check_semantic_equivalence,
     get_default_scorer,
@@ -28,6 +42,12 @@ from authoring.review.models import EquivalenceDetector, OptionPairEvidence
 
 GATE_VERSION = "equivalence-gate-v1"
 _DETECTOR_TIMEOUT_SECONDS = 5.0
+# More generous than _DETECTOR_TIMEOUT_SECONDS: a cold warm-up pays a one-time
+# HF Hub cache lookup/download (~280MB) + checksum stream-hash + ONNX session
+# construction cost that a single pair's inference never does, and it must not be
+# mistaken for a hang at the same threshold a slow inference call would trip. Still
+# bounded -- a genuinely stuck download must not block a worker job tick forever.
+_WARMUP_TIMEOUT_SECONDS = 30.0
 
 
 def _error_evidence(
@@ -41,6 +61,38 @@ def _error_evidence(
         score_or_normalized_form="n/a",
         reason=reason,
     )
+
+
+def _gate_initialization_error_evidence(reason: str) -> OptionPairEvidence:
+    """One gate-level error record for an NLI warm-up failure -- option_index_a/b are
+    sentinels (0/1 always exist: the equivalence gate only ever runs on a 4-option
+    candidate, after deterministic checks already enforced exactly four options) and
+    carry no pair-specific meaning here; `detector="nli_initialization"` is what marks
+    this as gate-level rather than a per-pair verdict. Exactly one of these is ever
+    produced per evaluate_option_equivalence() call -- never one per pair."""
+    return OptionPairEvidence(
+        option_index_a=0,
+        option_index_b=1,
+        detector="nli_initialization",
+        verdict="error",
+        score_or_normalized_form="n/a",
+        reason=reason,
+    )
+
+
+def _sanitize_initialization_failure(exc: Exception) -> str:
+    """Reduces any warm-up failure to a reason string safe to store as evidence. Only
+    NliModelChecksumError's message is ever included verbatim -- it is authored
+    entirely by this codebase (two hex digests, fixed template text), never by an
+    underlying library, so it cannot carry a filesystem path, URL, or environment
+    value. Every other exception is reduced to just its (or its wrapped cause's) type
+    name -- huggingface_hub/transformers/onnxruntime exception messages routinely
+    embed a local cache path or a repository URL, which must never reach stored
+    evidence."""
+    if isinstance(exc, NliModelChecksumError):
+        return f"nli model initialization failed: {exc}"
+    origin = exc.__cause__ if exc.__cause__ is not None else exc
+    return f"nli model initialization failed: {type(origin).__name__}"
 
 
 def _run_bounded(
@@ -72,11 +124,12 @@ def evaluate_option_equivalence(
     nli_scorer: NliScorer | FakeNliScorer | None = None,
 ) -> list[OptionPairEvidence]:
     """Runs all 3 detectors over every pair of `options`. For 4 options this is 6
-    pairs x 3 detectors = 18 evidence entries. `nli_scorer` is an injection point for
-    tests -- production callers omit it and get the pinned default (lazy-loaded,
-    process-wide, see equivalence_nli.get_default_scorer)."""
+    pairs x 3 detectors = 18 evidence entries -- unless the NLI scorer's warm-up itself
+    fails, in which case this returns exactly one gate-level "nli_initialization" error
+    entry instead (see this module's docstring and _gate_initialization_error_evidence).
+    `nli_scorer` is an injection point for tests -- production callers omit it and get
+    the pinned default (lazy-loaded, process-wide, see equivalence_nli.get_default_scorer)."""
     resolved_scorer = nli_scorer or get_default_scorer()
-    resolved_scorer.warm_up()  # untimed, one-time cost -- see NliScorer.warm_up's docstring
 
     evidence: list[OptionPairEvidence] = []
     pairs = list(itertools.combinations(range(len(options)), 2))
@@ -93,6 +146,27 @@ def evaluate_option_equivalence(
     # the rest.
     executor = ThreadPoolExecutor(max_workers=4)
     try:
+        # Bounded exactly like a per-pair detector call, just under a more generous
+        # timeout and with its own single-record failure shape -- see this module's
+        # docstring. A successful warm-up on an already-loaded scorer (the common case
+        # for every candidate after a worker process's first) is a fast no-op, so this
+        # costs nothing on the hot path.
+        warmup_future = executor.submit(resolved_scorer.warm_up)
+        try:
+            warmup_future.result(timeout=_WARMUP_TIMEOUT_SECONDS)
+        except FutureTimeoutError:
+            return [
+                _gate_initialization_error_evidence(
+                    f"nli model warm-up exceeded {_WARMUP_TIMEOUT_SECONDS}s timeout"
+                )
+            ]
+        except Exception as exc:  # noqa: BLE001 -- any initialization failure (network
+            # error, cache corruption, checksum mismatch, unsupported opset, ...) must
+            # become one sanitized, gate-level error record -- never propagate and
+            # crash the caller (the replenishment worker). See
+            # _sanitize_initialization_failure and this module's docstring.
+            return [_gate_initialization_error_evidence(_sanitize_initialization_failure(exc))]
+
         for index_a, index_b in pairs:
             text_a, text_b = options[index_a], options[index_b]
             evidence.append(

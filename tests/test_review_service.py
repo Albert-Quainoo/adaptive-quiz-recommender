@@ -140,6 +140,45 @@ def test_equivalence_gate_escalates_an_otherwise_clean_candidate_to_human_review
     assert any(item.verdict == "equivalent" for item in report.equivalence_assessment.evidence)
 
 
+def test_equivalence_warmup_failure_escalates_to_full_human_review_with_a_valid_report(tmp_path):
+    """A broken/unavailable NLI model must never crash review_candidate() -- it must
+    still return a valid, historical-compatible AutomatedReviewReport that escalates
+    to require_full_human_review, with exactly one gate-level error entry (not the
+    normal 18) in equivalence_assessment.evidence."""
+
+    class UnavailableScorer:
+        def warm_up(self):
+            raise OSError("simulated: nli model unreachable")
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already failed")
+
+    reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
+    report = review_candidate(
+        CORRECTED_CANDIDATE,
+        SKILL,
+        INTENT,
+        APPROVED_REFERENCES,
+        reviewer=reviewer,
+        config=_config(),
+        report_store=_store(tmp_path),
+        clock=lambda: FIXED_TIME,
+        equivalence_nli_scorer=UnavailableScorer(),
+    )
+    assert report.recommendation == "require_full_human_review"
+    assert report.equivalence_assessment is not None
+    assert report.equivalence_assessment.escalated is True
+    assert len(report.equivalence_assessment.evidence) == 1
+    only_entry = report.equivalence_assessment.evidence[0]
+    assert only_entry.detector == "nli_initialization"
+    assert only_entry.verdict == "error"
+    assert "OSError" in only_entry.reason
+    assert "simulated: nli model unreachable" not in only_entry.reason
+    # The report itself round-trips through the model -- proves it's a valid,
+    # historical-compatible AutomatedReviewReport, not a partially-built object.
+    assert type(report).model_validate(report.model_dump()) == report
+
+
 def test_cached_report_is_reused_without_a_second_reviewer_call(tmp_path):
     reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
     store = _store(tmp_path)

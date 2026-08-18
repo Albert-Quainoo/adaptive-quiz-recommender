@@ -4,8 +4,9 @@ throughout -- never touches the network."""
 
 import time
 
+from authoring.review import equivalence_gate
 from authoring.review.equivalence_gate import evaluate_option_equivalence, escalation_reasons
-from authoring.review.equivalence_nli import EntailmentScores, FakeNliScorer
+from authoring.review.equivalence_nli import EntailmentScores, FakeNliScorer, NliModelChecksumError
 
 
 def test_four_options_produce_six_pairs_times_three_detectors():
@@ -79,6 +80,90 @@ def test_detector_timeout_becomes_error_evidence_and_escalates():
     assert escalation_reasons(evidence) == [
         f"nli_semantic could not evaluate options 0/1: {nli_evidence.reason}"
     ]
+
+
+def test_warmup_oserror_becomes_one_gate_level_error_not_six_pair_failures():
+    class UnavailableScorer:
+        def warm_up(self):
+            raise OSError(
+                "/Users/someone/.cache/huggingface/hub/models--cross-encoder--nli-deberta-v3-xsmall "
+                "is not a local folder"
+            )
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already failed")
+
+    evidence = evaluate_option_equivalence(
+        "stem", ["a", "b", "c", "d"], nli_threshold=0.25, nli_scorer=UnavailableScorer()
+    )
+    assert len(evidence) == 1
+    item = evidence[0]
+    assert item.detector == "nli_initialization"
+    assert item.verdict == "error"
+    # Sanitized: only the exception type name, never the raw OSError message (which in
+    # this test deliberately contains a filesystem path).
+    assert item.reason == "nli model initialization failed: OSError"
+    assert "/Users/" not in item.reason
+    assert "huggingface" not in item.reason
+    reasons = escalation_reasons(evidence)
+    assert len(reasons) == 1
+    assert "/Users/" not in reasons[0]
+
+
+def test_warmup_timeout_becomes_one_gate_level_error(monkeypatch):
+    monkeypatch.setattr(equivalence_gate, "_WARMUP_TIMEOUT_SECONDS", 0.05)
+
+    class SlowWarmupScorer:
+        def warm_up(self):
+            time.sleep(2)
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already timed out")
+
+    started = time.perf_counter()
+    evidence = evaluate_option_equivalence(
+        "stem", ["a", "b", "c", "d"], nli_threshold=0.25, nli_scorer=SlowWarmupScorer()
+    )
+    elapsed = time.perf_counter() - started
+    assert elapsed < 1.5  # bounded well under the 2s sleep
+    assert len(evidence) == 1
+    assert evidence[0].detector == "nli_initialization"
+    assert evidence[0].verdict == "error"
+    assert "timeout" in evidence[0].reason
+    assert escalation_reasons(evidence) == [
+        f"nli_initialization could not evaluate options 0/1: {evidence[0].reason}"
+    ]
+
+
+def test_warmup_checksum_mismatch_becomes_one_gate_level_error_with_safe_digests():
+    class ChecksumMismatchScorer:
+        def warm_up(self):
+            raise NliModelChecksumError("expected" + "0" * 58, "actual" + "1" * 58)
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already failed")
+
+    evidence = evaluate_option_equivalence(
+        "stem", ["a", "b", "c", "d"], nli_threshold=0.25, nli_scorer=ChecksumMismatchScorer()
+    )
+    assert len(evidence) == 1
+    item = evidence[0]
+    assert item.detector == "nli_initialization"
+    assert item.verdict == "error"
+    assert "checksum mismatch" in item.reason
+    # Hex digests are not secrets -- safe to include verbatim, unlike other exceptions.
+    assert "expected" + "0" * 58 in item.reason
+    assert "actual" + "1" * 58 in item.reason
+
+
+def test_warmup_success_runs_the_normal_six_pair_loop_unaffected():
+    """A scorer whose warm_up() succeeds must produce the ordinary 18-entry result --
+    the bounded warm-up wrapper must not alter the happy path."""
+    evidence = evaluate_option_equivalence(
+        "stem", ["a", "b", "c", "d"], nli_threshold=0.25, nli_scorer=FakeNliScorer()
+    )
+    assert len(evidence) == 18
+    assert all(item.detector != "nli_initialization" for item in evidence)
 
 
 def test_never_auto_approves_or_rejects_only_reports_evidence():

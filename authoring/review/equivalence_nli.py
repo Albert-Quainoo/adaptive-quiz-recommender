@@ -22,16 +22,62 @@ Model pin (immutable commit revision, not a mutable branch/tag):
 The threshold this detector's caller applies to these scores is a *separate* pin
 (threshold_version, calibrated by scripts/calibrate_equivalence_nli_threshold.py) --
 this module only ever returns raw probabilities.
+
+Artifact integrity: NLI_MODEL_ONNX_SHA256 pins the exact byte content of
+onnx/model.onnx at the revision above (verified against the repository's own
+published LFS sha256 via `HfApi.model_info(..., files_metadata=True)`). This module
+stream-hashes the downloaded-or-cached file and compares it against that constant
+before ever constructing an ONNX Runtime session from it -- belt-and-suspenders on
+top of the git revision pin and huggingface_hub's own transfer integrity checks, and
+the only thing standing between a corrupted local cache entry and silently scoring
+against a different model. This checksum covers *only* onnx/model.onnx: the
+tokenizer and config.json files loaded by AutoTokenizer.from_pretrained remain
+pinned by the revision alone, the same as every other file in the repository at that
+commit -- they are config/vocabulary data, not an inference-time computation graph.
 """
 
+import hashlib
 from dataclasses import dataclass
 
 import numpy as np
 
 NLI_MODEL_REPOSITORY = "cross-encoder/nli-deberta-v3-xsmall"
 NLI_MODEL_REVISION = "a150876415327c80daeff35ca6f68f5ed8cf5c24"
+# sha256 of onnx/model.onnx at NLI_MODEL_REVISION -- see module docstring.
+NLI_MODEL_ONNX_SHA256 = "7105da41f625c42eca24e9465ec99150d02a80e644659d7a1daa93a6357155d4"
 _ONNX_FILENAME = "onnx/model.onnx"
 _LABELS = ("contradiction", "entailment", "neutral")
+_CHECKSUM_CHUNK_BYTES = 1 << 20
+
+
+class NliModelInitializationError(Exception):
+    """The pinned NLI model's tokenizer or ONNX session could not be loaded. Raised by
+    NliScorer._ensure_loaded() for any failure that isn't a checksum mismatch (network
+    error, cache corruption, missing file, ...); authoring/review/equivalence_gate.py's
+    bounded warm-up wrapper catches this (and any other exception) and turns it into
+    one sanitized, gate-level error record -- never propagated to the caller."""
+
+
+class NliModelChecksumError(NliModelInitializationError):
+    """The downloaded-or-cached onnx/model.onnx did not match NLI_MODEL_ONNX_SHA256.
+    `expected`/`actual` are hex digests -- not sensitive, safe to surface verbatim in
+    stored evidence (unlike this module's other exceptions, whose messages may embed a
+    local cache path and must never be surfaced as-is)."""
+
+    def __init__(self, expected: str, actual: str) -> None:
+        self.expected = expected
+        self.actual = actual
+        super().__init__(f"onnx/model.onnx checksum mismatch: expected {expected}, got {actual}")
+
+
+def _verify_onnx_checksum(path: str) -> None:
+    hasher = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(_CHECKSUM_CHUNK_BYTES), b""):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
+    if digest != NLI_MODEL_ONNX_SHA256:
+        raise NliModelChecksumError(NLI_MODEL_ONNX_SHA256, digest)
 
 
 @dataclass(frozen=True)
@@ -68,9 +114,19 @@ class NliScorer:
         from huggingface_hub import hf_hub_download
         from transformers import AutoTokenizer
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.repository, revision=self.revision)
-        model_path = hf_hub_download(self.repository, _ONNX_FILENAME, revision=self.revision)
-        self._session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(self.repository, revision=self.revision)
+            model_path = hf_hub_download(self.repository, _ONNX_FILENAME, revision=self.revision)
+            _verify_onnx_checksum(model_path)
+            self._session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        except NliModelInitializationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- tokenizer/hub/onnxruntime each raise
+            # their own distinct, undocumented-as-a-set exception types for "couldn't
+            # load" (network errors, missing repo, corrupted cache, unsupported ONNX
+            # opset, ...); the caller (authoring/review/equivalence_gate.py's bounded
+            # warm-up wrapper) must catch all of them the same way, so normalize here.
+            raise NliModelInitializationError(f"{type(exc).__name__}: {exc}") from exc
 
     def score(self, premise: str, hypothesis: str) -> EntailmentScores:
         self._ensure_loaded()

@@ -1490,6 +1490,55 @@ def test_reviewer_outage_at_automated_review_moves_to_waiting_for_model(
     assert ready_to_resume(after, manifest) is True
 
 
+def test_equivalence_gate_initialization_failure_escalates_and_worker_survives_to_later_jobs(
+    manifest, repository, reviewed_blueprint, approved_candidate, monkeypatch
+):
+    """An unavailable/broken NLI model must never crash the worker process -- the
+    affected job escalates to waiting_for_full_human_review (not a raised exception,
+    not a permanent failure), and the worker process is still able to claim and
+    process a later, independent job afterward -- proving no uncaught exception
+    propagated out of process_job()/review_candidate() (see
+    authoring/review/equivalence_gate.py's bounded warm-up)."""
+
+    class UnavailableScorer:
+        def warm_up(self):
+            raise OSError("simulated: nli model unreachable")
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already failed")
+
+    monkeypatch.setattr(
+        "authoring.review.equivalence_gate.get_default_scorer", lambda: UnavailableScorer()
+    )
+
+    job = _advance_to_automated_review(manifest, repository)
+    review_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        review_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=DeterministicFakeModel,
+        reviewer_factory=clean_reviewer_factory,
+        clock=fixed_clock,
+    )
+    after = repository.get(job.job_id)
+    assert after.status == "waiting_for_full_human_review"
+    assert after.job_type == "automated_review"
+    assert after.error_code is None  # escalated, not failed -- see worker.py's
+    # any_require_full_human_review branch
+
+    # The worker process itself survived: cli.py's poll loop (`while True:
+    # run_once() ...`) calls exactly this claim_next()/process_job() sequence every
+    # tick, with no surrounding try/except of its own -- before this fix, an
+    # uncaught OSError from NLI warm-up would have propagated out of process_job()
+    # here and killed that loop outright. Calling it again, cleanly, is the direct
+    # regression check for that failure mode: this skill's only job is now legitimately
+    # active (waiting_for_full_human_review, per ACTIVE_STATUSES) so nothing new is
+    # claimable, but the call completing without raising proves the dispatch loop --
+    # and thus the worker process -- is still alive and able to serve the next tick,
+    # whatever job that turns out to be.
+    assert repository.claim_next(clock=fixed_clock) is None
+
+
 def test_model_outage_during_automated_revision_moves_to_waiting_for_model(
     manifest, repository, reviewed_blueprint, approved_candidate
 ):
