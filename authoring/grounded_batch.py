@@ -30,6 +30,14 @@ from taxonomy.schemas import ReferenceProvenance, SkillDefinition
 GenerationValue = bool | int | float | str
 AttemptStatus = Literal["accepted", "invalid", "duplicate"]
 BatchDifficulty = difficulty_level | Literal["mixed"]
+GenerationMethod = Literal["model", "deterministic_template"]
+
+# Provenance identity generate_batch stamps on a template-authored PendingQuestion/
+# AttemptAudit, in place of a live model's model_id/model_revision -- so a
+# deterministic-template candidate is never mistaken for one the model actually
+# produced (see generation_method above and authoring/deterministic_templates.py).
+TEMPLATE_MODEL_ID = "deterministic-template"
+TEMPLATE_MODEL_REVISION = "v1"
 
 
 class BatchGenerationError(RuntimeError):
@@ -122,6 +130,7 @@ class PendingQuestion(BaseModel):
     git_commit: str = Field(min_length=1)
     raw_response: str
     question: IntentQuestion
+    generation_method: GenerationMethod = "model"
 
 
 class AttemptAudit(BaseModel):
@@ -142,6 +151,7 @@ class AttemptAudit(BaseModel):
     generated_at: datetime
     raw_response: str | None = None
     parsed_question: IntentQuestion | None = None
+    generation_method: GenerationMethod = "model"
 
 
 class BatchSummary(BaseModel):
@@ -685,6 +695,10 @@ def generate_batch(
     git_commit: str | None = None,
     resume: bool = False,
     skip_question_indices: frozenset[int] = frozenset(),
+    templates: dict[
+        str, Callable[[QuestionIntent, SkillDefinition, list[ReferenceProvenance], int, BatchDifficulty], IntentQuestion]
+    ]
+    | None = None,
 ) -> BatchResult:
     catalogue = load_skills(skills_path, references_path)
     known_skill_ids = {skill.skill_id for skill in catalogue.skills}
@@ -1011,6 +1025,117 @@ def generate_batch(
                 previous_status = status
                 previous_error = validation_error
                 persist()
+
+            if not accepted:
+                template = (templates or {}).get(intent.intent_id)
+                exhausted_attempts = [
+                    attempt
+                    for attempt in attempts
+                    if attempt.skill_id == skill_id
+                    and attempt.question_index == question_index
+                    and next_attempt <= attempt.attempt_index < next_attempt + config.max_attempts_per_question
+                ]
+                # A template only ever substitutes for exhausted prompt-only attempts,
+                # never for an infrastructure/configuration outage: an
+                # ModelUnavailableError attempt means the model was never actually
+                # tried, so falling back here would silently hide an outage as if it
+                # were a construction failure. See authoring/deterministic_templates.py.
+                infra_failure = any(
+                    attempt.validation_error is not None
+                    and attempt.validation_error.startswith("ModelUnavailableError:")
+                    for attempt in exhausted_attempts
+                )
+                if template is not None and exhausted_attempts and not infra_failure:
+                    template_attempt_index = next_attempt + config.max_attempts_per_question
+                    seed = derive_seed(
+                        config.batch_id, skill_id, question_index, template_attempt_index, config.base_seed,
+                    )
+                    generated_at = clock()
+                    validation_error = None
+                    parsed = None
+                    try:
+                        parsed = template(intent, skill, source_records, seed, requested_difficulty)
+                        validate_question(parsed)
+                        if parsed.difficulty != requested_difficulty:
+                            raise ValueError(
+                                "question difficulty does not match the assigned intent"
+                            )
+                        normalised = normalise_question(parsed.question)
+                        if normalised in seen_questions:
+                            raise ValueError("duplicate normalized question text")
+                        component_key = validate_pilot_question(parsed, intent, accepted_component_keys)
+                        quality_issues = generic_quality_issues(
+                            parsed, intent_id=intent.intent_id, accepted_intent_ids=accepted_intent_ids,
+                        )
+                        if quality_issues:
+                            issue = quality_issues[0]
+                            raise ValueError(f"quality check {issue.code}: {issue.message}")
+                    except Exception as error:
+                        validation_error = f"{type(error).__name__}: {error}"
+                        parsed = None
+
+                    raw_response = (
+                        json.dumps(parsed.model_dump(mode="json"), sort_keys=True)
+                        if parsed is not None
+                        else None
+                    )
+                    template_status: AttemptStatus = "accepted" if validation_error is None else "invalid"
+                    template_prompt_hash = hashlib.sha256(
+                        f"deterministic-template\0{template.__name__}\0{intent.intent_id}\0{seed}".encode(
+                            "utf-8"
+                        )
+                    ).hexdigest()
+                    attempts.append(
+                        AttemptAudit(
+                            batch_id=config.batch_id,
+                            skill_id=skill_id,
+                            intent_id=intent.intent_id,
+                            question_index=question_index,
+                            attempt_index=template_attempt_index,
+                            seed=seed,
+                            reference_ids=reference_ids,
+                            prompt_version=config.prompt_version,
+                            prompt_hash=template_prompt_hash,
+                            model_id=TEMPLATE_MODEL_ID,
+                            model_revision=TEMPLATE_MODEL_REVISION,
+                            generation_parameters=config.generation_parameters,
+                            validation_status=template_status,
+                            validation_error=validation_error,
+                            generated_at=generated_at,
+                            raw_response=raw_response,
+                            parsed_question=parsed,
+                            generation_method="deterministic_template",
+                        )
+                    )
+                    if template_status == "accepted":
+                        seen_questions.add(normalise_question(parsed.question))
+                        accepted_stems.append(parsed.question)
+                        accepted_intent_ids.add(intent.intent_id)
+                        if component_key is not None:
+                            accepted_component_keys.add(component_key)
+                        questions.append(
+                            PendingQuestion(
+                                batch_id=config.batch_id,
+                                question_id=question_id(config.batch_id, skill_id, question_index),
+                                skill_id=skill_id,
+                                question_index=question_index,
+                                intent_id=intent.intent_id,
+                                seed=seed,
+                                reference_ids=reference_ids,
+                                prompt_version=config.prompt_version,
+                                prompt_hash=template_prompt_hash,
+                                model_id=TEMPLATE_MODEL_ID,
+                                model_revision=TEMPLATE_MODEL_REVISION,
+                                generation_parameters=config.generation_parameters,
+                                generated_at=generated_at,
+                                git_commit=commit,
+                                raw_response=raw_response,
+                                question=parsed,
+                                generation_method="deterministic_template",
+                            )
+                        )
+                        accepted = True
+                        persist()
 
             if not accepted:
                 failure = (

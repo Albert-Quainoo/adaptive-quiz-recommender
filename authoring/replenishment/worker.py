@@ -39,6 +39,7 @@ from authoring.grounded_review import (
     question_content_hash,
 )
 from authoring import question_intents
+from authoring.deterministic_templates import DETERMINISTIC_TEMPLATES
 from authoring.question_intents import (
     PilotBlueprint,
     QuestionIntent,
@@ -628,6 +629,7 @@ def _handle_generate_questions(
             git_commit=current_commit_allow_dirty(),
             resume=(output_dir / "manifest.json").is_file(),
             skip_question_indices=skip_question_indices,
+            templates=DETERMINISTIC_TEMPLATES,
         )
     except ModelUnavailableError:
         job_repository.mark_waiting(
