@@ -94,11 +94,31 @@ def test_pr_body_disclaims_approval_or_promotion():
     assert "does **not** approve or promote" in raw
 
 
-def test_review_artifacts_are_uploaded():
+def test_review_artifacts_are_uploaded_from_the_run_scoped_staging_directory():
+    """The upload step must point at the run-scoped staging directory built
+    by scripts.stage_run_artifacts, never at outputs/replenishment/ itself --
+    that tree also holds every earlier run's job-scoped artifacts, checked
+    out from the content-ops branch, which must never be re-uploaded as if
+    they belonged to this run."""
     config = _load()
     steps = config["jobs"]["replenish"]["steps"]
     upload_steps = [
         step for step in steps if step.get("uses", "").startswith("actions/upload-artifact")
     ]
     assert upload_steps
-    assert upload_steps[0]["with"]["path"] == "outputs/replenishment/"
+    assert upload_steps[0]["with"]["path"] == "outputs/replenishment_run_artifact/"
+
+
+def test_run_scoped_staging_step_runs_before_upload_and_always():
+    config = _load()
+    steps = config["jobs"]["replenish"]["steps"]
+    stage_index = next(
+        index for index, step in enumerate(steps)
+        if "stage_run_artifacts" in step.get("run", "")
+    )
+    upload_index = next(
+        index for index, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/upload-artifact")
+    )
+    assert stage_index < upload_index
+    assert steps[stage_index]["if"] == "always()"

@@ -127,12 +127,25 @@ jobs:
         if: always()
         run: cat outputs/replenishment/_reports/latest.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Stage this run's artifacts only
+        # outputs/replenishment/ on the checked-out content-ops branch also
+        # holds every earlier run's job-scoped directories -- this run's
+        # manifest (written by run_replenishment_cycle.py) names only the
+        # report and job-scoped paths this run itself wrote, so the upload
+        # below never re-publishes stale history as if it were fresh.
+        if: always()
+        run: |
+          python -m scripts.stage_run_artifacts \
+            --manifest outputs/replenishment/_reports/run_manifest.json \
+            --source outputs/replenishment \
+            --dest outputs/replenishment_run_artifact
+
       - name: Upload review artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: replenishment-report-${{ github.run_id }}
-          path: outputs/replenishment/
+          path: outputs/replenishment_run_artifact/
           retention-days: 30
 
       - name: Commit and push job-scoped artifacts to content-ops
