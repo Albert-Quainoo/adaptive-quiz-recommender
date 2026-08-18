@@ -1,39 +1,92 @@
 # Adaptive Quiz Recommender
 
-An adaptive quiz-generation and rendering system built around Llama 3.1.
+An adaptive quiz platform that tracks what a learner knows with Bayesian
+Knowledge Tracing (BKT) and recommends the next question from that state,
+across four courses: **Introduction to AI**, **Data Structures & Algorithms**,
+**Linear Algebra**, and **Database Systems** (65 skills total). Question
+content is LLM-generated (Llama 3.1) and grounded against retrieved,
+human-approved reference material — never invented — then carried through an
+automated + human review pipeline before it reaches a learner.
 
-## Project goals
+## What's here
 
-- Generate structured multiple-choice questions.
-- Adapt quiz difficulty using learner performance.
-- Track learner knowledge across concepts.
-- Fine-tune Llama 3.1 using LoRA or QLoRA.
-- Expose model inference through an API.
-- Render quizzes through a Streamlit application.
+- **Adaptive learner loop** (`bkt/`, `recommendation/`, `app/`, `api/`): a
+  per-skill BKT model estimates mastery from each attempt; the recommender
+  picks the next question from that state; Streamlit renders it.
+- **Grounded content generation** (`authoring/`): retrieval finds candidate
+  reference material on an explicit domain allowlist, generation drafts
+  multiple-choice questions grounded in an approved reference, and curation
+  (automated review + human approval) gates everything before it reaches the
+  approved bank a learner actually sees.
+- **Content replenishment pipeline** (`authoring/replenishment/`): a
+  background worker monitors each course's approved-question supply and
+  drives deficient skills through retrieval → generation → review →
+  promotion automatically, stopping at explicit human-approval boundaries —
+  see [Content replenishment pipeline](#content-replenishment-pipeline) below.
+- **Taxonomy** (`taxonomy/`): each course's skills, learning objectives, and
+  reference provenance live in `taxonomy/data/<course>/`, reviewed and
+  versioned independently of code.
+
+## Quick start
+
+```bash
+python -m pip install -r requirements.txt
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml  # fill in your keys
+streamlit run streamlit_app.py
+```
+
+By default the app runs against a local SQLite database
+(`data/adaptive_quiz.sqlite3`, created on first run) and the bundled,
+already-approved question banks under `outputs/approved_banks/` — no live
+Brave/Modal/Llama credentials are required just to try the learner-facing
+quiz loop. Those credentials are only needed to run content
+retrieval/generation yourself (see below).
+
+Run the test suite with:
+
+```bash
+python -m pytest
+```
 
 ## Project structure
 
-- `app/` — Streamlit user interface
-- `api/` — inference API
-- `training/` — fine-tuning pipeline
-- `knowledge_tracing/` — learner-state and adaptation logic
-- `evaluation/` — model and quiz evaluation
+- `app/` — Streamlit UI and the learner-facing application controller
+  (course selection, session state, presentation)
+- `api/` — question presentation/scoring contracts and the prompt builder
+- `bkt/` — Bayesian Knowledge Tracing model, training, and repository
+- `recommendation/` — next-question selection policy
+- `authoring/` — grounded question generation, curation, retrieval, and the
+  replenishment worker/pipeline
+- `taxonomy/` — per-course skills, learning objectives, and reference
+  provenance (`taxonomy/data/<course>/`)
+- `evaluation/` — model, retrieval, and quiz-quality evaluation
+- `training/` — Llama 3.1 LoRA/QLoRA fine-tuning pipeline
+- `knowledge_tracing/` — shared learner-state utilities
+- `scripts/` — operational CLIs and one-off tooling (content review, batch
+  generation, replenishment control, calibration)
 - `configs/` — model and training configuration
-- `data/` — dataset samples and generated training data
-- `notebooks/` — Kaggle experiments
+- `data/` — local SQLite database and generated training data
+- `outputs/` — generated/approved content artifacts (mostly gitignored; the
+  active approved banks under `outputs/approved_banks/` are tracked)
+- `docs/` — standalone reference documents (e.g. the cross-course content
+  review packet)
 - `tests/` — automated tests
 
 ## Environment
 
-The project is initially developed using a Kaggle GPU environment accessed through a VS Code Remote Tunnel.
+Model development was done in a Kaggle GPU environment (see `ENVIRONMENT.md`
+for that runtime's specifics); the application itself is plain Python 3.12
+and runs anywhere the dependencies above install.
 
-## Setup
+## Manual batch generation and the content replenishment pipeline
 
-```bash
-python -m pip install -r requirements.txt
-```
+The sections below document the underlying mechanics: a one-off manual batch
+command (`scripts/generate_grounded_batch.py`), then the automated
+replenishment pipeline built on top of the same generation/curation modules,
+which is what actually keeps all four courses' approved banks stocked today
+(see [Content replenishment pipeline](#content-replenishment-pipeline)).
 
-## Grounded pilot batch
+### Grounded pilot batch
 
 The grounded batch command writes pending questions, a manifest, an attempt
 audit, and a summary into the output directory. It does not add questions to
@@ -69,7 +122,7 @@ If a run is interrupted or a slot is exhausted, the manifest remains
 `incomplete` and accepted questions stay on disk. Use the same command with
 `--resume`; accepted slots and intents are not regenerated.
 
-## Grounded-question review
+### Grounded-question review
 
 The generated v2 directory is immutable source evidence. Curation lives in a
 separate review store and never rewrites generated questions, raw responses,
@@ -107,9 +160,10 @@ and drives it through the existing retrieval, generation, and curation
 stages — never the learner request path. It reuses the modules above
 unchanged: retrieval (`authoring/retrieval/`), generation
 (`authoring/grounded_batch.py`), and curation (`authoring/grounded_review.py`).
-It is course-neutral: `authoring/replenishment/manifests/ai.json` is the only
-active manifest today; a later course adds its own manifest file, its own
-reviewed intent blueprints, and its own grounding briefs — no other code
+It is course-neutral: `authoring/replenishment/manifests/*.json` holds one
+manifest per active course (`intro-ai`, `dsa`, `linear-algebra`,
+`database-systems` today); a later course adds its own manifest file, its
+own reviewed intent blueprints, and its own grounding briefs — no other code
 changes.
 
 ### Environment variables

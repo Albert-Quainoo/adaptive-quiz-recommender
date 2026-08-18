@@ -19,7 +19,7 @@ from authoring.grounded_review import GroundedReviewStore, question_content_hash
 from api.schemas import QuizQuestion
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_PATH = REPO_ROOT / "three-course-content-review.html"
+OUTPUT_PATH = REPO_ROOT / "docs" / "three-course-content-review.html"
 
 COURSES = [
     {

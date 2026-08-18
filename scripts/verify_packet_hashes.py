@@ -13,7 +13,7 @@ from api.schemas import QuizQuestion
 from authoring.grounded_review import question_content_hash
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PACKET_PATH = REPO_ROOT / "three-course-content-review.html"
+PACKET_PATH = REPO_ROOT / "docs" / "three-course-content-review.html"
 
 BANK_PATHS = [
     REPO_ROOT / "outputs/approved_banks/dsa-approved-bank-28-v1.jsonl",
