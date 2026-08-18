@@ -2,7 +2,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from authoring.replenishment.jobs import ACTIVE_STATUSES, JobType, SQLiteReplenishmentJobRepository
+from authoring.replenishment.jobs import (
+    ACTIVE_STATUSES,
+    JobType,
+    SchemaNotReadyError,
+    SQLiteReplenishmentJobRepository,
+    open_repository,
+)
 from database import execute_schema_script
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -292,3 +298,63 @@ def test_repeated_streamlit_rerun_style_enqueue_never_duplicates_across_every_st
     active = repository.list_active(course_id="ai", skill_id="AI-SRC-08")
     assert len(active) == 1
     assert active[0].job_id == job_id
+
+
+# ---------------------------------------------------------------------------
+# read_only / check_schema_ready() / open_repository() -- see
+# scripts/run_replenishment_cycle.py's run_cycle(dry_run=True) and
+# authoring/replenishment/cli.py's status command, the two read-only callers.
+# ---------------------------------------------------------------------------
+
+
+def test_check_schema_ready_passes_when_schema_already_exists(tmp_path):
+    # A file path, not ":memory:" -- each ":memory:" repository instance is its own
+    # separate database, so a second, read-only instance needs a real shared file to
+    # observe the first instance's initialize_schema() at all.
+    database = tmp_path / "jobs.sqlite3"
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+    read_only = SQLiteReplenishmentJobRepository(database, read_only=True)
+    read_only.check_schema_ready()  # must not raise
+    repository.close()
+    read_only.close()
+
+
+def test_check_schema_ready_raises_on_a_fresh_uninitialized_database():
+    read_only = SQLiteReplenishmentJobRepository(":memory:", read_only=True)
+    with pytest.raises(SchemaNotReadyError, match="schema_not_ready"):
+        read_only.check_schema_ready()
+    read_only.close()
+
+
+def test_initialize_schema_refuses_on_a_read_only_repository():
+    read_only = SQLiteReplenishmentJobRepository(":memory:", read_only=True)
+    with pytest.raises(RuntimeError, match="read_only"):
+        read_only.initialize_schema()
+    read_only.close()
+
+
+def test_open_repository_default_matches_previous_construct_then_initialize_behavior():
+    """read_only defaults to False -- every existing caller (scan, worker) is
+    unaffected: open_repository() still constructs and calls initialize_schema()."""
+    repository = open_repository(":memory:")
+    repository.enqueue(course_id="ai", skill_id="AI-SRC-08", requested_count=1)
+    assert len(repository.list_active()) == 1
+    repository.close()
+
+
+def test_open_repository_read_only_never_initializes_and_requires_existing_schema():
+    with pytest.raises(SchemaNotReadyError):
+        open_repository(":memory:", read_only=True)
+
+
+def test_open_repository_read_only_succeeds_once_schema_exists_and_can_read(tmp_path):
+    database = tmp_path / "jobs.sqlite3"
+    seed = SQLiteReplenishmentJobRepository(database)
+    seed.initialize_schema()
+    seed.enqueue(course_id="ai", skill_id="AI-SRC-08", requested_count=1)
+
+    read_only = open_repository(database, read_only=True)
+    assert len(read_only.list_active(course_id="ai", skill_id="AI-SRC-08")) == 1
+    seed.close()
+    read_only.close()

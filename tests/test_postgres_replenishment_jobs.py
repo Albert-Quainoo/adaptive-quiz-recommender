@@ -11,8 +11,9 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
-from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
+from authoring.replenishment.jobs import SchemaNotReadyError, SQLiteReplenishmentJobRepository
 from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
 pytestmark = pytest.mark.skipif(
@@ -95,3 +96,68 @@ def test_claim_next_and_lease_recovery_on_postgres():
     assert recovered == 1
     assert repository.get(claimed.job_id).status == "queued"
     repository.close()
+
+
+# ---------------------------------------------------------------------------
+# read_only=True: schema-readiness check and DB-enforced read-only transaction --
+# see authoring/replenishment/jobs.py's SQLiteReplenishmentJobRepository and
+# scripts/run_replenishment_cycle.py's run_cycle(dry_run=True), the production
+# caller this exists for.
+# ---------------------------------------------------------------------------
+
+
+def test_check_schema_ready_raises_schema_not_ready_before_any_initialization_on_postgres():
+    """_clean_database (autouse above) already dropped the table -- a read-only
+    repository must refuse to proceed, not silently create it."""
+    read_only = SQLiteReplenishmentJobRepository(_dsn(), read_only=True)
+    with pytest.raises(SchemaNotReadyError, match="schema_not_ready"):
+        read_only.check_schema_ready()
+    read_only.close()
+
+
+def test_check_schema_ready_passes_once_a_writable_repository_has_initialized_on_postgres():
+    writer = SQLiteReplenishmentJobRepository(_dsn())
+    writer.initialize_schema()
+
+    read_only = SQLiteReplenishmentJobRepository(_dsn(), read_only=True)
+    read_only.check_schema_ready()  # must not raise
+    writer.close()
+    read_only.close()
+
+
+def test_initialize_schema_refuses_on_a_read_only_repository_on_postgres():
+    read_only = SQLiteReplenishmentJobRepository(_dsn(), read_only=True)
+    with pytest.raises(RuntimeError, match="read_only"):
+        read_only.initialize_schema()
+    read_only.close()
+
+
+def test_read_only_repository_reads_real_data_but_postgres_rejects_any_write():
+    """The core guarantee: a read-only repository can genuinely scan inventory (real
+    SELECTs against real rows), and PostgreSQL itself -- not just this class's own
+    discipline -- rejects any write attempted through it, with zero rows changed."""
+    writer = SQLiteReplenishmentJobRepository(_dsn())
+    writer.initialize_schema()
+    seeded = writer.enqueue(course_id="ai", skill_id="AI-PG-03", requested_count=2)
+
+    read_only = SQLiteReplenishmentJobRepository(_dsn(), read_only=True)
+    read_only.check_schema_ready()
+
+    # Read: succeeds, returns the real row.
+    fetched = read_only.get(seeded.job_id)
+    assert fetched == seeded
+    assert read_only.list_active(course_id="ai", skill_id="AI-PG-03") == [seeded]
+    assert read_only.latest_for_skill("ai", "AI-PG-03") == seeded
+    assert read_only.list_waiting() == []
+
+    # Write: PostgreSQL itself rejects it -- not caught/prevented by application code,
+    # a real ReadOnlySqlTransaction from the database (verified: DBAPIError, message
+    # mentions "read-only").
+    with pytest.raises(DBAPIError, match="read-only"):
+        read_only.enqueue(course_id="ai", skill_id="AI-PG-04", requested_count=1)
+
+    # Confirm zero rows changed: still exactly the one row the writer created.
+    assert writer.list_active(course_id="ai") == [seeded]
+
+    writer.close()
+    read_only.close()
