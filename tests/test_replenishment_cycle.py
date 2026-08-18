@@ -47,6 +47,7 @@ from authoring.review.models import (
 from authoring.review.config import ReviewPolicyConfig
 from authoring.review.reviewer import FakeContentReviewer
 from api.schemas import QuizQuestion
+from scripts.stage_run_artifacts import stage_run_artifacts
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXED_TIME = datetime(2026, 8, 5, 12, 0, tzinfo=timezone.utc)
@@ -696,3 +697,105 @@ def test_archive_stale_jobs_compacts_old_terminal_snapshots(tmp_path):
     # Idempotent: a second pass leaves the already-archived directory alone.
     again = archive_stale_jobs(snapshot_root, repository, retention_days=14, clock=fixed_clock)
     assert again == []
+
+
+# ---------------------------------------------------------------------------
+# Run-scoped artifact manifest: excludes stale pre-existing content-ops
+# artifacts, preserves them on disk untouched
+# ---------------------------------------------------------------------------
+
+def test_dry_run_manifest_excludes_preexisting_snapshot_directory(
+    tmp_path, isolated, database, monkeypatch
+):
+    """A dry run never processes any job (job_outcomes is always empty), so
+    its manifest must list only the two report files -- never a job-scoped
+    directory left on disk from an earlier live run's commit to the
+    content-ops branch, even though that directory sits right there under
+    the same snapshot_root this run reads and writes."""
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("dry run must never construct a search/model/reviewer provider")
+
+    monkeypatch.setattr(cli, "_search_provider_factory", _boom)
+    monkeypatch.setattr(cli, "_fetcher_factory", _boom)
+    monkeypatch.setattr(cli, "_model_factory", _boom)
+    monkeypatch.setattr(cli, "_reviewer_factory", _boom)
+    _seed_schema(database)
+
+    snapshot_root = tmp_path / "snapshots"
+    stale_job_dir = snapshot_root / "dsa" / "stale-job-from-an-earlier-run"
+    stale_job_dir.mkdir(parents=True)
+    (stale_job_dir / "job.json").write_text('{"job_id": "stale"}', encoding="utf-8")
+
+    exit_code = cycle.main([
+        "--database", str(database),
+        "--snapshot-root", str(snapshot_root),
+        "--report-dir", str(snapshot_root / "_reports"),
+        "--dry-run",
+    ])
+    assert exit_code == 0
+
+    manifest_data = json.loads(
+        (snapshot_root / "_reports" / "run_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest_data["dry_run"] is True
+    assert manifest_data["paths"] == ["_reports/latest.json", "_reports/latest.md"]
+    assert "dsa/stale-job-from-an-earlier-run" not in manifest_data["paths"]
+
+    # Never touched: the stale directory is exactly as it was before this run.
+    assert (stale_job_dir / "job.json").read_text(encoding="utf-8") == '{"job_id": "stale"}'
+
+
+def test_live_run_manifest_and_staged_output_include_only_this_runs_job(
+    tmp_path, isolated, database, reviewed_blueprint, monkeypatch
+):
+    """A live run's manifest (and the staged copy built from it) must include
+    this run's own job-scoped directory but exclude an unrelated job-scoped
+    directory already present under snapshot_root from an earlier run --
+    proving both the manifest computation and scripts.stage_run_artifacts
+    exclude stale pre-existing files end to end."""
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    stale_job_dir = snapshot_root / "dsa" / "stale-job-from-an-earlier-run"
+    stale_job_dir.mkdir(parents=True)
+    (stale_job_dir / "job.json").write_text('{"job_id": "stale"}', encoding="utf-8")
+
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+    repository.enqueue(course_id="intro-ai", skill_id=SKILL_ID, requested_count=1, clock=fixed_clock)
+
+    # Cap at exactly one new candidate so only SKILL_ID's pre-enqueued job
+    # (oldest created_at, claimed first) is ever started this run -- the
+    # real intro-ai taxonomy has other deficient skills too, and this test
+    # only cares about isolating a single job's directory.
+    budget = CycleBudgetConfig(max_new_candidates=1, max_generation_calls=10)
+    cycle_report = _run(database, snapshot_root, budget=budget)
+    assert cycle_report.job_outcomes, "expected at least one tick for the capped candidate"
+    job_ids = {row.job_id for row in cycle_report.job_outcomes}
+    assert len(job_ids) == 1  # the max_new_candidates=1 cap allows only one job_id
+    this_run_job_id = next(iter(job_ids))
+
+    report_dir = snapshot_root / "_reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "latest.json").write_text("{}", encoding="utf-8")
+    (report_dir / "latest.md").write_text("# report\n", encoding="utf-8")
+    manifest_paths = cycle._run_manifest_paths(cycle_report, report_dir, snapshot_root)
+    cycle._write_run_manifest(report_dir, snapshot_root, dry_run=False, paths=manifest_paths)
+
+    assert f"intro-ai/{this_run_job_id}" in manifest_paths
+    assert "dsa/stale-job-from-an-earlier-run" not in manifest_paths
+
+    dest = tmp_path / "staged"
+    staged = stage_run_artifacts(report_dir / "run_manifest.json", snapshot_root, dest)
+    assert dest / "intro-ai" / this_run_job_id in staged
+    assert (dest / "intro-ai" / this_run_job_id / "job.json").is_file()
+    assert (dest / "_reports" / "run_manifest.json").is_file()
+    assert not (dest / "dsa").exists()
+
+    # Never touched: the stale directory on the real content-ops checkout
+    # is exactly as it was before this run, both in and outside the manifest.
+    assert (stale_job_dir / "job.json").read_text(encoding="utf-8") == '{"job_id": "stale"}'

@@ -72,6 +72,51 @@ def _env_float(name: str, default: float) -> float:
     return float(os.getenv(name, str(default)))
 
 
+def _report_relative_paths(report_dir: Path, snapshot_root: Path) -> list[str]:
+    return [
+        str((report_dir / "latest.json").relative_to(snapshot_root)),
+        str((report_dir / "latest.md").relative_to(snapshot_root)),
+    ]
+
+
+def _run_manifest_paths(
+    cycle_report: report.CycleReport, report_dir: Path, snapshot_root: Path
+) -> list[str]:
+    """Every path under snapshot_root that this specific run wrote or
+    modified: the two report files (always), each job this run actually
+    processed (job_outcomes -- empty for a dry run), and any job directory
+    this run compacted via archive_stale_jobs() (also empty for a dry run).
+    Deliberately excludes every other job-scoped directory already present
+    under snapshot_root from an earlier run's commit to the content-ops
+    branch -- those are historical artifacts this run neither wrote nor
+    should re-upload."""
+    paths = _report_relative_paths(report_dir, snapshot_root)
+    for outcome in cycle_report.job_outcomes:
+        paths.append(str(Path(outcome.course_id) / outcome.job_id))
+    for archived in cycle_report.archived_job_dirs:
+        paths.append(str(Path(archived).relative_to(snapshot_root)))
+    return sorted(set(paths))
+
+
+def _write_run_manifest(
+    report_dir: Path, snapshot_root: Path, *, dry_run: bool, paths: list[str]
+) -> None:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": os.getenv("GITHUB_RUN_ID", "local"),
+                "generated_at": utc_now().isoformat(),
+                "dry_run": dry_run,
+                "paths": paths,
+            },
+            indent=2, sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _resolve_difficulty(skill_id: str) -> str:
     """Best-effort difficulty for the deficiency report: only meaningful once
     exactly one reviewed blueprint unambiguously covers this skill with one
@@ -486,6 +531,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         markdown = f"# Replenishment cycle: schema not ready\n\n{exc}\n"
         (args.report_dir / "latest.md").write_text(markdown, encoding="utf-8")
+        _write_run_manifest(
+            args.report_dir, args.snapshot_root, dry_run=args.dry_run,
+            paths=_report_relative_paths(args.report_dir, args.snapshot_root),
+        )
         print(markdown, file=sys.stderr)
         return 2
 
@@ -495,6 +544,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     markdown = report.render_markdown(cycle_report)
     (args.report_dir / "latest.md").write_text(markdown, encoding="utf-8")
+    _write_run_manifest(
+        args.report_dir, args.snapshot_root, dry_run=args.dry_run,
+        paths=_run_manifest_paths(cycle_report, args.report_dir, args.snapshot_root),
+    )
     print(markdown)
 
     return 0
