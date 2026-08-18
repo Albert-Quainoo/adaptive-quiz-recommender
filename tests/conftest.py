@@ -39,3 +39,34 @@ def no_real_secrets(monkeypatch):
     happen to be configured on the machine running it.
     """
     monkeypatch.setattr(streamlit, "secrets", {})
+
+
+@pytest.fixture(autouse=True)
+def no_default_nli_model(monkeypatch):
+    """authoring/review/equivalence_gate.py's option-equivalence gate runs on every
+    review_candidate() call that passes deterministic checks -- including in the
+    hundreds of existing tests in this suite that know nothing about it. Its NLI
+    detector's default scorer (authoring.review.equivalence_nli.get_default_scorer)
+    lazily downloads a real ~90MB ONNX model from Hugging Face Hub on first use, which
+    this suite must never do implicitly (same reasoning as no_live_requests above).
+
+    Replaced here with authoring.review.equivalence_nli.FakeNliScorer's default
+    behavior (low entailment / high neutral for anything unconfigured) -- every
+    existing test's equivalence-gate evidence is deterministically "not_equivalent"/
+    "not_applicable", never spuriously escalating a candidate it isn't testing. A test
+    that specifically exercises the equivalence gate injects its own FakeNliScorer
+    (with configured scores) or review_candidate(equivalence_nli_scorer=...) directly,
+    which bypasses get_default_scorer() entirely and is unaffected by this fixture. A
+    test that specifically needs the real pinned model constructs
+    authoring.review.equivalence_nli.NliScorer() itself and is also unaffected.
+    """
+    from authoring.review.equivalence_nli import FakeNliScorer
+
+    # Patches the module-level singleton state itself, not the get_default_scorer()
+    # function object: authoring/review/equivalence_gate.py does
+    # `from authoring.review.equivalence_nli import get_default_scorer`, which binds
+    # its own local name to the function at import time -- patching
+    # equivalence_nli.get_default_scorer afterward would not affect that already-bound
+    # reference. get_default_scorer()'s body reads the module global at call time, so
+    # pre-seeding it here is intercepted regardless of which module calls the function.
+    monkeypatch.setattr("authoring.review.equivalence_nli._default_scorer", FakeNliScorer())

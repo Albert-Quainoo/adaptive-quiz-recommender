@@ -65,7 +65,9 @@ from authoring.grounded_review import question_content_hash
 from authoring.question_intents import QuestionIntent
 from authoring.review.config import ReviewPolicyConfig
 from authoring.review.deterministic import run_deterministic_checks
-from authoring.review.models import AutomatedReviewReport, SemanticReviewResult
+from authoring.review.equivalence_gate import GATE_VERSION, escalation_reasons, evaluate_option_equivalence
+from authoring.review.equivalence_nli import FakeNliScorer, NliScorer
+from authoring.review.models import AutomatedReviewReport, EquivalenceAssessment, SemanticReviewResult
 from authoring.review.reports import AutomatedReviewReportStore
 from authoring.review.response_parser import (
     ReviewerCallContext,
@@ -93,6 +95,7 @@ def review_candidate(
     is_calibrated_configuration: bool = True,
     known_reviewer_versions: frozenset[tuple[str, str, str]] | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    equivalence_nli_scorer: NliScorer | FakeNliScorer | None = None,
 ) -> AutomatedReviewReport:
     """Produce (or reuse, from cache) one AutomatedReviewReport for a candidate.
 
@@ -146,6 +149,24 @@ def review_candidate(
         report_store.append(report)
         return report
 
+    # Independent of the semantic reviewer entirely -- only needs the candidate's own
+    # stem/options -- so it runs once per candidate regardless of reviewer_passes.
+    # Never auto-rejects/approves/revises/promotes: risk.score_risk only ever escalates
+    # to require_full_human_review on its evidence (see authoring/review/risk.py and
+    # authoring/review/equivalence_gate.py's module docstrings).
+    equivalence_evidence, equivalence_initialization_error = evaluate_option_equivalence(
+        candidate.question.question,
+        candidate.question.options,
+        nli_threshold=config.equivalence_nli_threshold,
+        nli_scorer=equivalence_nli_scorer,
+    )
+    equivalence_reasons = escalation_reasons(equivalence_evidence)
+    if equivalence_initialization_error is not None:
+        # Assessment-level, not pairwise -- no option pair was ever evaluated (see
+        # authoring/review/equivalence_gate.py's module docstring) -- but risk.py must
+        # still force require_full_human_review on it exactly like a per-pair "error".
+        equivalence_reasons = equivalence_reasons + [equivalence_initialization_error]
+
     pass_count = passes if passes is not None else config.reviewer_passes
     results: list[SemanticReviewResult] = []
     reviewer_output_errors: list[str] = []
@@ -197,6 +218,7 @@ def review_candidate(
         reviewer_output_errors=reviewer_output_errors,
         is_calibrated_configuration=is_calibrated_configuration,
         known_reviewer_versions=known_reviewer_versions,
+        equivalence_escalation_reasons=equivalence_reasons,
     )
 
     latest = results[-1] if results else None
@@ -243,6 +265,16 @@ def review_candidate(
         output_token_count=_provenance("output_token_count", None),
         configured_max_new_tokens=_provenance("configured_max_new_tokens", None),
         reviewer_request_count=_provenance("request_count", 0),
+        equivalence_assessment=EquivalenceAssessment(
+            gate_version=GATE_VERSION,
+            nli_model_repository=config.equivalence_nli_model_repository,
+            nli_model_revision=config.equivalence_nli_model_revision,
+            nli_threshold=config.equivalence_nli_threshold,
+            threshold_version=config.equivalence_threshold_version,
+            evidence=equivalence_evidence,
+            escalated=bool(equivalence_reasons),
+            initialization_error=equivalence_initialization_error,
+        ),
     )
     report_store.append(report)
     return report

@@ -44,6 +44,21 @@ class ReviewPolicyConfig:
     # still tracked separately so raising or lowering one never silently moves the
     # other.
     reviewer_max_new_tokens: int = 1000
+    # Hybrid option-equivalence gate (authoring/review/equivalence_gate.py): pinned NLI
+    # model provenance + calibrated threshold, recorded into every EquivalenceAssessment
+    # so a stored report always shows exactly what produced it (authoring/review/
+    # models.py). Defaults are the pinned model this was calibrated against -- see
+    # scripts/calibrate_equivalence_nli_threshold.py for the calibration method and
+    # evaluation/equivalence_calibration_report.md for the resulting numbers this
+    # threshold and threshold_version come from.
+    equivalence_nli_model_repository: str = "cross-encoder/nli-deberta-v3-xsmall"
+    equivalence_nli_model_revision: str = "a150876415327c80daeff35ca6f68f5ed8cf5c24"
+    # Calibrated by scripts/calibrate_equivalence_nli_threshold.py on 2026-08-17 against
+    # evaluation/equivalence_nli_labeled_pairs.py's calibration split (zero false
+    # positives there); held-out results (precision 1.0, recall 0.5) are in
+    # evaluation/equivalence_calibration_report.md.
+    equivalence_nli_threshold: float = 0.25
+    equivalence_threshold_version: str = "equivalence-threshold-v1-2026-08-17"
 
     def __post_init__(self) -> None:
         if self.reviewer_passes < 1:
@@ -66,6 +81,8 @@ class ReviewPolicyConfig:
             raise ValueError("grounding_confidence_threshold must be in [0, 1]")
         if not (0.0 <= self.answer_confidence_threshold <= 1.0):
             raise ValueError("answer_confidence_threshold must be in [0, 1]")
+        if not (0.0 <= self.equivalence_nli_threshold <= 1.0):
+            raise ValueError("equivalence_nli_threshold must be in [0, 1]")
 
 
 def load_review_policy_config(environ: Mapping[str, str] | None = None) -> ReviewPolicyConfig:
@@ -106,5 +123,17 @@ def load_review_policy_config(environ: Mapping[str, str] | None = None) -> Revie
         ),
         shadow_mode=setting(
             "SHADOW_MODE", "true" if defaults.shadow_mode else "false", _parse_bool
+        ),
+        equivalence_nli_model_repository=setting(
+            "EQUIVALENCE_NLI_MODEL_REPOSITORY", defaults.equivalence_nli_model_repository
+        ),
+        equivalence_nli_model_revision=setting(
+            "EQUIVALENCE_NLI_MODEL_REVISION", defaults.equivalence_nli_model_revision
+        ),
+        equivalence_nli_threshold=setting(
+            "EQUIVALENCE_NLI_THRESHOLD", str(defaults.equivalence_nli_threshold), float
+        ),
+        equivalence_threshold_version=setting(
+            "EQUIVALENCE_THRESHOLD_VERSION", defaults.equivalence_threshold_version
         ),
     )

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from authoring.review.config import ReviewPolicyConfig
+from authoring.review.equivalence_nli import EntailmentScores, FakeNliScorer
 from authoring.review.reports import AutomatedReviewReportStore
 from authoring.review.response_parser import ReviewerCallContext, ReviewerOutputError
 from authoring.review.reviewer import FakeContentReviewer, ReviewerUnavailableError
@@ -82,6 +83,126 @@ def test_deterministic_block_short_circuits_and_never_calls_reviewer(tmp_path):
     )
     assert report.recommendation == "reject"
     assert reviewer.calls == []
+    # The exact-text-duplicate deterministic check already handles this candidate --
+    # the hybrid equivalence gate never runs on the short-circuit path (see
+    # authoring/review/service.py: it only runs once deterministic checks pass).
+    assert report.equivalence_assessment is None
+
+
+def test_equivalence_assessment_is_populated_on_a_normal_review(tmp_path):
+    reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
+    report = review_candidate(
+        CORRECTED_CANDIDATE,
+        SKILL,
+        INTENT,
+        APPROVED_REFERENCES,
+        reviewer=reviewer,
+        config=_config(),
+        report_store=_store(tmp_path),
+        clock=lambda: FIXED_TIME,
+    )
+    assert report.equivalence_assessment is not None
+    assert report.equivalence_assessment.escalated is False
+    assert report.equivalence_assessment.nli_model_repository == _config().equivalence_nli_model_repository
+    assert len(report.equivalence_assessment.evidence) == 18  # 4 options -> 6 pairs x 3 detectors
+
+
+def test_equivalence_gate_escalates_an_otherwise_clean_candidate_to_human_review(tmp_path):
+    """A credible equivalence signal overrides what the semantic reviewer alone would
+    have recommended -- CORRECTED_REVIEW_RESULT alone reaches recommend_human_approval
+    (see test_corrected_heuristic_revision_gets_recommend_human_approval above); with a
+    scorer configured to report two of CORRECTED_QUESTION's options as equivalent, the
+    same candidate must instead require_full_human_review, never auto-approve."""
+    option_a, option_b = CORRECTED_QUESTION.options[0], CORRECTED_QUESTION.options[1]
+    stem = CORRECTED_QUESTION.question
+    premise_a = f"Given the question: {stem} Claim: {option_a}"
+    premise_b = f"Given the question: {stem} Claim: {option_b}"
+    scorer = FakeNliScorer(
+        {
+            (premise_a, premise_b): EntailmentScores(contradiction=0.0, entailment=0.95, neutral=0.05),
+            (premise_b, premise_a): EntailmentScores(contradiction=0.0, entailment=0.95, neutral=0.05),
+        }
+    )
+    reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
+    report = review_candidate(
+        CORRECTED_CANDIDATE,
+        SKILL,
+        INTENT,
+        APPROVED_REFERENCES,
+        reviewer=reviewer,
+        config=_config(),
+        report_store=_store(tmp_path),
+        clock=lambda: FIXED_TIME,
+        equivalence_nli_scorer=scorer,
+    )
+    assert report.recommendation == "require_full_human_review"
+    assert report.equivalence_assessment.escalated is True
+    assert any(item.verdict == "equivalent" for item in report.equivalence_assessment.evidence)
+
+
+def test_equivalence_warmup_failure_escalates_to_full_human_review_with_a_valid_report(tmp_path):
+    """A broken/unavailable NLI model must never crash review_candidate() -- it must
+    still return a valid, historical-compatible AutomatedReviewReport that escalates
+    to require_full_human_review, with zero evaluated option pairs (no pair was ever
+    reached) and exactly one sanitized, assessment-level initialization_error."""
+
+    class UnavailableScorer:
+        def warm_up(self):
+            raise OSError("simulated: nli model unreachable")
+
+        def score(self, premise, hypothesis):
+            raise AssertionError("must never be called -- warm-up already failed")
+
+    reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
+    report = review_candidate(
+        CORRECTED_CANDIDATE,
+        SKILL,
+        INTENT,
+        APPROVED_REFERENCES,
+        reviewer=reviewer,
+        config=_config(),
+        report_store=_store(tmp_path),
+        clock=lambda: FIXED_TIME,
+        equivalence_nli_scorer=UnavailableScorer(),
+    )
+    assert report.recommendation == "require_full_human_review"
+    assert report.equivalence_assessment is not None
+    assert report.equivalence_assessment.escalated is True
+    # Zero evaluated pairs -- no OptionPairEvidence was fabricated for pairs that
+    # were never reached.
+    assert report.equivalence_assessment.evidence == []
+    # Exactly one assessment-level, sanitized error.
+    assert report.equivalence_assessment.initialization_error is not None
+    assert "OSError" in report.equivalence_assessment.initialization_error
+    assert "simulated: nli model unreachable" not in report.equivalence_assessment.initialization_error
+    # The report itself round-trips through the model -- proves it's a valid,
+    # historical-compatible AutomatedReviewReport, not a partially-built object.
+    assert type(report).model_validate(report.model_dump()) == report
+
+
+def test_historical_report_without_initialization_error_field_still_loads(tmp_path):
+    """A report serialized before initialization_error existed (or a successful,
+    ordinary equivalence pass, which never sets it) must still validate -- the field
+    is additive/optional, defaulting to None, exactly like escalated/evidence already
+    are for pre-gate reports."""
+    reviewer = FakeContentReviewer({CORRECTED_QUESTION.question: CORRECTED_REVIEW_RESULT})
+    report = review_candidate(
+        CORRECTED_CANDIDATE,
+        SKILL,
+        INTENT,
+        APPROVED_REFERENCES,
+        reviewer=reviewer,
+        config=_config(),
+        report_store=_store(tmp_path),
+        clock=lambda: FIXED_TIME,
+    )
+    # Successful runs remain unchanged: normal 18-entry evidence, no initialization
+    # error, and the field round-trips through serialization.
+    assert report.equivalence_assessment.initialization_error is None
+    assert len(report.equivalence_assessment.evidence) == 18
+    dumped = report.model_dump(mode="json", exclude={"equivalence_assessment": {"initialization_error"}})
+    restored = type(report).model_validate(dumped)
+    assert restored.equivalence_assessment.initialization_error is None
 
 
 def test_cached_report_is_reused_without_a_second_reviewer_call(tmp_path):

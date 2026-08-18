@@ -269,6 +269,65 @@ class SemanticReviewResult(BaseModel):
     request_count: int = 1
 
 
+EquivalenceDetector = Literal["symbolic_math", "unit_conversion", "nli_semantic"]
+
+# "not_applicable": the detector correctly determined it does not apply to this pair
+# (e.g. neither option is a numeric expression) -- the normal, common, non-error case,
+# never escalates. "equivalent": a credible equivalence signal -- always escalates.
+# "not_equivalent": the detector ran and found no equivalence -- never escalates.
+# "error": the detector could not reach a verdict (unexpected exception, model-load
+# failure, timeout) -- authoring/review/risk.py escalates this exactly like
+# "equivalent", since silently treating an error as "no equivalence" would be
+# indistinguishable from a false negative it can't rule out. See
+# authoring/review/equivalence_gate.py.
+EquivalenceVerdict = Literal["not_applicable", "equivalent", "not_equivalent", "error"]
+
+
+class OptionPairEvidence(BaseModel):
+    """One detector's verdict on one option pair -- the structured evidence unit the
+    hybrid option-equivalence gate (authoring/review/equivalence_gate.py) produces for
+    every one of a 4-option candidate's 6 pairs x 3 detectors. A gate-level failure
+    (the NLI scorer's warm-up itself failing, before any pair was evaluated) is never
+    represented here -- see EquivalenceAssessment.initialization_error below."""
+
+    option_index_a: int = Field(ge=0)
+    option_index_b: int = Field(ge=0)
+    detector: EquivalenceDetector
+    verdict: EquivalenceVerdict
+    score_or_normalized_form: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _distinct_options(self) -> "OptionPairEvidence":
+        if self.option_index_a == self.option_index_b:
+            raise ValueError("option_index_a and option_index_b must differ")
+        return self
+
+
+class EquivalenceAssessment(BaseModel):
+    """Provenance-carrying record of one hybrid-gate pass over a candidate's options.
+    Additive/optional on AutomatedReviewReport (see below) so historical reports
+    written before this gate existed still load unchanged."""
+
+    gate_version: str = Field(min_length=1)
+    nli_model_repository: str = Field(min_length=1)
+    nli_model_revision: str = Field(min_length=1)
+    nli_threshold: float = Field(ge=0.0, le=1.0)
+    threshold_version: str = Field(min_length=1)
+    evidence: list[OptionPairEvidence] = Field(default_factory=list)
+    escalated: bool
+    # Additive/optional (default None) so a report from before this field existed still
+    # loads unchanged. Set when the NLI scorer's warm-up itself failed (network error,
+    # cache corruption, checksum mismatch, timeout -- see
+    # authoring/review/equivalence_gate.py's module docstring) before any option pair
+    # could be evaluated; `evidence` is empty in that case, never fabricated
+    # pair-indexed entries. Sanitized: never a filesystem path, URL, environment value,
+    # or other exception-message content an underlying library might embed.
+    # authoring/review/risk.py escalates on this exactly like a per-pair "error"
+    # verdict -- see authoring/review/service.py's equivalence_reasons construction.
+    initialization_error: str | None = None
+
+
 class AutomatedReviewReport(BaseModel):
     review_id: str = Field(min_length=1)
     candidate_id: str = Field(min_length=1)
@@ -300,6 +359,7 @@ class AutomatedReviewReport(BaseModel):
     output_token_count: int | None = None
     configured_max_new_tokens: int | None = None
     reviewer_request_count: int = 0
+    equivalence_assessment: EquivalenceAssessment | None = None
 
     @property
     def semantic_review_performed(self) -> bool:

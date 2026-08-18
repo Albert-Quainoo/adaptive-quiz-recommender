@@ -396,7 +396,15 @@ def test_generalized_paraphrase_candidate_is_blocked(tmp_path):
 
 def test_generalized_math_equivalent_candidate_is_blocked(tmp_path):
     """0.75 cups and 75/100 cups are the same value in different notation --
-    mathematical, not textual, equivalence."""
+    mathematical, not textual, equivalence.
+
+    recommendation is require_full_human_review, not reject: the hybrid option-
+    equivalence gate's unit_conversion detector (authoring/review/equivalence_units.py)
+    independently confirms these two option texts are the same canonical quantity, and
+    per authoring/review/risk.py's policy, any credible equivalence signal always
+    escalates to require_full_human_review and never auto-rejects -- this overrides
+    what critical severity alone would otherwise map to. risk_level stays "critical"
+    (the escalation only ever raises the level floor, never lowers it)."""
     report = _gen_report(
         tmp_path, GEN_MATH_CANDIDATE, GEN_MATH_SKILL, GEN_MATH_INTENT,
         [GEN_MATH_REFERENCE], GEN_MATH_QUESTION,
@@ -404,7 +412,7 @@ def test_generalized_math_equivalent_candidate_is_blocked(tmp_path):
     )
     assert report.answer_assessment.multiple_defensible_answers is True
     assert report.risk_level == "critical"
-    assert report.recommendation == "reject"
+    assert report.recommendation == "require_full_human_review"
 
 
 def test_generalized_close_distractor_candidate_is_not_falsely_blocked(tmp_path):

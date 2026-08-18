@@ -72,6 +72,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Install replenishment worker dependencies (equivalence gate)
+        run: python -m pip install -r authoring/replenishment/requirements.txt
+
       - name: Check out or create the content-ops branch
         run: |
           git config user.name "github-actions[bot]"

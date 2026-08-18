@@ -126,6 +126,7 @@ def score_risk(
     reviewer_output_errors: list[str] | None = None,
     is_calibrated_configuration: bool = True,
     known_reviewer_versions: frozenset[tuple[str, str, str]] | None = None,
+    equivalence_escalation_reasons: list[str] | None = None,
 ) -> RiskDecision:
     reviewer_output_errors = reviewer_output_errors or []
 
@@ -196,9 +197,15 @@ def score_risk(
             "generator/reviewer configuration is flagged for elevated rejection/revision rates"
         )
 
-    if disagreement_reasons:
+    # Same unconditional-override shape as the multi-pass disagreement check above:
+    # a credible option-equivalence signal (or a detector that couldn't reach a
+    # verdict at all -- see authoring/review/equivalence_gate.py's module docstring)
+    # always forces require_full_human_review, never a downgrade or auto-anything.
+    escalation_reasons = sorted(set(disagreement_reasons) | set(equivalence_escalation_reasons or []))
+
+    if escalation_reasons:
         level = _max_level(level, "high")
-        blocking = sorted(set(blocking) | set(disagreement_reasons))
+        blocking = sorted(set(blocking) | set(escalation_reasons))
         recommendation: ReviewRecommendation = "require_full_human_review"
     elif level == "critical":
         recommendation = "reject"
