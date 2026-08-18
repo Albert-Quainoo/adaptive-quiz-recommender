@@ -1,0 +1,637 @@
+{
+  "archived_job_dirs": [],
+  "budget": {
+    "estimated_cost_usd": 0.0,
+    "generation_calls": 0,
+    "max_cost_usd": 1.0,
+    "max_generation_calls": 20,
+    "max_new_candidates": 1,
+    "new_candidates_started": 1,
+    "review_calls": 0,
+    "search_calls": 1,
+    "ticks": 1
+  },
+  "deficiencies": [
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 6 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-FND-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-FND-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-FND-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "enqueued",
+      "difficulty": "introductory",
+      "proposed_job_key": "f164e3c9-40eb-54b3-a433-af7dff7bb526",
+      "reason": "supply 1 below threshold 3",
+      "requested_count": 5,
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "deferred",
+      "difficulty": "introductory",
+      "proposed_job_key": "52449858-56cd-56fe-a97e-6f2ebfebc51d",
+      "reason": "supply 1 below threshold 3; deferred: exceeds this run's max_new_candidates cap (1)",
+      "requested_count": 5,
+      "skill_id": "AI-FND-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 6 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-AGT-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-AGT-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-AGT-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-AGT-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-AGT-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-AGT-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-AGT-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-AGT-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-AGT-05"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 9 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 7 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 6 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-05"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-06"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-SRC-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-SRC-07"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 9 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-08"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-09"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-SRC-10"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-SRC-11 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-SRC-11"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-01 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-05"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-06"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-07"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-08 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-08"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ML-09 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ML-09"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-01 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "templated skills are served by templates/registry.py",
+      "requested_count": 0,
+      "skill_id": "AI-NN-05"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-06"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-07"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-08 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-08"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-NN-09 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-NN-09"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "manual_action_required",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 0 below threshold 3; hand_authored, not eligible for automated generation",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-01"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ETH-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-02"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ETH-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-03"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ETH-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-04"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ETH-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-05"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "blocked",
+      "difficulty": "unknown",
+      "proposed_job_key": "-",
+      "reason": "blocked: AI-ETH-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-06"
+    },
+    {
+      "course_id": "intro-ai",
+      "decision": "manual_action_required",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 0 below threshold 3; hand_authored, not eligible for automated generation",
+      "requested_count": 6,
+      "skill_id": "AI-ETH-07"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-CPX-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-LST-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-STK-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-SRC-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-SRT-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-HSH-01"
+    },
+    {
+      "course_id": "dsa",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DSA-TGR-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-SLE-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-VSP-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-LTR-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-DET-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-EIG-01"
+    },
+    {
+      "course_id": "linear-algebra",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "LA-MKV-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-ERM-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-REL-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-ALG-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-SQL-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-NRM-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-TXN-01"
+    },
+    {
+      "course_id": "database-systems",
+      "decision": "no_deficiency",
+      "difficulty": "-",
+      "proposed_job_key": "-",
+      "reason": "supply 4 meets threshold 3",
+      "requested_count": 0,
+      "skill_id": "DB-IDX-01"
+    }
+  ],
+  "dry_run": false,
+  "execution_plan": [
+    {
+      "course_id": "intro-ai",
+      "difficulty": "introductory",
+      "proposed_job_key": "f164e3c9-40eb-54b3-a433-af7dff7bb526",
+      "rank": 1,
+      "reason": "selected 1 of 2 eligible deficiencies, in deterministic course-then-taxonomy scan order (COURSE_IDS order, then skills.csv row order within each course) -- the same creation order enqueue() assigns and the worker's FIFO claim (oldest created_at first) would later process",
+      "requested_count": 5,
+      "skill_id": "AI-FND-03"
+    }
+  ],
+  "generated_at": "2026-08-18T03:21:54.252878+00:00",
+  "job_outcomes": [
+    {
+      "course_id": "intro-ai",
+      "error_code": null,
+      "is_new_candidate": true,
+      "job_id": "e4bedc2e-4189-4705-bf4e-fc5ad35dc4e0",
+      "job_type": "retrieve_references",
+      "outcome_category": "in_progress",
+      "skill_id": "AI-FND-02",
+      "status": "waiting_for_reference_review"
+    }
+  ],
+  "pending_approvals": [
+    {
+      "course_id": "intro-ai",
+      "job_id": "e4bedc2e-4189-4705-bf4e-fc5ad35dc4e0",
+      "skill_id": "AI-FND-02",
+      "status": "waiting_for_reference_review",
+      "waiting_since": "2026-08-18T03:21:12.246558+00:00"
+    }
+  ],
+  "queue_rows_written": 31,
+  "stop_reason": "new-candidate cap reached (1)"
+}
