@@ -140,6 +140,73 @@
       "skill_id": "DB-ERM-01"
     },
     {
+      "assessment_focus": "Apply Chen notation to identify how an attribute is connected to its owning entity or relationship in an ER diagram.",
+      "cognitive_demand": "Apply the attribute-oval connecting-line convention to identify an attribute's owning element.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should attach the attribute to the wrong element or to another attribute."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-ERM-01-INT-05",
+      "learning_objective": "Construct an entity-relationship diagram using Chen notation, correctly distinguishing entities, relationships, attributes, and cardinality.",
+      "preferred_reference_ids": [
+        "DB-ERM-01-176f63d3399d"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe an attribute connected to more than one element."
+      ],
+      "prohibited_conflations": [
+        "an attribute oval connects directly to another attribute oval rather than to an entity or relationship"
+      ],
+      "question_archetype": "attribute-connection notation application",
+      "required_concepts": [
+        "attribute oval",
+        "connecting line",
+        "owning entity or relationship"
+      ],
+      "required_question_characteristics": [
+        "Describe a small ERD fragment with one attribute connected to either an entity or a relationship.",
+        "Ask which element the attribute belongs to."
+      ],
+      "skill_id": "DB-ERM-01"
+    },
+    {
+      "assessment_focus": "Recognize that constructing an ER diagram is an iterative process of identifying entities, attributes, and relationships, rather than a single fixed pass.",
+      "cognitive_demand": "Recognize that ER modelling proceeds iteratively across entity, attribute, and relationship identification.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the ERD is finalized correctly on the first attempt without revision."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-ERM-01-INT-06",
+      "learning_objective": "Construct an entity-relationship diagram using Chen notation, correctly distinguishing entities, relationships, attributes, and cardinality.",
+      "preferred_reference_ids": [
+        "DB-ERM-01-8956b3bcbdd1"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require naming a specific number of iterations."
+      ],
+      "prohibited_conflations": [
+        "an ERD is created in a single non-iterative step"
+      ],
+      "question_archetype": "iterative ERD design-process recognition",
+      "required_concepts": [
+        "iterative design process",
+        "entities, attributes, and relationships identification"
+      ],
+      "required_question_characteristics": [
+        "Describe the general process of building an ER diagram.",
+        "Ask whether that process is a single fixed pass or an iterative process."
+      ],
+      "skill_id": "DB-ERM-01"
+    },
+    {
       "assessment_focus": "Recognize the relational-model terms for a table's rows and columns.",
       "cognitive_demand": "Recognize that a row is called a tuple and a column is called an attribute.",
       "difficulty": "introductory",
@@ -274,6 +341,74 @@
       "skill_id": "DB-REL-01"
     },
     {
+      "assessment_focus": "Diagnose whether a stated attribute value violates the relational model's requirement that domain values be atomic.",
+      "cognitive_demand": "Apply the atomicity requirement on domain values to diagnose a composite or multi-valued entry.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should accept a comma-separated or multi-part value as atomic."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-REL-01-INT-05",
+      "learning_objective": "Describe the relational model's structure of relations, tuples, and domains, and apply entity and referential integrity constraints.",
+      "preferred_reference_ids": [
+        "DB-REL-01-70238be54add"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a value whose atomicity is ambiguous."
+      ],
+      "prohibited_conflations": [
+        "a domain may contain composite or multi-valued entries in the relational model"
+      ],
+      "question_archetype": "domain-atomicity diagnosis",
+      "required_concepts": [
+        "domain",
+        "atomic value",
+        "indivisible attribute value"
+      ],
+      "required_question_characteristics": [
+        "State an attribute value that is either atomic or composite/multi-valued.",
+        "Ask whether it satisfies the relational model's atomic-domain requirement."
+      ],
+      "skill_id": "DB-REL-01"
+    },
+    {
+      "assessment_focus": "Classify a described integrity violation as a domain, entity, or referential integrity violation.",
+      "cognitive_demand": "Apply the definitions of domain, entity, and referential integrity to classify which one a described violation breaks.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should name a different one of the three integrity types than the one actually violated."
+      ],
+      "generation_constraints": [
+        "Use an intermediate classification task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-REL-01-INT-06",
+      "learning_objective": "Describe the relational model's structure of relations, tuples, and domains, and apply entity and referential integrity constraints.",
+      "preferred_reference_ids": [
+        "DB-REL-01-5838cf6d7512"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a violation that plausibly fits more than one integrity type."
+      ],
+      "prohibited_conflations": [
+        "any integrity violation not involving a primary key must be a referential integrity violation"
+      ],
+      "question_archetype": "integrity-constraint-type classification",
+      "required_concepts": [
+        "domain integrity",
+        "entity integrity",
+        "referential integrity"
+      ],
+      "required_question_characteristics": [
+        "Describe one concrete integrity violation in a small table or pair of tables.",
+        "Ask which of the three integrity types it violates."
+      ],
+      "skill_id": "DB-REL-01"
+    },
+    {
       "assessment_focus": "Recognize what the relational-algebra selection operator does to a relation.",
       "cognitive_demand": "Recognize that selection filters rows by a condition without changing the schema.",
       "difficulty": "introductory",
@@ -403,6 +538,73 @@
       "required_question_characteristics": [
         "Give two relational-algebra expressions over the same relation, one applying selection before projection and the other applying projection before selection, using compatible columns and conditions.",
         "Ask whether the two expressions produce the same result."
+      ],
+      "skill_id": "DB-ALG-01"
+    },
+    {
+      "assessment_focus": "Apply selection and projection to trace the resulting relation instance from a small stated table.",
+      "cognitive_demand": "Apply the row-filtering and column-keeping effects of selection and projection to trace concrete output rows.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should filter rows using the projection list or keep columns using the selection condition."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-ALG-01-INT-05",
+      "learning_objective": "Apply the selection and projection operators of relational algebra to express a simple query.",
+      "preferred_reference_ids": [
+        "DB-ALG-01-835486ff9559"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require more than one selection condition and one projection list."
+      ],
+      "prohibited_conflations": [
+        "projection removes rows that do not match a condition"
+      ],
+      "question_archetype": "selection/projection result trace",
+      "required_concepts": [
+        "selection operator",
+        "projection operator",
+        "resulting relation instance"
+      ],
+      "required_question_characteristics": [
+        "Present a small table and a selection and/or projection expression over it.",
+        "Ask for the resulting rows and columns."
+      ],
+      "skill_id": "DB-ALG-01"
+    },
+    {
+      "assessment_focus": "Apply the correspondence between relational-algebra operators and SQL clauses to translate a relational-algebra expression back into an equivalent SQL query.",
+      "cognitive_demand": "Apply the selection-to-WHERE and projection-to-SELECT-list correspondence to translate an algebra expression into SQL.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should place the selection condition in the SELECT list or the projection columns in the WHERE clause."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-ALG-01-INT-06",
+      "learning_objective": "Apply the selection and projection operators of relational algebra to express a simple query.",
+      "preferred_reference_ids": [
+        "DB-ALG-01-835486ff9559"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require a join in the algebra expression."
+      ],
+      "prohibited_conflations": [
+        "a relational-algebra selection condition corresponds to a SQL SELECT list rather than a WHERE clause"
+      ],
+      "question_archetype": "algebra-to-SQL translation",
+      "required_concepts": [
+        "selection-to-WHERE correspondence",
+        "projection-to-SELECT-list correspondence"
+      ],
+      "required_question_characteristics": [
+        "State a simple relational-algebra expression combining selection and projection over one relation.",
+        "Ask for an equivalent SQL SELECT ... WHERE ... query."
       ],
       "skill_id": "DB-ALG-01"
     },
@@ -542,6 +744,72 @@
       "skill_id": "DB-SQL-01"
     },
     {
+      "assessment_focus": "Apply an outer join to determine which rows a query returns from two small described tables, including unmatched rows.",
+      "cognitive_demand": "Apply the outer-join rule (unmatched rows from one or both tables are retained) to trace a query's result.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should drop the unmatched row as if the join were an inner join."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-SQL-01-INT-05",
+      "learning_objective": "Write and interpret SQL SELECT statements, including joins that combine rows from multiple tables.",
+      "preferred_reference_ids": [
+        "DB-SQL-01-4b63e83d9781"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require distinguishing left, right, and full outer joins in this intent."
+      ],
+      "prohibited_conflations": [
+        "an outer join returns only matching rows the way an inner join does"
+      ],
+      "question_archetype": "outer-join result trace",
+      "required_concepts": [
+        "outer join",
+        "unmatched rows retained"
+      ],
+      "required_question_characteristics": [
+        "Present two small tables where at least one row in one table has no match in the other.",
+        "Ask for the result of an outer join between them."
+      ],
+      "skill_id": "DB-SQL-01"
+    },
+    {
+      "assessment_focus": "Diagnose the effect of a stated UPDATE or DELETE statement on a small described table's data.",
+      "cognitive_demand": "Apply the defined effect of UPDATE versus DELETE to diagnose what changes in the table's data.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should apply the effect of the other statement (e.g. removing a row for an UPDATE)."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-SQL-01-INT-06",
+      "learning_objective": "Write and interpret SQL SELECT statements, including joins that combine rows from multiple tables.",
+      "preferred_reference_ids": [
+        "DB-SQL-01-4b63e83d9781"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not combine UPDATE and DELETE in the same intent instance."
+      ],
+      "prohibited_conflations": [
+        "DELETE removes a column rather than rows, or UPDATE removes a row rather than modifying its values"
+      ],
+      "question_archetype": "UPDATE/DELETE effect diagnosis",
+      "required_concepts": [
+        "UPDATE statement effect",
+        "DELETE statement effect"
+      ],
+      "required_question_characteristics": [
+        "Present a small table and one stated UPDATE or DELETE statement.",
+        "Ask what the table's data looks like after the statement runs."
+      ],
+      "skill_id": "DB-SQL-01"
+    },
+    {
       "assessment_focus": "Recognize the notation and meaning of a functional dependency X -> Y.",
       "cognitive_demand": "Recognize that X -> Y means X's value uniquely determines Y's value.",
       "difficulty": "introductory",
@@ -670,6 +938,73 @@
       "required_question_characteristics": [
         "Give a small table of rows over two attributes X and Y, either consistent with X -> Y or containing a counterexample (two rows with the same X value but different Y values).",
         "Ask whether X -> Y holds for the given data."
+      ],
+      "skill_id": "DB-NRM-01"
+    },
+    {
+      "assessment_focus": "Apply the 3NF definition to decompose a relation with a stated transitive dependency into relations that satisfy 3NF.",
+      "cognitive_demand": "Apply the transitive-dependency-removal purpose of normalization to decompose a described relation into 3NF.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should leave the transitive dependency in place or split the relation on an unrelated attribute."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-NRM-01-INT-05",
+      "learning_objective": "Identify functional dependencies in a relation and normalize a schema through third normal form (3NF).",
+      "preferred_reference_ids": [
+        "DB-NRM-01-73070f06d273"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a relation with more than one transitive dependency."
+      ],
+      "prohibited_conflations": [
+        "decomposing a relation to remove a transitive dependency loses information needed to reconstruct the original data"
+      ],
+      "question_archetype": "3NF decomposition application",
+      "required_concepts": [
+        "transitive dependency removal",
+        "schema decomposition"
+      ],
+      "required_question_characteristics": [
+        "Describe a small relation with a stated transitive dependency.",
+        "Ask how to decompose it into relations that satisfy 3NF."
+      ],
+      "skill_id": "DB-NRM-01"
+    },
+    {
+      "assessment_focus": "Identify a transitive dependency implied by a stated chain of functional dependencies.",
+      "cognitive_demand": "Apply functional-dependency chaining to identify the transitive dependency implied by two stated dependencies.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should deny that A -> C follows, or reverse the direction of the implied dependency."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-NRM-01-INT-06",
+      "learning_objective": "Identify functional dependencies in a relation and normalize a schema through third normal form (3NF).",
+      "preferred_reference_ids": [
+        "DB-NRM-01-35fcdaf402eb",
+        "DB-NRM-01-73070f06d273"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not state more than two chained dependencies."
+      ],
+      "prohibited_conflations": [
+        "A -> C is not implied when A -> B and B -> C both hold"
+      ],
+      "question_archetype": "transitive-dependency identification from stated FD chain",
+      "required_concepts": [
+        "functional dependency chain",
+        "transitive dependency"
+      ],
+      "required_question_characteristics": [
+        "State two functional dependencies of the form A -> B and B -> C.",
+        "Ask which transitive dependency they imply."
       ],
       "skill_id": "DB-NRM-01"
     },
@@ -810,6 +1145,74 @@
       "skill_id": "DB-TXN-01"
     },
     {
+      "assessment_focus": "Apply the role of the transaction log file to diagnose how a system recovers a transaction's state after a failure.",
+      "cognitive_demand": "Apply the log file's role in registering transaction state to diagnose how recovery after a failure is possible.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim recovery is possible without consulting any recorded transaction state."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-TXN-01-INT-05",
+      "learning_objective": "Explain the ACID properties of a database transaction and how concurrency control and recovery preserve them.",
+      "preferred_reference_ids": [
+        "DB-TXN-01-6e069c731ed0"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require describing the log file's internal format."
+      ],
+      "prohibited_conflations": [
+        "recovery after a failure is possible without any record of the transaction's prior state"
+      ],
+      "question_archetype": "log-file recovery-role diagnosis",
+      "required_concepts": [
+        "log file",
+        "transaction state recording",
+        "recovery after failure"
+      ],
+      "required_question_characteristics": [
+        "Describe a transaction that fails partway through, after the system has been logging its progress.",
+        "Ask what allows the system to recover the correct state afterward."
+      ],
+      "skill_id": "DB-TXN-01"
+    },
+    {
+      "assessment_focus": "Apply the described success or failure of a transaction's execution to determine whether the transaction manager issues COMMIT or ROLLBACK.",
+      "cognitive_demand": "Apply the successful-versus-unsuccessful-execution rule to determine the transaction manager's COMMIT or ROLLBACK decision.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should issue ROLLBACK for a fully successful execution or COMMIT for a failed one."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-TXN-01-INT-06",
+      "learning_objective": "Explain the ACID properties of a database transaction and how concurrency control and recovery preserve them.",
+      "preferred_reference_ids": [
+        "DB-TXN-01-6e069c731ed0"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe an execution outcome that is ambiguous between success and failure."
+      ],
+      "prohibited_conflations": [
+        "a transaction manager issues ROLLBACK even when every operation in the transaction succeeded"
+      ],
+      "question_archetype": "commit-or-rollback decision application",
+      "required_concepts": [
+        "COMMIT",
+        "ROLLBACK",
+        "successful versus unsuccessful execution"
+      ],
+      "required_question_characteristics": [
+        "Describe a transaction's execution as either fully successful or as failing partway through.",
+        "Ask whether the transaction manager issues COMMIT or ROLLBACK."
+      ],
+      "skill_id": "DB-TXN-01"
+    },
+    {
       "assessment_focus": "Recognize how a B-tree generalizes a binary search tree for indexing.",
       "cognitive_demand": "Recognize that a B-tree node holds a list of multiple values instead of just one.",
       "difficulty": "introductory",
@@ -941,12 +1344,80 @@
         "Ask why the B+ tree requires fewer levels to reach a given key."
       ],
       "skill_id": "DB-IDX-01"
+    },
+    {
+      "assessment_focus": "Recognize why a B-tree node is sized to hold multiple values corresponding to a storage block, rather than a single value.",
+      "cognitive_demand": "Recognize the storage-block rationale for sizing a B-tree node to hold multiple values.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should attribute the node size to an arbitrary programming choice unrelated to storage blocks."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference."
+      ],
+      "intent_id": "DB-IDX-01-INT-05",
+      "learning_objective": "Explain how a B-tree/B+ tree index improves query performance compared to scanning every row.",
+      "preferred_reference_ids": [
+        "DB-IDX-01-0e0867addcad"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require stating a specific numeric block size."
+      ],
+      "prohibited_conflations": [
+        "a B-tree node is sized independently of the underlying storage block"
+      ],
+      "question_archetype": "block-sized node rationale recognition",
+      "required_concepts": [
+        "storage block",
+        "node value count",
+        "B-tree design rationale"
+      ],
+      "required_question_characteristics": [
+        "Describe a B-tree node holding several values.",
+        "Ask why the node is sized to hold that many values rather than just one."
+      ],
+      "skill_id": "DB-IDX-01"
+    },
+    {
+      "assessment_focus": "Apply the shallow, wide B+ tree structure to trace how a lookup descends through the tree to reach a target key.",
+      "cognitive_demand": "Apply the B+ tree's shallow, wide structure to trace a lookup's descent path to a target key, contrasted with scanning every row.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should describe scanning every leaf, or every row of the underlying table."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Provide exactly one defensible answer supported by the mapped reference."
+      ],
+      "intent_id": "DB-IDX-01-INT-06",
+      "learning_objective": "Explain how a B-tree/B+ tree index improves query performance compared to scanning every row.",
+      "preferred_reference_ids": [
+        "DB-IDX-01-0e0867addcad"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require describing an insertion or deletion in this intent."
+      ],
+      "prohibited_conflations": [
+        "a B+ tree lookup must still examine every row to find a match"
+      ],
+      "question_archetype": "B+ tree lookup-descent trace",
+      "required_concepts": [
+        "shallow wide tree traversal",
+        "lookup descent",
+        "avoiding a full table scan"
+      ],
+      "required_question_characteristics": [
+        "Describe a small B+ tree and a target key to look up.",
+        "Ask which path the lookup takes from the root to the leaf holding that key."
+      ],
+      "skill_id": "DB-IDX-01"
     }
   ],
   "prompt_version": "v3.3",
   "questions_per_intent": 1,
   "review_status": "blueprint-approved",
-  "reviewed_at": "2026-08-16T23:45:00Z",
-  "reviewer_id": "claude (three-course preparation wave, delegated blueprint authoring by Albert)",
+  "reviewed_at": "2026-08-18T15:15:00Z",
+  "reviewer_id": "claude (capacity-gap intermediate/introductory-tier intents added, closing Database Systems to 6/6, delegated blueprint authoring by Albert)",
   "skill_conventions": {}
 }
