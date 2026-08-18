@@ -36,6 +36,18 @@ NETWORK_OR_MODEL_MODULES = (
     "authoring.retrieval.brave",  # Brave Search HTTP client
     "authoring.retrieval.fetcher",  # page-fetching HTTP client
     "api.model_loader",  # torch/transformers model loading
+    # Hybrid option-equivalence gate (authoring/review/equivalence_gate.py) and its
+    # dependencies -- pinned in authoring/replenishment/requirements.txt specifically
+    # because the Streamlit learner deployment installs only the root requirements.txt
+    # and must never need (or accidentally pull in) any of these.
+    "authoring.review.equivalence_gate",
+    "authoring.review.equivalence_math",
+    "authoring.review.equivalence_units",
+    "authoring.review.equivalence_nli",
+    "sympy",
+    "pint",
+    "onnxruntime",
+    "huggingface_hub",
 )
 
 

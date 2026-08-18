@@ -1,0 +1,18 @@
+# Hybrid option-equivalence gate (authoring/review/equivalence_gate.py) -- isolated
+# from the root requirements.txt (the Streamlit learner deployment's dependency set)
+# because nothing under app/, streamlit_app.py, or api/ imports any of these; they are
+# only ever imported, lazily, from inside authoring/review/equivalence_math.py,
+# equivalence_units.py, and equivalence_nli.py, which only run from the authoring-side
+# replenishment worker's review_candidate() call. sympy/pint are pure-Python and
+# onnxruntime is CPU-only, so none of this touches or requires the generation/review
+# Modal environment's torch pin either. huggingface_hub is pinned explicitly (not left
+# as an implicit transitive dependency of transformers) since equivalence_nli.py
+# imports it directly to fetch the pinned NLI model.
+#
+# Install alongside the root requirements.txt wherever the replenishment worker or its
+# test suite actually runs (.github/workflows/replenishment.yml,
+# .github/workflows/ci.yml) -- never as part of the Streamlit learner deployment.
+sympy==1.14.0
+pint==0.25.3
+onnxruntime==1.23.2
+huggingface_hub==1.24.0
