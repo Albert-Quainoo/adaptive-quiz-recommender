@@ -61,6 +61,7 @@ from authoring.replenishment.manifest import (
 from authoring.retrieval.brave import MissingCredentials
 from authoring.retrieval.diagnostics import RetrievalDiagnostics
 from authoring.retrieval.models import ReferenceCandidate
+from authoring.retrieval.relevance import course_context_vocabulary
 from authoring.retrieval.search import (
     PageFetcher,
     RetrievalError,
@@ -399,6 +400,10 @@ def _handle_retrieve_references(
                 diagnostics=RetrievalDiagnostics(),
                 known=known_for(job.skill_id, held),
                 clock=clock,
+                course_anchor=manifest.title,
+                context_vocabulary=course_context_vocabulary(
+                    manifest.title, catalogue.skills
+                ),
             )
         except MissingCredentials as exc:
             job_repository.mark_retryable_failure(
