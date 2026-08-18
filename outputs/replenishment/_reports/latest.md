@@ -1,58 +1,58 @@
 # Content Replenishment Cycle Report
 
-Generated: `2026-08-18T03:21:54.252878+00:00`  
+Generated: `2026-08-18T03:42:52.046025+00:00`  
 Mode: **live**  
 Stopped because: new-candidate cap reached (1)  
-Job-queue rows written this run: **31**
+Job-queue rows written this run: **0**
 
 ## Deficiency scan (complete inventory)
 
 | Course | Skill | Difficulty | Decision | Requested | Reason | Proposed job |
 |---|---|---|---|---|---|---|
 | intro-ai | AI-FND-01 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
-| intro-ai | AI-FND-02 | unknown | blocked | 6 | blocked: AI-FND-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-FND-03 | introductory | enqueued | 5 | supply 1 below threshold 3 | f164e3c9 |
-| intro-ai | AI-FND-04 | introductory | deferred | 5 | supply 1 below threshold 3; deferred: exceeds this run's max_new_candidates cap (1) | 52449858 |
+| intro-ai | AI-FND-02 | - | no_deficiency | 0 | not eligible: readiness=reference_review | - |
+| intro-ai | AI-FND-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-FND-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-AGT-01 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
-| intro-ai | AI-AGT-02 | unknown | blocked | 6 | blocked: AI-AGT-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-AGT-03 | unknown | blocked | 6 | blocked: AI-AGT-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-AGT-04 | unknown | blocked | 6 | blocked: AI-AGT-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-AGT-05 | unknown | blocked | 6 | blocked: AI-AGT-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
+| intro-ai | AI-AGT-02 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-AGT-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-AGT-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-AGT-05 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-SRC-01 | - | no_deficiency | 0 | supply 9 meets threshold 3 | - |
 | intro-ai | AI-SRC-02 | - | no_deficiency | 0 | supply 7 meets threshold 3 | - |
 | intro-ai | AI-SRC-03 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
 | intro-ai | AI-SRC-04 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
 | intro-ai | AI-SRC-05 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
 | intro-ai | AI-SRC-06 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
-| intro-ai | AI-SRC-07 | unknown | blocked | 6 | blocked: AI-SRC-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
+| intro-ai | AI-SRC-07 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-SRC-08 | - | no_deficiency | 0 | supply 9 meets threshold 3 | - |
 | intro-ai | AI-SRC-09 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
 | intro-ai | AI-SRC-10 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
-| intro-ai | AI-SRC-11 | unknown | blocked | 6 | blocked: AI-SRC-11 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-01 | unknown | blocked | 6 | blocked: AI-ML-01 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-02 | unknown | blocked | 6 | blocked: AI-ML-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-03 | unknown | blocked | 6 | blocked: AI-ML-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-04 | unknown | blocked | 6 | blocked: AI-ML-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-05 | unknown | blocked | 6 | blocked: AI-ML-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-06 | unknown | blocked | 6 | blocked: AI-ML-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-07 | unknown | blocked | 6 | blocked: AI-ML-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-08 | unknown | blocked | 6 | blocked: AI-ML-08 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ML-09 | unknown | blocked | 6 | blocked: AI-ML-09 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-01 | unknown | blocked | 6 | blocked: AI-NN-01 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-02 | unknown | blocked | 6 | blocked: AI-NN-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-03 | unknown | blocked | 6 | blocked: AI-NN-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-04 | unknown | blocked | 6 | blocked: AI-NN-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
+| intro-ai | AI-SRC-11 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-01 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-02 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-05 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-06 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-07 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-08 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ML-09 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-01 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-02 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-NN-05 | - | no_deficiency | 0 | templated skills are served by templates/registry.py | - |
-| intro-ai | AI-NN-06 | unknown | blocked | 6 | blocked: AI-NN-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-07 | unknown | blocked | 6 | blocked: AI-NN-07 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-08 | unknown | blocked | 6 | blocked: AI-NN-08 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-NN-09 | unknown | blocked | 6 | blocked: AI-NN-09 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
+| intro-ai | AI-NN-06 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-07 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-08 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-NN-09 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-ETH-01 | - | manual_action_required | 6 | supply 0 below threshold 3; hand_authored, not eligible for automated generation | - |
-| intro-ai | AI-ETH-02 | unknown | blocked | 6 | blocked: AI-ETH-02 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ETH-03 | unknown | blocked | 6 | blocked: AI-ETH-03 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ETH-04 | unknown | blocked | 6 | blocked: AI-ETH-04 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ETH-05 | unknown | blocked | 6 | blocked: AI-ETH-05 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
-| intro-ai | AI-ETH-06 | unknown | blocked | 6 | blocked: AI-ETH-06 has no reviewed blueprint declaring one consistent, explicit difficulty; automated replenishment cannot guess introductory vs. intermediate -- author and review a blueprint for this skill before it can be planned as a generation-ready job | - |
+| intro-ai | AI-ETH-02 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ETH-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ETH-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ETH-05 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-ETH-06 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-ETH-07 | - | manual_action_required | 6 | supply 0 below threshold 3; hand_authored, not eligible for automated generation | - |
 | dsa | DSA-CPX-01 | - | no_deficiency | 0 | supply 4 meets threshold 3 | - |
 | dsa | DSA-LST-01 | - | no_deficiency | 0 | supply 4 meets threshold 3 | - |
@@ -77,20 +77,18 @@ Job-queue rows written this run: **31**
 
 ## Planned execution (this run)
 
-| Rank | Course | Skill | Difficulty | Requested | Proposed job | Reason |
-|---|---|---|---|---|---|---|
-| 1 | intro-ai | AI-FND-03 | introductory | 5 | f164e3c9 | selected 1 of 2 eligible deficiencies, in deterministic course-then-taxonomy scan order (COURSE_IDS order, then skills.csv row order within each course) -- the same creation order enqueue() assigns and the worker's FIFO claim (oldest created_at first) would later process |
+_none_
 
-Planned this run: **1**  
-Deferred (eligible, over cap, left for a later run): **1**  
-Blocked (unresolved difficulty, needs a reviewed blueprint): **29**  
+Planned this run: **0**  
+Deferred (eligible, over cap, left for a later run): **0**  
+Blocked (unresolved difficulty, needs a reviewed blueprint): **0**  
 Manual action required (hand_authored, needs a person to write items): **2**
 
 ## Job processing outcomes this run
 
 | Job | Course | Skill | Stage | Status | Outcome | New? | Error |
 |---|---|---|---|---|---|---|---|
-| e4bedc2e | intro-ai | AI-FND-02 | retrieve_references | waiting_for_reference_review | in_progress | yes | - |
+| 7029088c | intro-ai | AI-FND-03 | replenish_skill | permanent_failure | permanent_failure | yes | demand_already_satisfied |
 
 ## Pending admin approvals
 

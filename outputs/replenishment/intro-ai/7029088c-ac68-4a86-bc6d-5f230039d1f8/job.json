@@ -1,0 +1,17 @@
+{
+  "attempts": 1,
+  "completed_at": null,
+  "course_id": "intro-ai",
+  "created_at": "2026-08-18T03:21:12.876559+00:00",
+  "error_code": "demand_already_satisfied",
+  "error_message": "every intent slot in grounded-ai-fnd-release-v1 for AI-FND-03 is already an approved bank item; nothing to retrieve or generate",
+  "job_id": "7029088c-ac68-4a86-bc6d-5f230039d1f8",
+  "job_type": "replenish_skill",
+  "metadata": {},
+  "next_retry_at": null,
+  "requested_count": 5,
+  "skill_id": "AI-FND-03",
+  "snapshotted_at": "2026-08-18T03:42:46.665673+00:00",
+  "started_at": "2026-08-18T03:42:44.225331+00:00",
+  "status": "permanent_failure"
+}
