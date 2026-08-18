@@ -269,9 +269,7 @@ class SemanticReviewResult(BaseModel):
     request_count: int = 1
 
 
-EquivalenceDetector = Literal[
-    "symbolic_math", "unit_conversion", "nli_semantic", "nli_initialization"
-]
+EquivalenceDetector = Literal["symbolic_math", "unit_conversion", "nli_semantic"]
 
 # "not_applicable": the detector correctly determined it does not apply to this pair
 # (e.g. neither option is a numeric expression) -- the normal, common, non-error case,
@@ -288,11 +286,9 @@ EquivalenceVerdict = Literal["not_applicable", "equivalent", "not_equivalent", "
 class OptionPairEvidence(BaseModel):
     """One detector's verdict on one option pair -- the structured evidence unit the
     hybrid option-equivalence gate (authoring/review/equivalence_gate.py) produces for
-    every one of a 4-option candidate's 6 pairs x 3 detectors. Exception:
-    detector="nli_initialization" is gate-level, not pair-specific -- produced exactly
-    once, in place of all 18 normal entries, when the NLI scorer's warm-up itself
-    fails; option_index_a/b are sentinels in that one case (see
-    equivalence_gate.py:_gate_initialization_error_evidence)."""
+    every one of a 4-option candidate's 6 pairs x 3 detectors. A gate-level failure
+    (the NLI scorer's warm-up itself failing, before any pair was evaluated) is never
+    represented here -- see EquivalenceAssessment.initialization_error below."""
 
     option_index_a: int = Field(ge=0)
     option_index_b: int = Field(ge=0)
@@ -320,6 +316,16 @@ class EquivalenceAssessment(BaseModel):
     threshold_version: str = Field(min_length=1)
     evidence: list[OptionPairEvidence] = Field(default_factory=list)
     escalated: bool
+    # Additive/optional (default None) so a report from before this field existed still
+    # loads unchanged. Set when the NLI scorer's warm-up itself failed (network error,
+    # cache corruption, checksum mismatch, timeout -- see
+    # authoring/review/equivalence_gate.py's module docstring) before any option pair
+    # could be evaluated; `evidence` is empty in that case, never fabricated
+    # pair-indexed entries. Sanitized: never a filesystem path, URL, environment value,
+    # or other exception-message content an underlying library might embed.
+    # authoring/review/risk.py escalates on this exactly like a per-pair "error"
+    # verdict -- see authoring/review/service.py's equivalence_reasons construction.
+    initialization_error: str | None = None
 
 
 class AutomatedReviewReport(BaseModel):

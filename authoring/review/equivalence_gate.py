@@ -17,13 +17,17 @@ onnx/model.onnx checksum verification -- see equivalence_nli.py) is bounded the 
 way, under its own more generous timeout (_WARMUP_TIMEOUT_SECONDS): an OSError,
 checksum mismatch, timeout, or any other initialization failure can never propagate
 out of evaluate_option_equivalence() or terminate the caller (the replenishment
-worker). Because no option pair was ever evaluated in that case, this produces exactly
-one gate-level "nli_initialization" error record -- never six fabricated per-pair
-failures -- and its reason string is sanitized: it never includes a filesystem path,
-URL, environment value, or other exception-message content that an underlying library
-(huggingface_hub, transformers, onnxruntime) might embed (see
-_sanitize_initialization_failure below). authoring/review/risk.py escalates on this
-exactly like any other "error" evidence.
+worker). Because no option pair was ever evaluated in that case, this is never recorded
+as pairwise OptionPairEvidence (there is no pair to attach it to, and fabricating
+sentinel indices would misrepresent evaluation that never happened) -- instead
+evaluate_option_equivalence() returns it as a second, assessment-level return value
+(an "initialization_error" string, or None on success) that
+authoring/review/service.py records directly on EquivalenceAssessment.
+initialization_error and folds into the same escalation-reasons list risk.py already
+treats identically to a per-pair "error" verdict. The reason string is sanitized: it
+never includes a filesystem path, URL, environment value, or other exception-message
+content that an underlying library (huggingface_hub, transformers, onnxruntime) might
+embed (see _sanitize_initialization_failure below).
 """
 
 import itertools
@@ -57,23 +61,6 @@ def _error_evidence(
         option_index_a=option_index_a,
         option_index_b=option_index_b,
         detector=detector,
-        verdict="error",
-        score_or_normalized_form="n/a",
-        reason=reason,
-    )
-
-
-def _gate_initialization_error_evidence(reason: str) -> OptionPairEvidence:
-    """One gate-level error record for an NLI warm-up failure -- option_index_a/b are
-    sentinels (0/1 always exist: the equivalence gate only ever runs on a 4-option
-    candidate, after deterministic checks already enforced exactly four options) and
-    carry no pair-specific meaning here; `detector="nli_initialization"` is what marks
-    this as gate-level rather than a per-pair verdict. Exactly one of these is ever
-    produced per evaluate_option_equivalence() call -- never one per pair."""
-    return OptionPairEvidence(
-        option_index_a=0,
-        option_index_b=1,
-        detector="nli_initialization",
         verdict="error",
         score_or_normalized_form="n/a",
         reason=reason,
@@ -122,11 +109,16 @@ def evaluate_option_equivalence(
     *,
     nli_threshold: float,
     nli_scorer: NliScorer | FakeNliScorer | None = None,
-) -> list[OptionPairEvidence]:
-    """Runs all 3 detectors over every pair of `options`. For 4 options this is 6
-    pairs x 3 detectors = 18 evidence entries -- unless the NLI scorer's warm-up itself
-    fails, in which case this returns exactly one gate-level "nli_initialization" error
-    entry instead (see this module's docstring and _gate_initialization_error_evidence).
+) -> tuple[list[OptionPairEvidence], str | None]:
+    """Runs all 3 detectors over every pair of `options` and returns
+    (evidence, initialization_error). For 4 options the normal case is 6 pairs x 3
+    detectors = 18 evidence entries and initialization_error=None -- unless the NLI
+    scorer's warm-up itself fails, in which case no pair was ever evaluated: this
+    returns ([], sanitized_reason) instead, since fabricating pair-indexed evidence
+    for pairs that were never evaluated would misrepresent what happened (see this
+    module's docstring). The caller (authoring/review/service.py) records
+    initialization_error on EquivalenceAssessment and folds it into the same
+    escalation-reasons list a per-pair "error" verdict would produce.
     `nli_scorer` is an injection point for tests -- production callers omit it and get
     the pinned default (lazy-loaded, process-wide, see equivalence_nli.get_default_scorer)."""
     resolved_scorer = nli_scorer or get_default_scorer()
@@ -147,25 +139,21 @@ def evaluate_option_equivalence(
     executor = ThreadPoolExecutor(max_workers=4)
     try:
         # Bounded exactly like a per-pair detector call, just under a more generous
-        # timeout and with its own single-record failure shape -- see this module's
-        # docstring. A successful warm-up on an already-loaded scorer (the common case
-        # for every candidate after a worker process's first) is a fast no-op, so this
-        # costs nothing on the hot path.
+        # timeout and with its own assessment-level (not pairwise) failure shape --
+        # see this module's docstring. A successful warm-up on an already-loaded
+        # scorer (the common case for every candidate after a worker process's first)
+        # is a fast no-op, so this costs nothing on the hot path.
         warmup_future = executor.submit(resolved_scorer.warm_up)
         try:
             warmup_future.result(timeout=_WARMUP_TIMEOUT_SECONDS)
         except FutureTimeoutError:
-            return [
-                _gate_initialization_error_evidence(
-                    f"nli model warm-up exceeded {_WARMUP_TIMEOUT_SECONDS}s timeout"
-                )
-            ]
+            return [], f"nli model warm-up exceeded {_WARMUP_TIMEOUT_SECONDS}s timeout"
         except Exception as exc:  # noqa: BLE001 -- any initialization failure (network
             # error, cache corruption, checksum mismatch, unsupported opset, ...) must
-            # become one sanitized, gate-level error record -- never propagate and
+            # become one sanitized, assessment-level error -- never propagate and
             # crash the caller (the replenishment worker). See
             # _sanitize_initialization_failure and this module's docstring.
-            return [_gate_initialization_error_evidence(_sanitize_initialization_failure(exc))]
+            return [], _sanitize_initialization_failure(exc)
 
         for index_a, index_b in pairs:
             text_a, text_b = options[index_a], options[index_b]
@@ -191,7 +179,7 @@ def evaluate_option_equivalence(
             )
     finally:
         executor.shutdown(wait=False)
-    return evidence
+    return evidence, None
 
 
 def escalation_reasons(evidence: list[OptionPairEvidence]) -> list[str]:

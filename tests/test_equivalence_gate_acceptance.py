@@ -58,9 +58,11 @@ def real_scorer():
 
 @pytest.mark.parametrize("case_id,question,expect_escalation", _CASES)
 def test_frozen_case_escalation_matches_expectation(case_id, question, expect_escalation, real_scorer):
-    evidence = evaluate_option_equivalence(
+    evidence, initialization_error = evaluate_option_equivalence(
         question.question, question.options, nli_threshold=_THRESHOLD, nli_scorer=real_scorer
     )
+    assert initialization_error is None  # the real pinned model is already warm
+    assert len(evidence) == 18  # 4 options -> 6 pairs x 3 detectors, unaffected by warm-up
     escalated = bool(escalation_reasons(evidence))
     assert escalated == expect_escalation, (
         f"{case_id}: expected escalation={expect_escalation}, got {escalated}. "

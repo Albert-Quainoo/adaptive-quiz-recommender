@@ -154,13 +154,18 @@ def review_candidate(
     # Never auto-rejects/approves/revises/promotes: risk.score_risk only ever escalates
     # to require_full_human_review on its evidence (see authoring/review/risk.py and
     # authoring/review/equivalence_gate.py's module docstrings).
-    equivalence_evidence = evaluate_option_equivalence(
+    equivalence_evidence, equivalence_initialization_error = evaluate_option_equivalence(
         candidate.question.question,
         candidate.question.options,
         nli_threshold=config.equivalence_nli_threshold,
         nli_scorer=equivalence_nli_scorer,
     )
     equivalence_reasons = escalation_reasons(equivalence_evidence)
+    if equivalence_initialization_error is not None:
+        # Assessment-level, not pairwise -- no option pair was ever evaluated (see
+        # authoring/review/equivalence_gate.py's module docstring) -- but risk.py must
+        # still force require_full_human_review on it exactly like a per-pair "error".
+        equivalence_reasons = equivalence_reasons + [equivalence_initialization_error]
 
     pass_count = passes if passes is not None else config.reviewer_passes
     results: list[SemanticReviewResult] = []
@@ -268,6 +273,7 @@ def review_candidate(
             threshold_version=config.equivalence_threshold_version,
             evidence=equivalence_evidence,
             escalated=bool(equivalence_reasons),
+            initialization_error=equivalence_initialization_error,
         ),
     )
     report_store.append(report)

@@ -1526,6 +1526,20 @@ def test_equivalence_gate_initialization_failure_escalates_and_worker_survives_t
     assert after.error_code is None  # escalated, not failed -- see worker.py's
     # any_require_full_human_review branch
 
+    stored_report_store = AutomatedReviewReportStore(
+        review_report_path(manifest.review_store_path, after.metadata["batch_id"], SKILL_ID)
+    )
+    stored_reports = stored_report_store.load_all()
+    assert len(stored_reports) == 1
+    stored_report = stored_reports[0]
+    # Zero evaluated pairs, exactly one sanitized assessment-level error, escalated.
+    assert stored_report.equivalence_assessment.evidence == []
+    assert stored_report.equivalence_assessment.initialization_error is not None
+    assert "OSError" in stored_report.equivalence_assessment.initialization_error
+    assert "unreachable" not in stored_report.equivalence_assessment.initialization_error
+    assert stored_report.equivalence_assessment.escalated is True
+    assert stored_report.recommendation == "require_full_human_review"
+
     # The worker process itself survived: cli.py's poll loop (`while True:
     # run_once() ...`) calls exactly this claim_next()/process_job() sequence every
     # tick, with no surrounding try/except of its own -- before this fix, an
