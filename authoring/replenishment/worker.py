@@ -450,9 +450,17 @@ def _blueprint_generation_difficulty(skill_id: str, intents: list[QuestionIntent
     rather than falling back to BatchConfig's "intermediate" default. The blueprint is
     authoritative: an automated worker has no human present to pick a difficulty the
     blueprint itself leaves ambiguous. Every intent for this skill must both belong to
-    skill_id and declare the exact same explicit difficulty; anything else is a
-    deterministic configuration defect the caller must fail on before generate_batch
-    ever calls the model, not something to guess through."""
+    skill_id and declare an explicit difficulty -- a missing one is a deterministic
+    configuration defect the caller must fail on before generate_batch ever calls the
+    model, not something to guess through.
+
+    When every intent shares one explicit difficulty, that value is returned. When
+    they declare more than one, "mixed" is returned instead: generate_batch's own
+    BatchConfig(difficulty="mixed") support already resolves each question's
+    difficulty from its own intent.difficulty in that case (see
+    authoring/grounded_batch.py), so a blueprint intentionally spanning tiers for one
+    skill -- e.g. two introductory + two intermediate intents -- generates correctly
+    rather than being rejected outright just because its tiers aren't uniform."""
     if not intents:
         raise BatchGenerationError(f"{skill_id} has no reviewed question intents")
     declared: set[str | None] = set()
@@ -462,13 +470,15 @@ def _blueprint_generation_difficulty(skill_id: str, intents: list[QuestionIntent
                 f"{intent.intent_id} belongs to skill {intent.skill_id}, not {skill_id}"
             )
         declared.add(intent.difficulty)
-    if len(declared) != 1 or None in declared:
-        offending = ", ".join(f"{intent.intent_id}={intent.difficulty}" for intent in intents)
-        raise BatchGenerationError(
-            f"{skill_id} blueprint intents do not declare one consistent, explicit "
-            f"difficulty (automated replenishment cannot guess): {offending}"
+    if None in declared:
+        offending = ", ".join(
+            intent.intent_id for intent in intents if intent.difficulty is None
         )
-    return declared.pop()
+        raise BatchGenerationError(
+            f"{skill_id} blueprint intent(s) have no explicit difficulty "
+            f"(automated replenishment cannot guess): {offending}"
+        )
+    return declared.pop() if len(declared) == 1 else "mixed"
 
 
 def _demand_fingerprint(

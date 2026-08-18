@@ -1218,3 +1218,54 @@ def test_scan_to_worker_race_resolves_safely_across_two_runs(
     stored = repository.get(job_id)
     assert stored.error_code == "demand_already_satisfied"
     assert stored.metadata["demand_fingerprint"]
+
+
+def test_dry_run_reports_mixed_difficulty_for_a_deficient_multi_tier_blueprint(
+    tmp_path, manifest, database, monkeypatch
+):
+    """The real DSA/Linear-Algebra/Database-Systems shape: a blueprint declaring both
+    introductory and intermediate intents for one skill, with the introductory slot
+    already satisfied and the intermediate one still deficient. This must resolve
+    difficulty="mixed" and be planned/proposed normally -- never reported "blocked"
+    just because the pool isn't difficulty-uniform (see worker.py's
+    _blueprint_generation_difficulty, which now returns "mixed" instead of raising
+    for exactly this shape)."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=3, target_supply=6
+    )
+    blueprint_dir = tmp_path / "blueprints-mixed-tier"
+    blueprint_dir.mkdir()
+    intents = [
+        QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-01", skill_id=SKILL_ID,
+            assessment_focus="facet one", question_archetype="definition recall",
+            preferred_reference_ids=["placeholder-ref"], required_concepts=["heuristic"],
+            prohibited_conflations=["placeholder conflation"], difficulty="introductory",
+        ),
+        QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-02", skill_id=SKILL_ID,
+            assessment_focus="facet two", question_archetype="definition recall",
+            preferred_reference_ids=["placeholder-ref"], required_concepts=["heuristic"],
+            prohibited_conflations=["placeholder conflation"], difficulty="intermediate",
+        ),
+    ]
+    blueprint = PilotBlueprint(
+        batch_id="test-batch-mixed-tier", prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved", reviewer_id="albert", reviewed_at=FIXED_TIME,
+        base_seed=1, intents=intents,
+    )
+    (blueprint_dir / "test-batch-mixed-tier.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(question_intents, "BLUEPRINT_DIRECTORY", blueprint_dir)
+    # Only the introductory slot (index 0) is satisfied -- the intermediate one
+    # (index 1) is still deficient, so this skill must be planned normally, never
+    # capacity_exhausted.
+    _write_bank(scoped_manifest, [question_id("test-batch-mixed-tier", SKILL_ID, 0)])
+    _seed_schema(database)
+
+    report = _run(database, tmp_path / "snapshots", dry_run=True)
+    row = next(r for r in report.deficiencies if r.skill_id == SKILL_ID)
+    assert row.decision == "proposed"
+    assert row.difficulty == "mixed"
+    assert any(planned.skill_id == SKILL_ID for planned in report.execution_plan)
