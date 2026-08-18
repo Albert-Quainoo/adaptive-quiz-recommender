@@ -76,14 +76,20 @@ def blueprint(**overrides):
     return PilotBlueprint(**fields)
 
 
-def test_the_real_bounded_ai_fnd_blueprint_passes_every_invariant():
+def test_the_real_bounded_ai_fnd_blueprint_passes_every_invariant_with_mixed_difficulty():
+    """grounded-ai-fnd-release-v1.json: AI-FND-03 and AI-FND-04 each now declare 6
+    intents (1 original + 5 added to close the target-supply gap), spanning both
+    introductory and intermediate tiers -- the same mixed-difficulty shape as DSA/
+    Linear Algebra/Database Systems, and the reason this blueprint must resolve
+    "mixed" rather than being rejected."""
     blueprint = load_blueprint_for_batch("grounded-ai-fnd-release-v1")
     skills, provenance = real_ai_inputs()
 
     summary = validate_replenishment_blueprint(blueprint, skills, provenance)
 
-    assert summary["intent_count"] == 2
+    assert summary["intent_count"] == 12
     assert summary["skill_ids"] == ["AI-FND-03", "AI-FND-04"]
+    assert all(difficulty == "mixed" for difficulty in summary["difficulty_counts"].values())
     assert all(summary["checks"].values())
 
 
