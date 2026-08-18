@@ -43,6 +43,7 @@ _OUTCOME_BY_STATUS = {
     "permanent_failure": "permanent_failure",
     "completed": "generated",
     "cancelled": "cancelled",
+    "no_longer_needed": "no_longer_needed",
 }
 
 
@@ -56,7 +57,7 @@ class DeficiencyRow:
     skill_id: str
     difficulty: str
     # "enqueued" (live) | "proposed" (dry run) | "deferred" | "blocked"
-    # | "manual_action_required" | "no_deficiency"
+    # | "capacity_exhausted" | "manual_action_required" | "no_deficiency"
     decision: str
     requested_count: int
     reason: str
@@ -129,15 +130,17 @@ def deficiency_row(
     reason_override: str | None = None,
 ) -> DeficiencyRow:
     """decision_override/reason_override let the caller (run_cycle) downgrade
-    an otherwise-enqueueable decision to "blocked" (unresolved difficulty) or
-    "deferred" (beyond this run's max_new_candidates cap) without losing the
-    original policy reason. Never used to *upgrade* a no_deficiency row."""
+    an otherwise-enqueueable decision to "blocked" (unresolved difficulty),
+    "capacity_exhausted" (a resolvable blueprint's declared intent slots for
+    this skill are all already approved bank items), or "deferred" (beyond
+    this run's max_new_candidates cap) without losing the original policy
+    reason. Never used to *upgrade* a no_deficiency row."""
     if decision_override is not None:
         decision_label = decision_override
         reason = reason_override or decision.reason
         proposed_job_key = (
             "-"
-            if decision_override == "blocked"
+            if decision_override in ("blocked", "capacity_exhausted")
             else deterministic_job_key(decision.course_id, decision.skill_id)
         )
     elif decision.should_enqueue:
@@ -255,6 +258,9 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 def render_markdown(report: CycleReport) -> str:
     deferred_count = sum(1 for row in report.deficiencies if row.decision == "deferred")
     blocked_count = sum(1 for row in report.deficiencies if row.decision == "blocked")
+    capacity_exhausted_count = sum(
+        1 for row in report.deficiencies if row.decision == "capacity_exhausted"
+    )
     manual_count = sum(
         1 for row in report.deficiencies if row.decision == "manual_action_required"
     )
@@ -299,6 +305,8 @@ def render_markdown(report: CycleReport) -> str:
         f"Planned this run: **{len(report.execution_plan)}**  \n"
         f"Deferred (eligible, over cap, left for a later run): **{deferred_count}**  \n"
         f"Blocked (unresolved difficulty, needs a reviewed blueprint): **{blocked_count}**  \n"
+        f"Capacity exhausted (blueprint's declared intent slots all already "
+        f"approved, needs more intents authored): **{capacity_exhausted_count}**  \n"
         f"Manual action required (hand_authored, needs a person to write items): **{manual_count}**\n",
         "## Job processing outcomes this run\n",
         _table(

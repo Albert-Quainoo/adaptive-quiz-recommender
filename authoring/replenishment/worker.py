@@ -45,7 +45,12 @@ from authoring.question_intents import (
     intents_by_skill,
     load_blueprint_for_batch,
 )
-from authoring.replenishment.demand import compute_blueprint_slot_demand, deficient_slots
+from authoring.replenishment.demand import (
+    compute_blueprint_slot_demand,
+    compute_demand_fingerprint,
+    deficient_slots,
+    load_approved_item_ids,
+)
 from authoring.replenishment.jobs import ReplenishmentJob, SQLiteReplenishmentJobRepository
 from authoring.replenishment.manifest import (
     CourseManifest,
@@ -353,17 +358,12 @@ def _handle_retrieve_references(
     batch_metadata = {"batch_id": resolved_batch_id} if resolved_batch_id else {}
 
     if blueprint_for_demand is not None:
-        current_bank_path = active_bank_path(manifest)
-        approved_item_ids = (
-            {item.item_id for item in load_approved_bank(current_bank_path) if item.item_id}
-            if current_bank_path.is_file()
-            else set()
-        )
+        approved_item_ids = load_approved_item_ids(manifest)
         demand = compute_blueprint_slot_demand(
             blueprint_for_demand, job.skill_id, approved_item_ids
         )
         if demand and not deficient_slots(demand):
-            job_repository.mark_permanent_failure(
+            job_repository.mark_no_longer_needed(
                 job.job_id,
                 error_code="demand_already_satisfied",
                 error_message=(
@@ -371,6 +371,11 @@ def _handle_retrieve_references(
                     f"{job.skill_id} is already an approved bank item; nothing to "
                     "retrieve or generate"
                 ),
+                metadata={
+                    "demand_fingerprint": _demand_fingerprint(
+                        blueprint_for_demand, job.skill_id, approved_item_ids, manifest
+                    ),
+                },
             )
             return
 
@@ -466,6 +471,26 @@ def _blueprint_generation_difficulty(skill_id: str, intents: list[QuestionIntent
     return declared.pop()
 
 
+def _demand_fingerprint(
+    blueprint: PilotBlueprint,
+    skill_id: str,
+    approved_item_ids: set[str],
+    manifest: CourseManifest,
+) -> str:
+    """Best-effort difficulty resolution -- "unknown" rather than raising --
+    since this only feeds an audit fingerprint recorded alongside a
+    no_longer_needed outcome, never a gate on whether generation proceeds."""
+    intents = intents_by_skill(blueprint).get(skill_id, [])
+    try:
+        difficulty = _blueprint_generation_difficulty(skill_id, intents)
+    except BatchGenerationError:
+        difficulty = "unknown"
+    return compute_demand_fingerprint(
+        blueprint, skill_id, approved_item_ids,
+        difficulty=difficulty, target_supply=manifest.target_supply,
+    )
+
+
 def _handle_generate_questions(
     job: ReplenishmentJob,
     manifest: CourseManifest,
@@ -536,21 +561,21 @@ def _handle_generate_questions(
     # makes: an approved item added by another job or a human since retrieval last
     # ran must be respected -- never generate a slot that became satisfied in the
     # meantime. See authoring/replenishment/demand.py.
-    current_bank_path = active_bank_path(manifest)
-    approved_item_ids = (
-        {item.item_id for item in load_approved_bank(current_bank_path) if item.item_id}
-        if current_bank_path.is_file()
-        else set()
-    )
+    approved_item_ids = load_approved_item_ids(manifest)
     demand = compute_blueprint_slot_demand(blueprint, job.skill_id, approved_item_ids)
     if demand and not deficient_slots(demand):
-        job_repository.mark_permanent_failure(
+        job_repository.mark_no_longer_needed(
             job.job_id,
             error_code="demand_already_satisfied",
             error_message=(
                 f"every intent slot in {blueprint.batch_id} for {job.skill_id} became "
                 "an approved bank item since this job last ran; nothing left to generate"
             ),
+            metadata={
+                "demand_fingerprint": _demand_fingerprint(
+                    blueprint, job.skill_id, approved_item_ids, manifest
+                ),
+            },
         )
         return
     skip_question_indices = frozenset(slot.question_index for slot in demand if slot.satisfied)

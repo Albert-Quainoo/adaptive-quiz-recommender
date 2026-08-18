@@ -1107,9 +1107,10 @@ def test_fully_satisfied_blueprint_stops_before_any_retrieval_call(
     )
 
     after = repository.get(job.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
     assert after.job_type == "replenish_skill"  # never advanced to generate_questions
+    assert after.metadata["demand_fingerprint"]  # auditable basis for this outcome
 
 
 def test_partially_deficient_blueprint_generates_only_the_non_contiguous_deficit(
@@ -1194,7 +1195,7 @@ def test_approved_item_added_between_retrieval_and_generation_stops_safely(
     )
 
     after = repository.get(generate_job.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
 
 
@@ -1227,7 +1228,7 @@ def test_rerun_after_the_only_slot_is_filled_makes_zero_network_calls(
     )
 
     after = repository.get(second.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
 
 
