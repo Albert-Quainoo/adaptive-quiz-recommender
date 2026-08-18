@@ -33,6 +33,7 @@ from authoring.retrieval.relevance import (
     AI_CONTEXT_ANCHOR,
     MIN_RELEVANCE_SCORE,
     SourceScope,
+    course_of,
     score_relevance,
 )
 from authoring.retrieval.safety import (
@@ -300,19 +301,33 @@ class PageFetcher(Protocol):
     def fetch(self, url: str) -> FetchedPage: ...
 
 
-def build_search_queries(skill: SkillDefinition) -> list[str]:
+def build_search_queries(
+    skill: SkillDefinition, course_anchor: str | None = None
+) -> list[str]:
     """Query the skill from each angle the taxonomy already describes it by.
 
     The name alone is ambiguous across courses, so every query carries it plus
     one of the fields that places it: its topic, its subtopic, or the learning
     objective the reference has to be able to support.
 
-    Every angle also carries the AI context anchor, because those fields are
+    Every angle also carries a course anchor, because those fields are
     ambiguous too. "Problem formulation" and "Search and Problem Solving" are
     what this taxonomy calls its own topics; asked of the whole of MIT
     OpenCourseWare they returned a problem-solving approach to electromagnetic
     field theory, which answers the question as put. No angle searches alone.
+
+    course_anchor is normally the course's own title (e.g. a CourseManifest's
+    title, which is where retrieve_candidates' caller gets it) - the same role
+    AI_CONTEXT_ANCHOR played when every course was AI. Left unset, a caller
+    that only has the skill (most tests, and any AI skill, whose course title
+    is exactly AI_CONTEXT_ANCHOR) still gets a sensible anchor.
     """
+    anchor = (
+        course_anchor
+        if course_anchor is not None
+        else (AI_CONTEXT_ANCHOR if course_of(skill) == "AI" else skill.topic)
+    ).strip().casefold()
+
     facets = OBJECTIVE_QUERY_FACETS.get(skill.skill_id)
     queries = (
         [
@@ -330,7 +345,7 @@ def build_search_queries(skill: SkillDefinition) -> list[str]:
     unique: list[str] = []
 
     for query in queries:
-        normalised = " ".join(f"{query} {AI_CONTEXT_ANCHOR}".split())
+        normalised = " ".join(f"{query} {anchor}".split())
 
         if normalised and normalised not in unique:
             unique.append(normalised)
@@ -338,11 +353,15 @@ def build_search_queries(skill: SkillDefinition) -> list[str]:
     return unique
 
 
-def learning_objective_facet_for(skill: SkillDefinition, query: str) -> str:
+def learning_objective_facet_for(
+    skill: SkillDefinition, query: str, course_anchor: str | None = None
+) -> str:
     """Return the explicit facet represented by one closure query."""
     facets = OBJECTIVE_QUERY_FACETS.get(skill.skill_id, ())
 
-    for (label, _), planned_query in zip(facets, build_search_queries(skill)):
+    for (label, _), planned_query in zip(
+        facets, build_search_queries(skill, course_anchor)
+    ):
         if planned_query == query:
             return label
 
@@ -390,6 +409,8 @@ def retrieve_candidates(
     known: KnownCandidates | None = None,
     scopes: Sequence[SourceScope] = (),
     min_relevance: int = MIN_RELEVANCE_SCORE,
+    course_anchor: str | None = None,
+    context_vocabulary: frozenset[str] | None = None,
 ) -> list[ReferenceCandidate]:
     """Search, read and collect candidates for one skill. All come back pending.
 
@@ -418,6 +439,13 @@ def retrieve_candidates(
     material. When supplied they are a relevance prerequisite after fetch;
     allowed_domains remains the network boundary that alone says what may be
     fetched.
+
+    course_anchor and context_vocabulary are the course-aware replacements
+    for what used to be a single AI-specific anchor and term list - see
+    build_search_queries and score_relevance's course_context_vocabulary.
+    A caller with the whole course (its manifest and catalogue) passes both
+    explicitly; left unset, each falls back to a same-shaped default derived
+    from this one skill alone.
     """
     if not [domain for domain in allowed_domains if domain.strip()]:
         raise RetrievalError(
@@ -449,7 +477,7 @@ def retrieve_candidates(
         []
         if held >= limit
         else build_search_schedule(
-            build_search_queries(skill),
+            build_search_queries(skill, course_anchor),
             allowed_domains,
             budget.max_requests,
             scopes=askable,
@@ -554,6 +582,7 @@ def retrieve_candidates(
             result.snippet,
             passage,
             scopes,
+            context_vocabulary=context_vocabulary,
         )
 
         if not relevance.is_relevant(min_relevance):
@@ -569,7 +598,9 @@ def retrieve_candidates(
             retrieved_at=clock(),
             relevance_score=relevance.score,
             matched_terms=relevance.matched_terms,
-            learning_objective_facet=learning_objective_facet_for(skill, step.query),
+            learning_objective_facet=learning_objective_facet_for(
+                skill, step.query, course_anchor
+            ),
         )
 
         if candidate.content_hash in known.hashes:
