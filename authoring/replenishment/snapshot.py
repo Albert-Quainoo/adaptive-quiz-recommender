@@ -49,6 +49,7 @@ TERMINAL_STATUSES = frozenset(
         "permanent_failure",
         "rejected_by_automated_review",
         "rejected_deterministically",
+        "no_longer_needed",
     }
 )
 

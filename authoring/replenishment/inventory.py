@@ -96,7 +96,13 @@ def derive_readiness(
             ):
                 return "generation_pending"
             return "retrieval_pending"
-        # completed/cancelled falls through to a fresh supply-based reading
+        # completed/cancelled/no_longer_needed fall through to a fresh
+        # supply-based reading -- no_longer_needed deliberately does NOT
+        # join the ("retryable_failure", "permanent_failure") branch above:
+        # unlike a genuine error, it means this job's target demand was
+        # already fully satisfied, and the skill must stay eligible for a
+        # later scan to re-evaluate once the blueprint or bank changes,
+        # never permanently "replenishment_failed".
 
     supply = (
         unseen_approved_items if unseen_approved_items is not None else total_approved_items

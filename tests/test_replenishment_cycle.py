@@ -7,20 +7,21 @@ blueprint + approved candidate) and tests/test_replenishment_cli.py
 """
 
 import json
+import os
 import shutil
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 
 import authoring.grounding_briefs as grounding_briefs
 import authoring.question_intents as question_intents
 import authoring.replenishment.cli as cli
 import scripts.run_replenishment_cycle as cycle
-from authoring.grounded_batch import PendingQuestion, read_jsonl
+from authoring.grounded_batch import PendingQuestion, question_id, read_jsonl
 from authoring.grounded_review import (
     GroundedReviewStore,
     RevisionProvenance,
@@ -30,9 +31,12 @@ from authoring.grounded_review import (
 from authoring.grounding_briefs import CanonicalGroundingBrief
 from authoring.question_intents import PilotBlueprint, QuestionIntent
 from authoring.replenishment.budget import CycleBudgetConfig
+from authoring.replenishment.demand import compute_demand_fingerprint
+from authoring.replenishment.inventory import compute_course_inventory
 from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
-from authoring.replenishment.manifest import CourseManifest
+from authoring.replenishment.manifest import CourseManifest, active_bank_path
 from authoring.replenishment.snapshot import archive_stale_jobs
+from api.bank import BankItem
 from authoring.retrieval.models import ReferenceCandidate, SearchResult, approve, new_candidate
 from authoring.retrieval.search import FetchedPage
 from authoring.retrieval.store import CandidateStore
@@ -48,6 +52,7 @@ from authoring.review.config import ReviewPolicyConfig
 from authoring.review.reviewer import FakeContentReviewer
 from api.schemas import QuizQuestion
 from scripts.stage_run_artifacts import stage_run_artifacts
+from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXED_TIME = datetime(2026, 8, 5, 12, 0, tzinfo=timezone.utc)
@@ -201,8 +206,27 @@ def isolated(manifest, monkeypatch):
 
 
 @pytest.fixture
-def database(tmp_path):
-    return tmp_path / "jobs.sqlite3"
+def database(request, tmp_path):
+    """Defaults to a scratch SQLite file. A test decorated with
+    @pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+    instead runs against the same disposable PostgreSQL target
+    tests/test_postgres_replenishment_jobs.py uses -- same two-step opt-in
+    (require_safe_postgres_target) and the same per-test DROP TABLE cleanup,
+    so leftover rows from one parametrized run can never affect the next
+    (e.g. the active-job partial unique index rejecting a re-enqueue this
+    test itself expects to succeed)."""
+    backend = getattr(request, "param", "sqlite")
+    if backend == "sqlite":
+        return tmp_path / "jobs.sqlite3"
+    dsn = os.getenv(DSN_ENV_VAR)
+    if not dsn:
+        pytest.skip(f"set {DSN_ENV_VAR} to run this test against PostgreSQL")
+    require_safe_postgres_target(dsn)
+    cleanup = SQLiteReplenishmentJobRepository(dsn)
+    with cleanup._engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS replenishment_jobs CASCADE"))
+    cleanup.close()
+    return dsn
 
 
 @pytest.fixture
@@ -847,3 +871,350 @@ def test_live_run_manifest_and_staged_output_include_only_this_runs_job(
     # Never touched: the stale directory on the real content-ops checkout
     # is exactly as it was before this run, both in and outside the manifest.
     assert (stale_job_dir / "job.json").read_text(encoding="utf-8") == '{"job_id": "stale"}'
+
+
+# ---------------------------------------------------------------------------
+# Blueprint-capacity-aware planning: the intro-ai/AI-FND-03 incident and its
+# generalizations (worker.py's demand_already_satisfied -> no_longer_needed,
+# never permanent_failure; the scanner must never enqueue a skill whose one
+# resolvable blueprint has zero unsatisfied intent slots left).
+# ---------------------------------------------------------------------------
+
+def _isolate_with_thresholds(manifest, monkeypatch, *, low_supply_threshold, target_supply):
+    """Like the `isolated` fixture, but with course-wide policy thresholds
+    this test controls directly, and scoped to a single-skill taxonomy
+    (SKILL_ID only) rather than the shared `manifest` fixture's copy of the
+    real, ~40-skill intro-ai skills.csv. Two independent reasons for the
+    swap: (1) the shared fixture's low_supply_threshold=target_supply=1 can
+    never reproduce the AI-FND-03 shape (a skill deficient by the
+    skill-level bank count, yet already at its blueprint's ceiling) -- that
+    needs target_supply strictly greater than low_supply_threshold, so
+    supply can sit between the two; (2) with a lower threshold, every other
+    real skill with zero bank items also turns deficient-and-blocked, and
+    (being enqueued earlier in scan order) would win these tests'
+    max_new_candidates=1 worker slot instead of SKILL_ID. Reuses every
+    other path from `manifest` (bank, candidate store, review store) so
+    fixtures built against it (reviewed_blueprint, approved_candidate)
+    still point at valid, matching locations."""
+    taxonomy_dir = manifest.taxonomy_path.parent / "minimal_taxonomy"
+    taxonomy_dir.mkdir(exist_ok=True)
+    (taxonomy_dir / "skills.csv").write_text(
+        "skill_id,topic,subtopic,name,learning_objective,cognitive_process,"
+        "generation_strategy,template_id,prerequisite_skill_ids\n"
+        f"{SKILL_ID},Search and Problem Solving,Informed search,Heuristic "
+        "function,Explain how a heuristic estimates the remaining cost from "
+        "a state to the goal.,understand,generated,,\n",
+        encoding="utf-8",
+    )
+    (taxonomy_dir / "references.csv").write_text(
+        "skill_id,reference_material\n", encoding="utf-8"
+    )
+    scoped = manifest.model_copy(
+        update={
+            "taxonomy_path": taxonomy_dir,
+            "low_supply_threshold": low_supply_threshold,
+            "target_supply": target_supply,
+        }
+    )
+    monkeypatch.setattr(cycle, "load_preparation_eligible_manifests", lambda: [scoped])
+    return scoped
+
+
+def _write_bank(manifest, item_ids: list[str], *, skill_id: str = SKILL_ID) -> None:
+    """A minimal approved-bank JSONL with exactly these item_ids -- simulates
+    "these blueprint slots are already fulfilled" without running promotion
+    for real. Mirrors tests/test_replenishment_worker.py's helper of the
+    same name."""
+    path = active_bank_path(manifest)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for item_id in item_ids:
+            item = BankItem(
+                item_id=item_id,
+                skill_id=skill_id,
+                provenance="generated",
+                question=QuizQuestion(
+                    question=f"Placeholder question for {item_id}?",
+                    options=["A", "B", "C", "D"],
+                    correct_answer="A",
+                    explanation="Placeholder explanation.",
+                    concept="placeholder",
+                    difficulty="introductory",
+                ),
+            )
+            handle.write(json.dumps(item.model_dump(mode="json"), sort_keys=True) + "\n")
+
+
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+def test_capacity_exhausted_skill_is_never_enqueued_and_reported_distinctly(
+    tmp_path, manifest, database, reviewed_blueprint, monkeypatch
+):
+    """The exact intro-ai/AI-FND-03 production shape (run 32094990672 /
+    32096315756): a blueprint whose only declared intent for SKILL_ID is
+    already an approved bank item, while the course-wide policy
+    (target_supply=6, threshold=3) still reports the skill as deficient by
+    the skill-level bank count alone. Must be reported as
+    "capacity_exhausted" -- distinct from "blocked"/"no_deficiency"/
+    "proposed" -- and never enqueued, in both a dry run and a live run."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=3, target_supply=6
+    )
+    _write_bank(scoped_manifest, [question_id(reviewed_blueprint.batch_id, SKILL_ID, 0)])
+    _seed_schema(database)
+
+    dry_report = _run(database, tmp_path / "snapshots", dry_run=True)
+    row = next(r for r in dry_report.deficiencies if r.skill_id == SKILL_ID)
+    assert row.decision == "capacity_exhausted"
+    assert "capacity_exhausted:" in row.reason
+    assert "demand_fingerprint=" in row.reason
+    assert row.proposed_job_key == "-"
+    assert not any(planned.skill_id == SKILL_ID for planned in dry_report.execution_plan)
+
+    # The real intro-ai skills.csv this fixture copies has other genuinely
+    # deficient (blocked, no blueprint) skills too -- those still get
+    # enqueued and processed by design, so fakes are needed for the live
+    # run below; the assertion of interest is scoped to SKILL_ID alone.
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    live_report = _run(database, tmp_path / "snapshots", dry_run=False)
+    assert not any(
+        row.skill_id == SKILL_ID and row.decision in ("enqueued", "proposed")
+        for row in live_report.deficiencies
+    )
+    repository = SQLiteReplenishmentJobRepository(database)
+    assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is None
+
+
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+def test_multi_intent_capacity_exhausted_pattern_mirrors_the_latent_course_case(
+    tmp_path, manifest, database, monkeypatch
+):
+    """The DSA/Linear-Algebra/Database-Systems latent pattern found during
+    investigation: a blueprint declaring several (not just one) intents for
+    a skill, all already approved. supply(4) sits below a stricter
+    threshold(5) here specifically to force deficiency while still at
+    blueprint capacity -- proving the mechanism generalizes beyond the
+    single-intent AI-FND-03 case, not a special-cased N=1 check."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=5, target_supply=6
+    )
+    blueprint_dir = tmp_path / "blueprints-multi"
+    blueprint_dir.mkdir()
+    intents = [
+        QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-{n:02d}", skill_id=SKILL_ID,
+            assessment_focus=f"facet {n}", question_archetype="definition recall",
+            preferred_reference_ids=["placeholder-ref"], required_concepts=["heuristic"],
+            prohibited_conflations=["placeholder conflation"], difficulty="introductory",
+        )
+        for n in range(1, 5)
+    ]
+    blueprint = PilotBlueprint(
+        batch_id="test-batch-multi", prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved", reviewer_id="albert", reviewed_at=FIXED_TIME,
+        base_seed=1, intents=intents,
+    )
+    (blueprint_dir / "test-batch-multi.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(question_intents, "BLUEPRINT_DIRECTORY", blueprint_dir)
+    monkeypatch.setattr(
+        grounding_briefs, "PILOT_GROUNDING_BRIEFS",
+        {SKILL_ID: CanonicalGroundingBrief(
+            skill_id=SKILL_ID, version="test-v1",
+            statements=["A heuristic estimates the remaining cost to the goal."],
+        )},
+    )
+    _write_bank(
+        scoped_manifest,
+        [question_id("test-batch-multi", SKILL_ID, index) for index in range(4)],
+    )
+    _seed_schema(database)
+
+    dry_report = _run(database, tmp_path / "snapshots", dry_run=True)
+    row = next(r for r in dry_report.deficiencies if r.skill_id == SKILL_ID)
+    assert row.decision == "capacity_exhausted"
+    assert "4 intent slot(s)" in row.reason
+
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    live_report = _run(database, tmp_path / "snapshots", dry_run=False)
+    assert not any(
+        row.skill_id == SKILL_ID and row.decision in ("enqueued", "proposed")
+        for row in live_report.deficiencies
+    )
+    repository = SQLiteReplenishmentJobRepository(database)
+    assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is None
+
+
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+def test_capacity_exhausted_skill_becomes_reenqueueable_after_blueprint_gains_capacity(
+    tmp_path, manifest, database, reviewed_blueprint, monkeypatch
+):
+    """A skill correctly withheld as capacity_exhausted must become eligible
+    again, without any code path treating the earlier outcome as a
+    permanent lockout, once a human authors an additional intent for it --
+    proving the fingerprint-relevant inputs (blueprint content) actually
+    drive re-eligibility, not a cached decision."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=3, target_supply=6
+    )
+    approved_item_ids = {question_id(reviewed_blueprint.batch_id, SKILL_ID, 0)}
+    _write_bank(scoped_manifest, list(approved_item_ids))
+    _seed_schema(database)
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    first = _run(database, snapshot_root, dry_run=False)
+    row = next(r for r in first.deficiencies if r.skill_id == SKILL_ID)
+    assert row.decision == "capacity_exhausted"
+    repository = SQLiteReplenishmentJobRepository(database)
+    assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is None
+
+    blueprint_path = (
+        question_intents.BLUEPRINT_DIRECTORY / f"{reviewed_blueprint.batch_id}.json"
+    )
+    grown = reviewed_blueprint.model_copy(update={
+        "intents": [
+            *reviewed_blueprint.intents,
+            QuestionIntent(
+                intent_id=f"{SKILL_ID}-INT-02", skill_id=SKILL_ID,
+                assessment_focus="second facet", question_archetype="definition recall",
+                # Reuses the original intent's own reference id -- generation
+                # validates preferred_reference_ids against approved
+                # candidates, and approved_candidate only ever approved one.
+                preferred_reference_ids=reviewed_blueprint.intents[0].preferred_reference_ids,
+                required_concepts=["heuristic"],
+                # Must match reviewed_blueprint's original intent's difficulty
+                # ("intermediate") -- _blueprint_generation_difficulty requires
+                # every intent for a skill to declare the same one explicitly.
+                prohibited_conflations=["placeholder conflation"], difficulty="intermediate",
+            ),
+        ],
+    })
+    blueprint_path.write_text(json.dumps(grown.model_dump(mode="json")), encoding="utf-8")
+
+    fp_before = compute_demand_fingerprint(
+        reviewed_blueprint, SKILL_ID, approved_item_ids,
+        difficulty="intermediate", target_supply=6,
+    )
+    fp_after = compute_demand_fingerprint(
+        grown, SKILL_ID, approved_item_ids,
+        difficulty="intermediate", target_supply=6,
+    )
+    assert fp_before != fp_after
+
+    second = _run(database, snapshot_root, dry_run=True)
+    row2 = next(r for r in second.deficiencies if r.skill_id == SKILL_ID)
+    assert row2.decision == "proposed"
+
+    third = _run(database, snapshot_root, dry_run=False)
+    assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is not None
+    assert any(job.skill_id == SKILL_ID for job in repository.list_active())
+
+
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+def test_genuine_permanent_failure_still_permanently_blocks_reenqueue(
+    tmp_path, manifest, database, reviewed_blueprint, monkeypatch
+):
+    """A genuine error (two blueprints ambiguously covering the same skill,
+    unrelated to demand/capacity) must keep the skill locked out of
+    re-enqueueing across scans exactly as before -- only the new
+    no_longer_needed outcome is exempt from this lockout, never a real
+    failure like ambiguous_blueprint_selection."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=3, target_supply=6
+    )
+    blueprint_dir = question_intents.BLUEPRINT_DIRECTORY
+    second_blueprint = PilotBlueprint(
+        batch_id="test-batch-ambiguous", prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved", reviewer_id="albert", reviewed_at=FIXED_TIME,
+        base_seed=2,
+        intents=[QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-02", skill_id=SKILL_ID,
+            assessment_focus="second", question_archetype="definition recall",
+            preferred_reference_ids=["placeholder-ref"], required_concepts=["heuristic"],
+            prohibited_conflations=["placeholder conflation"], difficulty="introductory",
+        )],
+    )
+    (blueprint_dir / "test-batch-ambiguous.json").write_text(
+        json.dumps(second_blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    budget = CycleBudgetConfig(max_new_candidates=1, max_generation_calls=10)
+    first = _run(database, snapshot_root, budget=budget)
+
+    job = next(row for row in first.job_outcomes if row.skill_id == SKILL_ID)
+    assert job.status == "permanent_failure"
+    repository = SQLiteReplenishmentJobRepository(database)
+    stored = repository.get(job.job_id)
+    assert stored.error_code == "ambiguous_blueprint_selection"
+
+    inventory = compute_course_inventory(scoped_manifest, repository)
+    assert inventory[SKILL_ID].readiness == "replenishment_failed"
+
+    second = _run(database, snapshot_root, budget=budget)
+    assert not any(row.skill_id == SKILL_ID for row in second.job_outcomes)
+    latest = repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID)
+    assert latest.job_id == job.job_id  # no new job created; still the same failed one
+    assert latest.status == "permanent_failure"
+
+
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+def test_scan_to_worker_race_resolves_safely_across_two_runs(
+    tmp_path, manifest, database, reviewed_blueprint, monkeypatch
+):
+    """Capacity is available when this run's scan enqueues and first ticks
+    the job (retrieve_references succeeds via the already-approved
+    reference candidate, advancing to generate_questions); the blueprint's
+    last slot is then filled by someone else before the next run's tick.
+    That next run's generate_questions-stage recheck must resolve to
+    no_longer_needed with zero model calls -- never permanent_failure, and
+    never a wasted generation call."""
+    scoped_manifest = _isolate_with_thresholds(
+        manifest, monkeypatch, low_supply_threshold=3, target_supply=6
+    )
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+
+    def _boom_model_factory():
+        raise AssertionError("model must not be called once demand is satisfied")
+
+    monkeypatch.setattr(cli, "_model_factory", lambda: _boom_model_factory)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    first = _run(
+        database, snapshot_root,
+        budget=CycleBudgetConfig(max_new_candidates=1, max_ticks=1),
+    )
+    assert len(first.job_outcomes) == 1
+    job_id = first.job_outcomes[0].job_id
+    repository = SQLiteReplenishmentJobRepository(database)
+    assert repository.get(job_id).job_type == "generate_questions"  # advanced past retrieval
+
+    _write_bank(scoped_manifest, [question_id(reviewed_blueprint.batch_id, SKILL_ID, 0)])
+
+    second = _run(
+        database, snapshot_root,
+        budget=CycleBudgetConfig(max_new_candidates=1, max_generation_calls=10),
+    )
+    outcome = next(row for row in second.job_outcomes if row.job_id == job_id)
+    assert outcome.status == "no_longer_needed"
+    stored = repository.get(job_id)
+    assert stored.error_code == "demand_already_satisfied"
+    assert stored.metadata["demand_fingerprint"]

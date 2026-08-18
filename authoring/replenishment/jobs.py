@@ -51,6 +51,13 @@ JobStatus = Literal[
     "retryable_failure",
     "permanent_failure",
     "cancelled",
+    # A non-blocking terminal outcome: the job's declared demand (a
+    # blueprint's intent slots for this skill) was already fully satisfied
+    # by the active bank -- not an error, and deliberately excluded from
+    # inventory.py's derive_readiness() "replenishment_failed" mapping (see
+    # that function) so it never permanently locks the skill out of future
+    # replenishment the way a genuine permanent_failure correctly does.
+    "no_longer_needed",
 ]
 
 ACTIVE_STATUSES: tuple[JobStatus, ...] = (
@@ -543,6 +550,48 @@ class SQLiteReplenishmentJobRepository:
                     """
                 ),
                 {"error_code": error_code, "error_message": error_message, "job_id": job_id},
+            )
+        return self._require(job_id)
+
+    def mark_no_longer_needed(
+        self,
+        job_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+        metadata: dict | None = None,
+        clock=utc_now,
+    ) -> ReplenishmentJob:
+        """Non-blocking terminal outcome: this job's target demand (a
+        blueprint's intent slots for its skill) was already fully satisfied.
+        Distinct from mark_permanent_failure() -- see JobStatus's
+        "no_longer_needed" docstring -- so a later scan, once the
+        blueprint/bank state that caused this changes, can freely propose
+        the skill again instead of being permanently blocked by
+        derive_readiness()'s "replenishment_failed" mapping. `metadata`
+        should include a demand fingerprint (see
+        authoring.replenishment.demand.compute_demand_fingerprint) so this
+        outcome's exact basis stays auditable."""
+        job = self._require(job_id)
+        merged_metadata = {**job.metadata, **(metadata or {})}
+        with self._transaction() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE replenishment_jobs
+                    SET status = 'no_longer_needed', completed_at = :completed_at,
+                        lease_expires_at = NULL, error_code = :error_code,
+                        error_message = :error_message, metadata_json = :metadata_json
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {
+                    "completed_at": _utc_iso(clock()),
+                    "error_code": error_code,
+                    "error_message": error_message,
+                    "metadata_json": json.dumps(merged_metadata, sort_keys=True),
+                    "job_id": job_id,
+                },
             )
         return self._require(job_id)
 
