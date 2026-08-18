@@ -7,13 +7,14 @@ blueprint + approved candidate) and tests/test_replenishment_cli.py
 """
 
 import json
+import os
 import shutil
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
 
 import authoring.grounding_briefs as grounding_briefs
@@ -51,6 +52,7 @@ from authoring.review.config import ReviewPolicyConfig
 from authoring.review.reviewer import FakeContentReviewer
 from api.schemas import QuizQuestion
 from scripts.stage_run_artifacts import stage_run_artifacts
+from tests.postgres_test_safety import DSN_ENV_VAR, require_safe_postgres_target
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXED_TIME = datetime(2026, 8, 5, 12, 0, tzinfo=timezone.utc)
@@ -204,8 +206,27 @@ def isolated(manifest, monkeypatch):
 
 
 @pytest.fixture
-def database(tmp_path):
-    return tmp_path / "jobs.sqlite3"
+def database(request, tmp_path):
+    """Defaults to a scratch SQLite file. A test decorated with
+    @pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
+    instead runs against the same disposable PostgreSQL target
+    tests/test_postgres_replenishment_jobs.py uses -- same two-step opt-in
+    (require_safe_postgres_target) and the same per-test DROP TABLE cleanup,
+    so leftover rows from one parametrized run can never affect the next
+    (e.g. the active-job partial unique index rejecting a re-enqueue this
+    test itself expects to succeed)."""
+    backend = getattr(request, "param", "sqlite")
+    if backend == "sqlite":
+        return tmp_path / "jobs.sqlite3"
+    dsn = os.getenv(DSN_ENV_VAR)
+    if not dsn:
+        pytest.skip(f"set {DSN_ENV_VAR} to run this test against PostgreSQL")
+    require_safe_postgres_target(dsn)
+    cleanup = SQLiteReplenishmentJobRepository(dsn)
+    with cleanup._engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS replenishment_jobs CASCADE"))
+    cleanup.close()
+    return dsn
 
 
 @pytest.fixture
@@ -924,6 +945,7 @@ def _write_bank(manifest, item_ids: list[str], *, skill_id: str = SKILL_ID) -> N
             handle.write(json.dumps(item.model_dump(mode="json"), sort_keys=True) + "\n")
 
 
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
 def test_capacity_exhausted_skill_is_never_enqueued_and_reported_distinctly(
     tmp_path, manifest, database, reviewed_blueprint, monkeypatch
 ):
@@ -966,6 +988,7 @@ def test_capacity_exhausted_skill_is_never_enqueued_and_reported_distinctly(
     assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is None
 
 
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
 def test_multi_intent_capacity_exhausted_pattern_mirrors_the_latent_course_case(
     tmp_path, manifest, database, monkeypatch
 ):
@@ -1030,6 +1053,7 @@ def test_multi_intent_capacity_exhausted_pattern_mirrors_the_latent_course_case(
     assert repository.latest_for_skill(scoped_manifest.course_id, SKILL_ID) is None
 
 
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
 def test_capacity_exhausted_skill_becomes_reenqueueable_after_blueprint_gains_capacity(
     tmp_path, manifest, database, reviewed_blueprint, monkeypatch
 ):
@@ -1098,6 +1122,7 @@ def test_capacity_exhausted_skill_becomes_reenqueueable_after_blueprint_gains_ca
     assert any(job.skill_id == SKILL_ID for job in repository.list_active())
 
 
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
 def test_genuine_permanent_failure_still_permanently_blocks_reenqueue(
     tmp_path, manifest, database, reviewed_blueprint, monkeypatch
 ):
@@ -1149,6 +1174,7 @@ def test_genuine_permanent_failure_still_permanently_blocks_reenqueue(
     assert latest.status == "permanent_failure"
 
 
+@pytest.mark.parametrize("database", ["sqlite", "postgres"], indirect=True)
 def test_scan_to_worker_race_resolves_safely_across_two_runs(
     tmp_path, manifest, database, reviewed_blueprint, monkeypatch
 ):
