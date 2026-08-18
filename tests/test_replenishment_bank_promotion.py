@@ -86,7 +86,13 @@ def _write_review(path: Path, item_ids: list[str]) -> None:
 def manifest_at(tmp_path, **overrides) -> CourseManifest:
     taxonomy_dir = tmp_path / "taxonomy"
     taxonomy_dir.mkdir(exist_ok=True)
-    (taxonomy_dir / "skills.csv").write_text("skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids\n", encoding="utf-8")
+    (taxonomy_dir / "skills.csv").write_text(
+        "skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids\n"
+        "AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,"
+        "Explain how a heuristic estimates the remaining cost from a state to the goal.,"
+        "understand,generated,,\n",
+        encoding="utf-8",
+    )
     (taxonomy_dir / "references.csv").write_text("skill_id,reference_material\n", encoding="utf-8")
     fields = dict(
         course_id="ai", title="t", version="1", taxonomy_path=taxonomy_dir,

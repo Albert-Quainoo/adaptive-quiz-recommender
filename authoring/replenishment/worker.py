@@ -1180,6 +1180,8 @@ def _handle_promote_approved_items(
         course=manifest.course_id,
         expected_count=len(existing_items) + len(new_items),
         required_skill_ids=[],
+        skills_path=manifest.skills_path(),
+        references_path=manifest.references_path(),
     )
     _write_active_pointer(manifest, new_bank_path, version, clock=clock)
     job_repository.mark_completed(job.job_id, clock=clock)
