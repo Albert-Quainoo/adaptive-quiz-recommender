@@ -320,21 +320,42 @@ def run_cycle(
                     difficulty=difficulty,
                 )
             )
-        if decision.should_enqueue and not dry_run:
-            # blocked_reason only withholds the report's "proposed"/"enqueued"
-            # label and excludes this skill from the execution plan below --
-            # it does not withhold the job itself. Retrieval and reference
-            # review (this job's first stages) need no difficulty at all;
-            # only generation does, and worker.py's own
-            # _blueprint_generation_difficulty already refuses to guess one,
-            # permanent-failing that stage with error_code
-            # "generation_config_error" if it's still unresolved by then.
-            repository.enqueue(
-                course_id=decision.course_id,
-                skill_id=decision.skill_id,
-                requested_count=decision.requested_count,
-            )
-            queue_rows_written += 1
+
+    if not dry_run:
+        # blocked_reason only withholds the report's "proposed"/"enqueued"
+        # label and excludes this skill from the execution plan above -- it
+        # does not withhold the job itself. Retrieval and reference review
+        # (this job's first stages) need no difficulty at all; only
+        # generation does, and worker.py's own
+        # _blueprint_generation_difficulty already refuses to guess one,
+        # permanent-failing that stage with error_code
+        # "generation_config_error" if it's still unresolved by then.
+        #
+        # Enqueued in two passes -- every eligible (non-blocked) deficiency
+        # first, in scan order, then every blocked one -- rather than one
+        # pass in raw scan order. enqueue()'s created_at is real wall-clock
+        # time at call time (see authoring/replenishment/jobs.py), and the
+        # worker's FIFO claim (_next_claimable_job() below) always takes the
+        # oldest queued job -- so a blocked skill that merely sorts earlier
+        # in the taxonomy than this run's planned target must never be
+        # given an earlier created_at than that target, or it silently
+        # claims this run's new-candidate slot instead.
+        for decision, _difficulty, blocked_reason in candidates:
+            if decision.should_enqueue and blocked_reason is None:
+                repository.enqueue(
+                    course_id=decision.course_id,
+                    skill_id=decision.skill_id,
+                    requested_count=decision.requested_count,
+                )
+                queue_rows_written += 1
+        for decision, _difficulty, blocked_reason in candidates:
+            if decision.should_enqueue and blocked_reason is not None:
+                repository.enqueue(
+                    course_id=decision.course_id,
+                    skill_id=decision.skill_id,
+                    requested_count=decision.requested_count,
+                )
+                queue_rows_written += 1
 
     job_outcomes: list[report.JobOutcomeRow] = []
     archived: list[str] = []

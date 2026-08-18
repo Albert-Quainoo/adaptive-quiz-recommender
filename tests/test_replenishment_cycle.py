@@ -540,6 +540,54 @@ def test_non_dry_run_still_enqueues_idempotently(
 
 
 # ---------------------------------------------------------------------------
+# Enqueue ordering: an eligible (planned) deficiency must never lose the
+# worker's FIFO claim to a blocked deficiency that merely sorts earlier in
+# the taxonomy scan.
+# ---------------------------------------------------------------------------
+
+def test_worker_claims_the_planned_eligible_skill_over_an_earlier_blocked_one(
+    tmp_path, isolated, database, reviewed_blueprint, monkeypatch
+):
+    """AI-FND-02 (real intro-ai taxonomy, scanned via the `manifest` fixture's
+    skills.csv) sorts before SKILL_ID and has no reviewed blueprint here, so
+    it reports as "blocked" -- exactly the shape that let a blocked skill
+    silently claim a live run's single new-candidate slot ahead of the run's
+    actual planned target (enqueue() used to write every should_enqueue
+    decision's row in raw scan order, regardless of blocked_reason, so a
+    blocked skill sorting earlier got an earlier created_at and won the
+    worker's oldest-first claim)."""
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    budget = CycleBudgetConfig(max_new_candidates=1, max_generation_calls=10)
+    cycle_report = _run(database, snapshot_root, budget=budget)
+
+    # Confirm the fixture really does produce the shape this test relies on
+    # before asserting on the claim order it produces.
+    assert SKILL_ID in {row.skill_id for row in cycle_report.execution_plan}
+    blocked_skill_ids = {
+        row.skill_id for row in cycle_report.deficiencies if row.decision == "blocked"
+    }
+    assert "AI-FND-02" in blocked_skill_ids
+
+    processed_skill_ids = {row.skill_id for row in cycle_report.job_outcomes}
+    assert processed_skill_ids == {SKILL_ID}
+
+    repository = SQLiteReplenishmentJobRepository(database)
+    blocked_job = next(job for job in repository.list_active() if job.skill_id == "AI-FND-02")
+    target_job = next(job for job in repository.list_active() if job.skill_id == SKILL_ID)
+    # Still enqueued (blocked skills may still progress through reference
+    # curation), but never claimed by this run's single new-candidate slot.
+    assert blocked_job.status == "queued"
+    assert blocked_job.attempts == 0
+    assert target_job.attempts >= 1
+    assert blocked_job.created_at > target_job.created_at
+
+
+# ---------------------------------------------------------------------------
 # New-candidate cap + interrupted-run resume
 # ---------------------------------------------------------------------------
 
