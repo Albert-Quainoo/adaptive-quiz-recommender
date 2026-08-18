@@ -16,7 +16,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from authoring.replenishment.inventory import compute_course_inventory
-from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
+from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository, open_repository
 from authoring.replenishment.manifest import (
     CourseManifest,
     load_preparation_eligible_manifests,
@@ -112,10 +112,10 @@ def _policy_config(manifest: CourseManifest) -> ReplenishmentPolicyConfig:
     )
 
 
-def _open_repository(arguments: argparse.Namespace) -> SQLiteReplenishmentJobRepository:
-    repository = SQLiteReplenishmentJobRepository(arguments.database)
-    repository.initialize_schema()
-    return repository
+def _open_repository(
+    arguments: argparse.Namespace, *, read_only: bool = False
+) -> SQLiteReplenishmentJobRepository:
+    return open_repository(arguments.database, read_only=read_only)
 
 
 def scan(arguments: argparse.Namespace) -> int:
@@ -192,7 +192,11 @@ def worker(arguments: argparse.Namespace) -> int:
 
 
 def status(arguments: argparse.Namespace) -> int:
-    repository = _open_repository(arguments)
+    # Genuinely read-only: only ever calls compute_course_inventory(), which only
+    # ever calls latest_for_skill() (a plain SELECT) -- never enqueue()/claim_next()/
+    # mark_*(). Unlike scan() (enqueues) and worker() (claims and processes), this
+    # never needs schema-repairing initialize_schema() and must never write anything.
+    repository = _open_repository(arguments, read_only=True)
 
     for manifest in load_preparation_eligible_manifests():
         inventory = compute_course_inventory(manifest, repository)

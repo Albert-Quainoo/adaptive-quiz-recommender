@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 import authoring.grounding_briefs as grounding_briefs
 import authoring.question_intents as question_intents
@@ -275,6 +277,17 @@ def _run(database, snapshot_root, *, dry_run=False, budget=None, retention_days=
     )
 
 
+def _seed_schema(database) -> None:
+    """A dry run is read-only and never creates schema (see
+    authoring/replenishment/jobs.py's check_schema_ready()) -- in production the
+    schema always already exists by the time a dry run runs, so every dry-run test
+    below that isn't specifically testing the missing-schema case seeds it first,
+    exactly like a real pre-provisioned database."""
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+    repository.close()
+
+
 def _dump_jobs(database) -> list[dict]:
     """Every column of every row in replenishment_jobs, for proving a dry run
     leaves existing job data completely untouched -- not just row counts."""
@@ -301,6 +314,7 @@ def test_dry_run_reports_proposed_jobs_without_writing_anything(
     monkeypatch.setattr(cli, "_fetcher_factory", _boom)
     monkeypatch.setattr(cli, "_model_factory", _boom)
     monkeypatch.setattr(cli, "_reviewer_factory", _boom)
+    _seed_schema(database)
 
     report = _run(database, tmp_path / "snapshots", dry_run=True)
 
@@ -352,6 +366,7 @@ def test_dry_run_blocks_a_deficiency_with_no_resolvable_difficulty(
     monkeypatch.setattr(cli, "_fetcher_factory", _boom)
     monkeypatch.setattr(cli, "_model_factory", _boom)
     monkeypatch.setattr(cli, "_reviewer_factory", _boom)
+    _seed_schema(database)
 
     report = _run(database, tmp_path / "snapshots", dry_run=True)
 
@@ -380,6 +395,7 @@ def test_dry_run_leaves_existing_job_rows_logically_unchanged(
 
 
 def test_repeated_dry_runs_are_side_effect_free(tmp_path, isolated, database):
+    _seed_schema(database)
     first = _run(database, tmp_path / "snapshots", dry_run=True)
     second = _run(database, tmp_path / "snapshots", dry_run=True)
 
@@ -389,6 +405,111 @@ def test_repeated_dry_runs_are_side_effect_free(tmp_path, isolated, database):
     first_row = next(row for row in first.deficiencies if row.skill_id == SKILL_ID)
     second_row = next(row for row in second.deficiencies if row.skill_id == SKILL_ID)
     assert first_row == second_row
+
+
+# ---------------------------------------------------------------------------
+# Dry run: schema-readiness (no DDL/DML), never repairs anything
+# ---------------------------------------------------------------------------
+
+
+def _table_names(database) -> set[str]:
+    connection = sqlite3.connect(database)
+    try:
+        rows = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+        return {row[0] for row in rows}
+    finally:
+        connection.close()
+
+
+def test_dry_run_against_uninitialized_database_reports_schema_not_ready(
+    tmp_path, isolated, database
+):
+    """`database` (the fixture above) is a path to a SQLite file that does not exist
+    yet -- exactly the case check_schema_ready() must refuse to silently repair. A
+    real production run never hits this (the schema is always already provisioned by
+    the time a dry run runs); this proves the stop-and-report contract for the case
+    where it somehow isn't."""
+    with pytest.raises(cycle.SchemaNotReadyError, match="schema_not_ready"):
+        _run(database, tmp_path / "snapshots", dry_run=True)
+
+    # Never repaired: no table was created as a side effect of the failed check.
+    assert _table_names(database) == set()
+
+
+def test_dry_run_against_database_missing_the_active_job_index_reports_schema_not_ready(
+    tmp_path, isolated, database
+):
+    """A table that exists but is missing the active-job uniqueness index (e.g. an
+    older or hand-created database) must also be refused, not silently patched."""
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            "CREATE TABLE replenishment_jobs ("
+            "job_id TEXT PRIMARY KEY, course_id TEXT, skill_id TEXT, job_type TEXT, "
+            "status TEXT, requested_count INTEGER, attempts INTEGER, created_at TEXT, "
+            "started_at TEXT, completed_at TEXT, next_retry_at TEXT, "
+            "lease_expires_at TEXT, error_code TEXT, error_message TEXT, "
+            "metadata_json TEXT)"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(cycle.SchemaNotReadyError, match="ux_replenishment_jobs_active"):
+        _run(database, tmp_path / "snapshots", dry_run=True)
+
+
+def test_dry_run_issues_no_ddl_or_dml(tmp_path, isolated, database, reviewed_blueprint):
+    """SQL-capture: every statement a dry run sends to the database, captured via
+    SQLAlchemy's before_cursor_execute event at the Engine class level (so it's
+    caught regardless of which engine instance run_cycle() constructs internally),
+    must be a read -- never INSERT/UPDATE/DELETE/CREATE/DROP/ALTER/REPLACE/TRUNCATE."""
+    _seed_schema(database)  # schema already exists, as in production
+
+    captured: list[str] = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        captured.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", _capture)
+    try:
+        report = _run(database, tmp_path / "snapshots", dry_run=True)
+    finally:
+        event.remove(Engine, "before_cursor_execute", _capture)
+
+    assert report.dry_run is True
+    assert captured, "the scan should have issued at least one query to capture"
+    forbidden_prefixes = (
+        "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "REPLACE", "TRUNCATE",
+    )
+    offending = [
+        statement for statement in captured
+        if statement.strip().upper().startswith(forbidden_prefixes)
+    ]
+    assert offending == [], f"dry run issued write statement(s): {offending}"
+
+
+def test_deterministic_planning_still_works_without_queue_writes(
+    tmp_path, isolated, database, reviewed_blueprint
+):
+    """The execution plan (proposed_job_key, rank, deterministic ordering) is derived
+    entirely from decide_replenishment()'s pure decisions plus
+    deterministic_job_key() -- never from a row enqueue() wrote -- so it must be
+    identical whether or not the repository can write at all."""
+    _seed_schema(database)
+
+    report = _run(database, tmp_path / "snapshots", dry_run=True)
+
+    assert report.queue_rows_written == 0
+    assert len(report.execution_plan) == 1
+    planned = report.execution_plan[0]
+    assert planned.skill_id == SKILL_ID
+    assert planned.rank == 1
+    proposed = next(row for row in report.deficiencies if row.skill_id == SKILL_ID)
+    assert proposed.proposed_job_key == cycle.report.deterministic_job_key("intro-ai", SKILL_ID)
+    assert proposed.proposed_job_key != "-"
 
 
 def test_non_dry_run_still_enqueues_idempotently(

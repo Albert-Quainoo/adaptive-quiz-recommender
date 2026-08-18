@@ -37,7 +37,7 @@ from authoring.grounded_batch import BatchGenerationError
 from authoring.question_intents import intents_by_skill
 from authoring.replenishment.budget import CycleBudgetConfig, CycleBudgetTracker
 from authoring.replenishment.inventory import compute_course_inventory
-from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
+from authoring.replenishment.jobs import SchemaNotReadyError, open_repository
 from authoring.replenishment.manifest import load_preparation_eligible_manifests
 from authoring.replenishment.policy import ReplenishmentDecision, decide_replenishment
 from authoring.replenishment.snapshot import archive_stale_jobs, snapshot_job_artifacts
@@ -159,8 +159,13 @@ def run_cycle(
     retention_days: int,
     clock=utc_now,
 ) -> report.CycleReport:
-    repository = SQLiteReplenishmentJobRepository(database)
-    repository.initialize_schema()
+    # dry_run=True opens a genuinely read-only repository: no initialize_schema()
+    # (not even its idempotent CREATE-TABLE-IF-NOT-EXISTS/index-recreation), a
+    # read-only-enforced PostgreSQL transaction (open_repository -> read_only=True ->
+    # SQLiteReplenishmentJobRepository's postgresql_readonly execution option), and a
+    # read-only schema-readiness check instead -- raises SchemaNotReadyError, caught
+    # by main() below, rather than silently creating or repairing anything.
+    repository = open_repository(database, read_only=dry_run)
 
     manifests = {
         manifest.course_id: manifest
@@ -455,13 +460,34 @@ def main(argv: list[str] | None = None) -> int:
         max_ticks=args.max_ticks,
     )
 
-    cycle_report = run_cycle(
-        database=args.database,
-        snapshot_root=args.snapshot_root,
-        dry_run=args.dry_run,
-        budget_config=budget_config,
-        retention_days=args.retention_days,
-    )
+    try:
+        cycle_report = run_cycle(
+            database=args.database,
+            snapshot_root=args.snapshot_root,
+            dry_run=args.dry_run,
+            budget_config=budget_config,
+            retention_days=args.retention_days,
+        )
+    except SchemaNotReadyError as exc:
+        # A read-only (dry-run) caller found the schema it depends on isn't already
+        # present -- stop and report this, rather than silently repairing it (only
+        # initialize_schema(), never called on this path, does that). Still writes
+        # latest.json/latest.md so the workflow's unconditional "Publish job
+        # summary"/"Upload artifacts" steps have something coherent to show.
+        args.report_dir.mkdir(parents=True, exist_ok=True)
+        stopped_at = utc_now().isoformat()
+        (args.report_dir / "latest.json").write_text(
+            json.dumps(
+                {"status": "schema_not_ready", "reason": str(exc), "generated_at": stopped_at},
+                indent=2, sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        markdown = f"# Replenishment cycle: schema not ready\n\n{exc}\n"
+        (args.report_dir / "latest.md").write_text(markdown, encoding="utf-8")
+        print(markdown, file=sys.stderr)
+        return 2
 
     args.report_dir.mkdir(parents=True, exist_ok=True)
     (args.report_dir / "latest.json").write_text(

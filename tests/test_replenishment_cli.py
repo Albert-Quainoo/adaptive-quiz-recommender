@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import authoring.replenishment.cli as cli
+from authoring.replenishment.jobs import SQLiteReplenishmentJobRepository
 from authoring.replenishment.manifest import CourseManifest
 from authoring.retrieval.models import SearchResult, approve
 from authoring.retrieval.search import FetchedPage
@@ -102,11 +103,29 @@ def test_scan_is_idempotent_across_reruns(tmp_path, isolated_manifest, capsys):
 
 def test_status_reports_readiness_for_every_skill(tmp_path, isolated_manifest, capsys):
     database = tmp_path / "jobs.sqlite3"
+    # status is read-only (see authoring/replenishment/cli.py) and never creates
+    # schema -- in production it always already exists, so seed it here exactly like
+    # a real pre-provisioned database, without scan()'s enqueue() side effect (which
+    # would change the very readiness this test asserts).
+    SQLiteReplenishmentJobRepository(database).initialize_schema()
     exit_code = cli.main(["--database", str(database), "status"])
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "AI-SRC-08" in output
     assert "taxonomy_only" in output
+
+
+def test_status_against_uninitialized_database_reports_schema_not_ready(
+    tmp_path, isolated_manifest
+):
+    """status must never silently create schema -- a genuinely uninitialized
+    database (this test's database fixture is a path that does not exist yet) is a
+    stop-and-report condition, not something it repairs."""
+    from authoring.replenishment.jobs import SchemaNotReadyError
+
+    database = tmp_path / "jobs.sqlite3"
+    with pytest.raises(SchemaNotReadyError, match="schema_not_ready"):
+        cli.main(["--database", str(database), "status"])
 
 
 def test_worker_once_processes_a_single_job_with_fakes(

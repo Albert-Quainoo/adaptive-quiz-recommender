@@ -22,11 +22,11 @@ from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 
-from database import create_engine_for, execute_schema_script
+from database import create_engine_for, execute_schema_script, is_postgres_dsn
 
 JobType = Literal[
     "retrieve_references",
@@ -153,13 +153,51 @@ ON replenishment_jobs(course_id, skill_id)
 WHERE status IN ({_ACTIVE_STATUSES_SQL});
 """
 
+_REQUIRED_TABLE = "replenishment_jobs"
+_REQUIRED_INDEX = "ux_replenishment_jobs_active"
+# Every column SCHEMA declares -- kept as a literal set (not derived from SCHEMA by
+# parsing it) so check_schema_ready() has no dependency on SCHEMA's exact formatting.
+_REQUIRED_COLUMNS = frozenset(
+    {
+        "job_id", "course_id", "skill_id", "job_type", "status", "requested_count",
+        "attempts", "created_at", "started_at", "completed_at", "next_retry_at",
+        "lease_expires_at", "error_code", "error_message", "metadata_json",
+    }
+)
+
+
+class SchemaNotReadyError(RuntimeError):
+    """Raised by check_schema_ready() (see open_repository()) when a read-only caller
+    finds the schema it depends on is not already present -- a missing table, a
+    missing column, or a missing index. Never repairs anything: initialize_schema()
+    is the only thing in this module that creates or migrates schema, and a read-only
+    repository refuses to call it (see initialize_schema()'s own guard below)."""
+
 
 class SQLiteReplenishmentJobRepository:
-    def __init__(self, database: str | Path) -> None:
+    def __init__(self, database: str | Path, *, read_only: bool = False) -> None:
         self.database = str(database)
-        self._engine = create_engine_for(database, immediate_transactions=True)
+        self._read_only = read_only
+        engine = create_engine_for(database, immediate_transactions=True)
+        if read_only and is_postgres_dsn(self.database):
+            # Enforced at the database itself, not just by this class's own
+            # discipline: every connection/transaction this engine ever opens (via
+            # .connect() or .begin(), from any method on this instance) rejects any
+            # INSERT/UPDATE/DELETE/DDL with psycopg.errors.ReadOnlySqlTransaction --
+            # verified empirically against a real PostgreSQL instance, not assumed.
+            # SQLite has no equivalent transaction-level read-only mode, so a
+            # read-only SQLite repository relies on the initialize_schema() guard
+            # below plus every read-only caller simply never issuing a write
+            # statement (see tests/test_replenishment_cycle.py's SQL-capture test).
+            engine = engine.execution_options(postgresql_readonly=True)
+        self._engine = engine
 
     def initialize_schema(self) -> None:
+        if self._read_only:
+            raise RuntimeError(
+                "initialize_schema() must never be called on a read_only repository -- "
+                "use check_schema_ready() instead (see open_repository())"
+            )
         # CREATE UNIQUE INDEX IF NOT EXISTS is a no-op if an index by this name already
         # exists under an older WHERE clause (e.g. a database created before the
         # automated-review statuses existed), so the index is dropped and recreated
@@ -167,6 +205,33 @@ class SQLiteReplenishmentJobRepository:
         with self._engine.begin() as connection:
             connection.execute(text("DROP INDEX IF EXISTS ux_replenishment_jobs_active"))
             execute_schema_script(connection, SCHEMA)
+
+    def check_schema_ready(self) -> None:
+        """Read-only introspection (catalog SELECT queries -- information_schema for
+        PostgreSQL, sqlite_master/pragmas for SQLite -- via SQLAlchemy's dialect-
+        agnostic Inspector) confirming the table, its columns, and the active-job
+        uniqueness index this repository depends on already exist. Issues no DDL or
+        DML. Raises SchemaNotReadyError, rather than creating or repairing anything,
+        if the table is missing, a required column is missing, or the required index
+        is missing."""
+        inspector = inspect(self._engine)
+        if not inspector.has_table(_REQUIRED_TABLE):
+            raise SchemaNotReadyError(
+                f"schema_not_ready: table {_REQUIRED_TABLE!r} does not exist"
+            )
+        existing_columns = {column["name"] for column in inspector.get_columns(_REQUIRED_TABLE)}
+        missing_columns = _REQUIRED_COLUMNS - existing_columns
+        if missing_columns:
+            raise SchemaNotReadyError(
+                f"schema_not_ready: table {_REQUIRED_TABLE!r} is missing column(s) "
+                f"{sorted(missing_columns)}"
+            )
+        existing_indexes = {index["name"] for index in inspector.get_indexes(_REQUIRED_TABLE)}
+        if _REQUIRED_INDEX not in existing_indexes:
+            raise SchemaNotReadyError(
+                f"schema_not_ready: required index {_REQUIRED_INDEX!r} does not exist "
+                f"on {_REQUIRED_TABLE!r}"
+            )
 
     def close(self) -> None:
         self._engine.dispose()
@@ -586,3 +651,25 @@ class SQLiteReplenishmentJobRepository:
             error_message=row["error_message"],
             metadata=json.loads(row["metadata_json"]),
         )
+
+
+def open_repository(
+    database: str | Path, *, read_only: bool = False
+) -> SQLiteReplenishmentJobRepository:
+    """The one seam every caller should open a repository through, instead of
+    constructing SQLiteReplenishmentJobRepository and separately deciding whether to
+    call initialize_schema(). read_only=False (default) is unchanged for every
+    existing caller: construct, then initialize_schema() as before. read_only=True is
+    for a caller that must never write anything -- not even the idempotent
+    CREATE-TABLE-IF-NOT-EXISTS/index-recreation initialize_schema() always ran -- and
+    that instead needs check_schema_ready() to confirm the schema it depends on is
+    already present, raising SchemaNotReadyError rather than creating or repairing
+    it. See scripts/run_replenishment_cycle.py's run_cycle(dry_run=True) and
+    authoring/replenishment/cli.py's status command for the two current read_only
+    callers."""
+    repository = SQLiteReplenishmentJobRepository(database, read_only=read_only)
+    if read_only:
+        repository.check_schema_ready()
+    else:
+        repository.initialize_schema()
+    return repository
