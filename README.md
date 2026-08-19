@@ -60,12 +60,9 @@ python -m pytest
 - `taxonomy/` — per-course skills, learning objectives, and reference
   provenance (`taxonomy/data/<course>/`)
 - `evaluation/` — model, retrieval, and quiz-quality evaluation
-- `training/` — Llama 3.1 LoRA/QLoRA fine-tuning pipeline
-- `knowledge_tracing/` — shared learner-state utilities
 - `scripts/` — operational CLIs and one-off tooling (content review, batch
   generation, replenishment control, calibration)
-- `configs/` — model and training configuration
-- `data/` — local SQLite database and generated training data
+- `data/` — local SQLite database (learner state, jobs)
 - `outputs/` — generated/approved content artifacts (mostly gitignored; the
   active approved banks under `outputs/approved_banks/` are tracked)
 - `docs/` — standalone reference documents (e.g. the cross-course content
