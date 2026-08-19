@@ -1,0 +1,20 @@
+{
+  "attempts": 1,
+  "completed_at": null,
+  "course_id": "intro-ai",
+  "created_at": "2026-08-18T03:21:13.505232+00:00",
+  "error_code": null,
+  "error_message": null,
+  "job_id": "157105a1-1414-4b07-97bd-3e97c1b4b88f",
+  "job_type": "retrieve_references",
+  "metadata": {
+    "batch_id": "grounded-ai-fnd-release-v1",
+    "pending_candidates": 0
+  },
+  "next_retry_at": null,
+  "requested_count": 5,
+  "skill_id": "AI-FND-04",
+  "snapshotted_at": "2026-08-19T09:29:41.536299+00:00",
+  "started_at": "2026-08-19T09:29:31.077262+00:00",
+  "status": "waiting_for_reference_review"
+}
