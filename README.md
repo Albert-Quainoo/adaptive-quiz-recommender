@@ -32,7 +32,7 @@ automated + human review pipeline before it reaches a learner.
 ```bash
 python -m pip install -r requirements.txt
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml  # fill in your keys
-streamlit run streamlit_app.py
+streamlit run app/main.py
 ```
 
 By default the app runs against a local SQLite database
