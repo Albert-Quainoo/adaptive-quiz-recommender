@@ -37,6 +37,7 @@ from authoring.grounded_review import (
     list_pending,
     load_source_questions,
     question_content_hash,
+    resolved_content_hash,
 )
 from authoring import question_intents
 from authoring.deterministic_templates import DETERMINISTIC_TEMPLATES
@@ -303,7 +304,7 @@ def _write_active_pointer(
     temporary.replace(pointer_path)
 
 
-def _batch_output_dir(manifest: CourseManifest, batch_id: str, skill_id: str) -> Path:
+def batch_output_dir(manifest: CourseManifest, batch_id: str, skill_id: str) -> Path:
     # Scoped per (batch_id, skill_id): the worker always generates one skill
     # at a time, even when a reviewed blueprint's intents span several
     # skills, so two skills sharing a blueprint never collide on one
@@ -562,7 +563,7 @@ def _handle_generate_questions(
         return
 
     intents_for_skill = intents_by_skill(blueprint).get(job.skill_id, [])
-    output_dir = _batch_output_dir(manifest, blueprint.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, blueprint.batch_id, job.skill_id)
     # An explicit blueprint.base_seed is deliberate operator intent (e.g. reproducing
     # a specific calibration run) and always wins. Absent one, the seed is derived
     # from job_id as before -- unique per replenishment episode, with no reproducible
@@ -690,7 +691,7 @@ def _handle_generate_questions(
     # Automated review runs next, before a human ever sees this batch -- see
     # _handle_automated_review below. output_dir is not carried in metadata: it is
     # always re-derived from (manifest, review.batch_id, job.skill_id) via
-    # _batch_output_dir, so it can never drift from the review file's own batch_id.
+    # batch_output_dir, so it can never drift from the review file's own batch_id.
     job_repository.mark_queued(
         job.job_id,
         job_type="automated_review",
@@ -787,7 +788,7 @@ def _handle_automated_review(
     review_path = Path(review_path_value)
     review_store = GroundedReviewStore(review_path)
     review = review_store.load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = {question.question_id: question for question in load_source_questions(output_dir)}
 
     catalogue = load_skills(manifest.skills_path(), manifest.references_path())
@@ -974,7 +975,7 @@ def _handle_automated_revision(
     review_path = Path(review_path_value)
     review_store = GroundedReviewStore(review_path)
     review = review_store.load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = {question.question_id: question for question in load_source_questions(output_dir)}
 
     catalogue = load_skills(manifest.skills_path(), manifest.references_path())
@@ -1114,7 +1115,7 @@ def _handle_promote_approved_items(
 
     review_path = Path(review_path_value)
     review = GroundedReviewStore(review_path).load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = (
         {question.question_id: question for question in load_source_questions(output_dir)}
         if output_dir.is_dir()
@@ -1139,8 +1140,8 @@ def _handle_promote_approved_items(
         unreviewed = sorted(
             item.original_question_id
             for item in approve_as_written_items
-            if (source := source_questions.get(item.original_question_id)) is None
-            or report_store.latest_for_hash(question_content_hash(source.question)) is None
+            if (content_hash := resolved_content_hash(item, source_questions)) is None
+            or report_store.latest_for_hash(content_hash) is None
         )
         if unreviewed:
             job_repository.mark_permanent_failure(

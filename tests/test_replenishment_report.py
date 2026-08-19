@@ -155,3 +155,32 @@ def test_report_round_trips_to_a_plain_dict_for_json_serialization():
     assert payload["job_outcomes"][0]["job_id"] == "job-1"
     assert payload["budget"] == {"ticks": 1}
     assert payload["archived_job_dirs"] == ["outputs/replenishment/intro-ai/job-1"]
+
+
+def test_build_report_defaults_auto_merge_fields_to_not_eligible():
+    report = build_report(
+        dry_run=False, deficiencies=[], job_outcomes=[], pending_approvals=[], budget={},
+        stop_reason=None, archived_job_dirs=[], clock=lambda: FIXED_TIME,
+    )
+    assert report.auto_merge_eligible is False
+    assert report.auto_merge_reasons == []
+
+
+def test_render_markdown_shows_auto_merge_eligibility_and_reasons():
+    eligible = build_report(
+        dry_run=False, deficiencies=[], job_outcomes=[], pending_approvals=[], budget={},
+        stop_reason=None, archived_job_dirs=[], clock=lambda: FIXED_TIME,
+        auto_merge_eligible=True, auto_merge_reasons=[],
+    )
+    assert "## Auto-merge eligibility" in render_markdown(eligible)
+    assert "Eligible: **True**" in render_markdown(eligible)
+    assert "_no blocking reasons_" in render_markdown(eligible)
+
+    blocked = build_report(
+        dry_run=False, deficiencies=[], job_outcomes=[], pending_approvals=[], budget={},
+        stop_reason=None, archived_job_dirs=[], clock=lambda: FIXED_TIME,
+        auto_merge_eligible=False, auto_merge_reasons=["AI-SRC-08-x: risk_level=medium"],
+    )
+    markdown = render_markdown(blocked)
+    assert "Eligible: **False**" in markdown
+    assert "AI-SRC-08-x: risk_level=medium" in markdown

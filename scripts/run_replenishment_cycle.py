@@ -34,6 +34,7 @@ from pathlib import Path
 import authoring.replenishment.cli as cli
 import authoring.replenishment.report as report
 from authoring.grounded_batch import BatchGenerationError
+from authoring.replenishment import automerge
 from authoring.question_intents import intents_by_skill
 from authoring.replenishment.budget import CycleBudgetConfig, CycleBudgetTracker
 from authoring.replenishment.demand import (
@@ -429,6 +430,7 @@ def run_cycle(
                 queue_rows_written += 1
 
     job_outcomes: list[report.JobOutcomeRow] = []
+    promotion_evaluations: list[automerge.AutoMergeEvaluation] = []
     archived: list[str] = []
     stop_reason: str | None = None
     tracker = CycleBudgetTracker(config=budget_config)
@@ -480,6 +482,13 @@ def run_cycle(
             job_outcomes.append(report.job_outcome_row(current, is_new_candidate=is_new))
 
             manifest = manifests.get(current.course_id)
+            if (
+                current.job_type == "promote_approved_items"
+                and current.status == "completed"
+                and manifest is not None
+            ):
+                promotion_evaluations.append(automerge.evaluate_promotion_job(current, manifest))
+
             if manifest is not None:
                 snapshot_job_artifacts(
                     current,
@@ -510,6 +519,13 @@ def run_cycle(
     else:
         budget_summary = tracker.to_dict()
 
+    if dry_run:
+        auto_merge_eligible, auto_merge_reasons = False, ["dry run"]
+    else:
+        auto_merge_eligible, auto_merge_reasons = automerge.combine_evaluations(
+            promotion_evaluations
+        )
+
     return report.build_report(
         dry_run=dry_run,
         deficiencies=deficiency_rows,
@@ -521,6 +537,8 @@ def run_cycle(
         archived_job_dirs=archived,
         clock=clock,
         queue_rows_written=queue_rows_written,
+        auto_merge_eligible=auto_merge_eligible,
+        auto_merge_reasons=auto_merge_reasons,
     )
 
 

@@ -484,6 +484,24 @@ def reject_item(
     )
 
 
+def resolved_content_hash(
+    item: CurationItem, source_questions: dict[str, PendingQuestion]
+) -> str | None:
+    """The content hash automated review actually scored for this approved
+    item: an approved revision's own content_hash, or (approve_as_written,
+    zero revisions) question_content_hash() of the source candidate. None if
+    an approve_as_written item's source isn't in source_questions -- callers
+    must treat that as "cannot verify," never as an automatic pass.
+    """
+    approved_revisions = [
+        revision for revision in item.revisions if revision.final_review_status == "approved"
+    ]
+    if approved_revisions:
+        return approved_revisions[0].content_hash
+    source = source_questions.get(item.original_question_id)
+    return question_content_hash(source.question) if source is not None else None
+
+
 def export_approved_bank_items(
     review: GroundedReview,
     source_questions: dict[str, PendingQuestion] | None = None,

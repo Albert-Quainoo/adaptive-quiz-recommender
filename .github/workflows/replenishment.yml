@@ -171,6 +171,7 @@ jobs:
           fi
 
       - name: Open or update the admin review PR
+        id: pr
         if: steps.commit.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -183,8 +184,27 @@ jobs:
               --head "$CONTENT_OPS_BRANCH" \
               --base "$BASE" \
               --title "Content replenishment: pending candidates for admin review" \
-              --body "Auto-updated by the Content Replenishment workflow. Opening or updating this PR does **not** approve or promote any content -- every candidate still requires the existing explicit admin approval (authoring/grounded_review.py's propose_revision/approve_revision) before it can be promoted, and promotion still only ever writes to this branch, never to $BASE directly. Merge this PR only once you are satisfied with what has been approved."
+              --body "Auto-updated by the Content Replenishment workflow. Opening or updating this PR does **not** approve or promote any content -- every candidate still requires the existing explicit admin approval (authoring/grounded_review.py's propose_revision/approve_revision) before it can be promoted, and promotion still only ever writes to this branch, never to $BASE directly. This PR auto-merges only if every item promoted by the run that opened it was scored low-risk by automated review (see the Auto-merge eligibility section in the run summary below) -- otherwise, merge it yourself once you are satisfied with what has been approved."
             PR_NUMBER=$(gh pr list --head "$CONTENT_OPS_BRANCH" --base "$BASE" \
               --state open --json number --jq '.[0].number')
+            echo "new_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_pr=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           gh pr comment "$PR_NUMBER" --body-file outputs/replenishment/_reports/latest.md
+
+      - name: Auto-merge if every promoted item was low-risk
+        if: >-
+          steps.cycle.outputs.dry_run == 'false' &&
+          steps.commit.outputs.changed == 'true' &&
+          steps.pr.outputs.new_pr == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ELIGIBLE=$(python -c "import json; print(json.load(open('outputs/replenishment/_reports/latest.json'))['auto_merge_eligible'])")
+          if [ "$ELIGIBLE" != "True" ]; then
+            echo "Auto-merge gate: not eligible this run, leaving PR #${{ steps.pr.outputs.pr_number }} for human review."
+            exit 0
+          fi
+          gh pr merge "${{ steps.pr.outputs.pr_number }}" --squash --admin

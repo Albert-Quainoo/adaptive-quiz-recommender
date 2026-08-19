@@ -26,6 +26,7 @@ from authoring.grounded_review import (
     GroundedReviewStore,
     RevisionProvenance,
     approve_revision,
+    get_item,
     propose_revision,
 )
 from authoring.grounding_briefs import CanonicalGroundingBrief
@@ -42,6 +43,8 @@ from authoring.retrieval.search import FetchedPage
 from authoring.retrieval.store import CandidateStore
 from authoring.review.models import (
     AnswerAssessment,
+    AutomatedReviewReport,
+    DeterministicChecks,
     DifficultyAssessment,
     DuplicateAssessment,
     GroundingAssessment,
@@ -49,6 +52,7 @@ from authoring.review.models import (
     SemanticReviewResult,
 )
 from authoring.review.config import ReviewPolicyConfig
+from authoring.review.reports import AutomatedReviewReportStore, review_report_path
 from authoring.review.reviewer import FakeContentReviewer
 from api.schemas import QuizQuestion
 from scripts.stage_run_artifacts import stage_run_artifacts
@@ -1269,3 +1273,109 @@ def test_dry_run_reports_mixed_difficulty_for_a_deficient_multi_tier_blueprint(
     assert row.decision == "proposed"
     assert row.difficulty == "mixed"
     assert any(planned.skill_id == SKILL_ID for planned in report.execution_plan)
+
+
+# ---------------------------------------------------------------------------
+# Auto-merge eligibility: end-to-end through run_cycle()
+# ---------------------------------------------------------------------------
+
+def _low_risk_report(content_hash: str, intent_id: str) -> AutomatedReviewReport:
+    """As if the automated_revision -> re-review pathway (worker.py's real,
+    not-shadow-mode flow) had already scored this exact edited content low risk --
+    the only way a promoted revision is genuinely eligible for auto-merge, since
+    propose_revision requires at least one changed field (no zero-diff revision is
+    possible) and CurationItem.recommendation is never approve_as_written for a
+    worker-driven item (see worker.py's _curation_recommendation docstring)."""
+    return AutomatedReviewReport(
+        review_id=f"report-{content_hash[:12]}",
+        candidate_id="candidate",
+        skill_id=SKILL_ID,
+        intent_id=intent_id,
+        review_policy_version="review-v1",
+        reviewer_model_id="fake-reviewer",
+        reviewer_model_revision="fake-rev-1",
+        reviewer_prompt_version="review-v1",
+        reviewer_prompt_template_hash="d" * 64,
+        rendered_review_request_hash="d" * 64,
+        reviewed_content_hash=content_hash,
+        created_at=FIXED_TIME,
+        deterministic_checks=DeterministicChecks(checks=[]),
+        risk_score=0.1,
+        risk_level="low",
+        recommendation="recommend_human_approval",
+    )
+
+
+def test_run_reports_auto_merge_eligible_when_the_approved_revision_was_itself_reviewed_low_risk(
+    tmp_path, isolated, database, reviewed_blueprint, monkeypatch
+):
+    """Mirrors the ineligible case below, except the approved revision's own edited
+    content has a matching low-risk AutomatedReviewReport on file -- promotion should
+    then report the run as auto-merge eligible."""
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+    repository.enqueue(course_id="intro-ai", skill_id=SKILL_ID, requested_count=1, clock=fixed_clock)
+
+    first = _run(database, snapshot_root, budget=CycleBudgetConfig(max_generation_calls=10))
+    assert first.auto_merge_eligible is False  # nothing promoted yet this run
+
+    awaiting = next(row for row in first.pending_approvals if row.status == "waiting_for_question_review")
+    review_path = Path(repository.get(awaiting.job_id).metadata["review_path"])
+    batch_dir = isolated.review_store_path.parent / "batches" / f"{reviewed_blueprint.batch_id}__{SKILL_ID}"
+    original_question_id = _approve_first_pending_question(review_path, batch_dir)
+
+    approved_item = get_item(GroundedReviewStore(review_path).load(), original_question_id)
+    approved_revision = next(
+        revision for revision in approved_item.revisions if revision.final_review_status == "approved"
+    )
+    report_store = AutomatedReviewReportStore(
+        review_report_path(isolated.review_store_path, reviewed_blueprint.batch_id, SKILL_ID)
+    )
+    report_store.append(_low_risk_report(approved_revision.content_hash, approved_revision.intent_id))
+
+    second = _run(database, snapshot_root, budget=CycleBudgetConfig(max_generation_calls=10))
+    promoted = [
+        row for row in second.job_outcomes
+        if row.job_type == "promote_approved_items" and row.status == "completed"
+    ]
+    assert len(promoted) == 1
+    assert second.auto_merge_eligible is True
+    assert second.auto_merge_reasons == []
+
+
+def test_run_reports_auto_merge_ineligible_for_a_promoted_but_unreviewed_revision(
+    tmp_path, isolated, database, reviewed_blueprint, monkeypatch
+):
+    """A human-approved revision's edited content is never scored by automated
+    review in this flow (only the original candidate was), so its promotion must
+    stay auto-merge ineligible even though a human explicitly approved it."""
+    monkeypatch.setattr(cli, "_search_provider_factory", lambda manifest: FakeSearchProvider([]))
+    monkeypatch.setattr(cli, "_fetcher_factory", lambda manifest: FakePageFetcher({}))
+    monkeypatch.setattr(cli, "_model_factory", lambda: DeterministicFakeModel)
+    monkeypatch.setattr(cli, "_reviewer_factory", lambda: clean_reviewer_factory)
+
+    snapshot_root = tmp_path / "snapshots"
+    repository = SQLiteReplenishmentJobRepository(database)
+    repository.initialize_schema()
+    repository.enqueue(course_id="intro-ai", skill_id=SKILL_ID, requested_count=1, clock=fixed_clock)
+
+    first = _run(database, snapshot_root, budget=CycleBudgetConfig(max_generation_calls=10))
+    awaiting = next(row for row in first.pending_approvals if row.status == "waiting_for_question_review")
+    review_path = Path(repository.get(awaiting.job_id).metadata["review_path"])
+    batch_dir = isolated.review_store_path.parent / "batches" / f"{reviewed_blueprint.batch_id}__{SKILL_ID}"
+    _approve_first_pending_question(review_path, batch_dir)
+
+    second = _run(database, snapshot_root, budget=CycleBudgetConfig(max_generation_calls=10))
+    promoted = [
+        row for row in second.job_outcomes
+        if row.job_type == "promote_approved_items" and row.status == "completed"
+    ]
+    assert len(promoted) == 1
+    assert second.auto_merge_eligible is False
+    assert any("no automated review report on file" in reason for reason in second.auto_merge_reasons)

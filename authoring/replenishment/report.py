@@ -116,6 +116,14 @@ class CycleReport:
     # run (see deficiency_row's dry_run handling above); reported explicitly
     # so "did this run really write nothing" never has to be taken on faith.
     queue_rows_written: int = 0
+    # Whether every promote_approved_items job this run completed promoted
+    # only items whose automated review scored risk_level "low" -- see
+    # authoring/replenishment/automerge.py. False (with a reason) for a dry
+    # run, or a run with no completed promotions, or any mixed/higher-risk
+    # promotion. Consumed by replenishment.yml's auto-merge step; never
+    # itself decides whether the PR is new vs. pre-existing.
+    auto_merge_eligible: bool = False
+    auto_merge_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -228,6 +236,8 @@ def build_report(
     clock,
     execution_plan: list[PlannedJobRow] | None = None,
     queue_rows_written: int = 0,
+    auto_merge_eligible: bool = False,
+    auto_merge_reasons: list[str] | None = None,
 ) -> CycleReport:
     now: datetime = clock()
     return CycleReport(
@@ -241,6 +251,8 @@ def build_report(
         stop_reason=stop_reason,
         archived_job_dirs=archived_job_dirs,
         queue_rows_written=queue_rows_written,
+        auto_merge_eligible=auto_merge_eligible,
+        auto_merge_reasons=auto_merge_reasons or [],
     )
 
 
@@ -335,6 +347,13 @@ def render_markdown(report: CycleReport) -> str:
         ),
         "## Budget\n",
         "\n".join(f"- **{key}**: {value}" for key, value in report.budget.items()) + "\n",
+        "## Auto-merge eligibility\n"
+        f"Eligible: **{report.auto_merge_eligible}**\n\n"
+        + (
+            "\n".join(f"- {reason}" for reason in report.auto_merge_reasons) + "\n"
+            if report.auto_merge_reasons
+            else "_no blocking reasons_\n"
+        ),
     ]
     if report.archived_job_dirs:
         parts.append(
