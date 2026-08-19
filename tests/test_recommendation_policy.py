@@ -151,6 +151,26 @@ def test_item_ties_use_item_id_and_fallback_prefers_nearest_easier_difficulty():
     assert selection.reason == "fallback_difficulty_used"
 
 
+def test_item_ties_are_randomized_per_learner_but_stable_within_a_learner():
+    items = [item(f"item-{letter}", "AI-SRC-01", "introductory") for letter in "abcdefgh"]
+
+    def pick(learner_id: str) -> str:
+        return select_item(
+            items,
+            skill_id="AI-SRC-01",
+            desired_difficulty="introductory",
+            excluded_item_ids=set(),
+            last_answered_item_id=None,
+            learner_id=learner_id,
+        ).item.item_id
+
+    first_call = pick("learner-1")
+    assert pick("learner-1") == first_call  # stable across repeated calls
+
+    other_learner_picks = {pick(f"learner-{n}") for n in range(2, 12)}
+    assert other_learner_picks != {first_call}  # not everyone gets the same item
+
+
 @pytest.mark.parametrize(
     ("preferred", "available", "expected"),
     [
