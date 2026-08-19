@@ -1,6 +1,6 @@
 # Content Replenishment Cycle Report
 
-Generated: `2026-08-18T03:42:52.046025+00:00`  
+Generated: `2026-08-19T09:29:49.494117+00:00`  
 Mode: **live**  
 Stopped because: new-candidate cap reached (1)  
 Job-queue rows written this run: **0**
@@ -11,7 +11,7 @@ Job-queue rows written this run: **0**
 |---|---|---|---|---|---|---|
 | intro-ai | AI-FND-01 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
 | intro-ai | AI-FND-02 | - | no_deficiency | 0 | not eligible: readiness=reference_review | - |
-| intro-ai | AI-FND-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-FND-03 | - | no_deficiency | 0 | not eligible: readiness=replenishment_failed | - |
 | intro-ai | AI-FND-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-AGT-01 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
 | intro-ai | AI-AGT-02 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
@@ -82,19 +82,21 @@ _none_
 Planned this run: **0**  
 Deferred (eligible, over cap, left for a later run): **0**  
 Blocked (unresolved difficulty, needs a reviewed blueprint): **0**  
+Capacity exhausted (blueprint's declared intent slots all already approved, needs more intents authored): **0**  
 Manual action required (hand_authored, needs a person to write items): **2**
 
 ## Job processing outcomes this run
 
 | Job | Course | Skill | Stage | Status | Outcome | New? | Error |
 |---|---|---|---|---|---|---|---|
-| 7029088c | intro-ai | AI-FND-03 | replenish_skill | permanent_failure | permanent_failure | yes | demand_already_satisfied |
+| 157105a1 | intro-ai | AI-FND-04 | retrieve_references | waiting_for_reference_review | in_progress | yes | - |
 
 ## Pending admin approvals
 
 | Job | Course | Skill | Status | Waiting since |
 |---|---|---|---|---|
 | e4bedc2e | intro-ai | AI-FND-02 | waiting_for_reference_review | 2026-08-18T03:21:12.246558+00:00 |
+| 157105a1 | intro-ai | AI-FND-04 | waiting_for_reference_review | 2026-08-18T03:21:13.505232+00:00 |
 
 ## Budget
 
@@ -106,4 +108,9 @@ Manual action required (hand_authored, needs a person to write items): **2**
 - **new_candidates_started**: 1
 - **max_new_candidates**: 1
 - **max_generation_calls**: 20
-- **max_cost_usd**: 1.0
+- **max_cost_usd**: 2.0
+
+## Auto-merge eligibility
+Eligible: **False**
+
+- no promote_approved_items job completed this run
