@@ -75,7 +75,7 @@
       "decision": "no_deficiency",
       "difficulty": "-",
       "proposed_job_key": "-",
-      "reason": "not eligible: readiness=retrieval_pending",
+      "reason": "not eligible: readiness=reference_review",
       "requested_count": 0,
       "skill_id": "AI-AGT-03"
     },
@@ -604,16 +604,16 @@
   ],
   "dry_run": false,
   "execution_plan": [],
-  "generated_at": "2026-08-19T11:17:20.082053+00:00",
+  "generated_at": "2026-08-19T11:24:11.211248+00:00",
   "job_outcomes": [
     {
       "course_id": "intro-ai",
       "error_code": null,
       "is_new_candidate": true,
-      "job_id": "802a3b1a-2c1c-4e90-8492-1192fb4c119c",
+      "job_id": "d0c5f5e0-83c1-4e29-9a40-6cfef280a546",
       "job_type": "retrieve_references",
       "outcome_category": "in_progress",
-      "skill_id": "AI-AGT-03",
+      "skill_id": "AI-AGT-04",
       "status": "waiting_for_reference_review"
     }
   ],
@@ -645,6 +645,13 @@
       "skill_id": "AI-AGT-03",
       "status": "waiting_for_reference_review",
       "waiting_since": "2026-08-18T03:21:14.762741+00:00"
+    },
+    {
+      "course_id": "intro-ai",
+      "job_id": "d0c5f5e0-83c1-4e29-9a40-6cfef280a546",
+      "skill_id": "AI-AGT-04",
+      "status": "waiting_for_reference_review",
+      "waiting_since": "2026-08-18T03:21:15.391008+00:00"
     }
   ],
   "queue_rows_written": 0,

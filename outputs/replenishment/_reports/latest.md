@@ -1,6 +1,6 @@
 # Content Replenishment Cycle Report
 
-Generated: `2026-08-19T11:17:20.082053+00:00`  
+Generated: `2026-08-19T11:24:11.211248+00:00`  
 Mode: **live**  
 Stopped because: new-candidate cap reached (1)  
 Job-queue rows written this run: **0**
@@ -15,7 +15,7 @@ Job-queue rows written this run: **0**
 | intro-ai | AI-FND-04 | - | no_deficiency | 0 | not eligible: readiness=reference_review | - |
 | intro-ai | AI-AGT-01 | - | no_deficiency | 0 | supply 6 meets threshold 3 | - |
 | intro-ai | AI-AGT-02 | - | no_deficiency | 0 | not eligible: readiness=reference_review | - |
-| intro-ai | AI-AGT-03 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
+| intro-ai | AI-AGT-03 | - | no_deficiency | 0 | not eligible: readiness=reference_review | - |
 | intro-ai | AI-AGT-04 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-AGT-05 | - | no_deficiency | 0 | not eligible: readiness=retrieval_pending | - |
 | intro-ai | AI-SRC-01 | - | no_deficiency | 0 | supply 9 meets threshold 3 | - |
@@ -89,7 +89,7 @@ Manual action required (hand_authored, needs a person to write items): **2**
 
 | Job | Course | Skill | Stage | Status | Outcome | New? | Error |
 |---|---|---|---|---|---|---|---|
-| 802a3b1a | intro-ai | AI-AGT-03 | retrieve_references | waiting_for_reference_review | in_progress | yes | - |
+| d0c5f5e0 | intro-ai | AI-AGT-04 | retrieve_references | waiting_for_reference_review | in_progress | yes | - |
 
 ## Pending admin approvals
 
@@ -99,6 +99,7 @@ Manual action required (hand_authored, needs a person to write items): **2**
 | 157105a1 | intro-ai | AI-FND-04 | waiting_for_reference_review | 2026-08-18T03:21:13.505232+00:00 |
 | f0c1e911 | intro-ai | AI-AGT-02 | waiting_for_reference_review | 2026-08-18T03:21:14.134047+00:00 |
 | 802a3b1a | intro-ai | AI-AGT-03 | waiting_for_reference_review | 2026-08-18T03:21:14.762741+00:00 |
+| d0c5f5e0 | intro-ai | AI-AGT-04 | waiting_for_reference_review | 2026-08-18T03:21:15.391008+00:00 |
 
 ## Budget
 
