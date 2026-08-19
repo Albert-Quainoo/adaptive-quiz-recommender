@@ -34,11 +34,18 @@ from pathlib import Path
 import authoring.replenishment.cli as cli
 import authoring.replenishment.report as report
 from authoring.grounded_batch import BatchGenerationError
+from authoring.replenishment import automerge
 from authoring.question_intents import intents_by_skill
 from authoring.replenishment.budget import CycleBudgetConfig, CycleBudgetTracker
+from authoring.replenishment.demand import (
+    compute_blueprint_slot_demand,
+    compute_demand_fingerprint,
+    deficient_slots,
+    load_approved_item_ids,
+)
 from authoring.replenishment.inventory import compute_course_inventory
 from authoring.replenishment.jobs import SchemaNotReadyError, open_repository
-from authoring.replenishment.manifest import load_preparation_eligible_manifests
+from authoring.replenishment.manifest import CourseManifest, load_preparation_eligible_manifests
 from authoring.replenishment.policy import ReplenishmentDecision, decide_replenishment
 from authoring.replenishment.snapshot import archive_stale_jobs, snapshot_job_artifacts
 from authoring.replenishment.worker import (
@@ -135,6 +142,40 @@ def _resolve_difficulty(skill_id: str) -> str:
         return "unknown"
 
 
+def _capacity_exhausted_reason(
+    skill_id: str, manifest: CourseManifest, *, difficulty: str, target_supply: int
+) -> str | None:
+    """None unless this skill has exactly one covering blueprint (ambiguous
+    or missing coverage is _resolve_difficulty's "blocked" concern, not
+    this function's) and that blueprint's declared intent slots for this
+    skill are all already approved bank items -- computed with exactly the
+    same blueprint/skill/slot rules as
+    authoring.replenishment.demand.compute_blueprint_slot_demand(), so the
+    scanner can never propose a job the worker would immediately reject as
+    demand_already_satisfied (authoring/replenishment/worker.py). A skill
+    this returns non-None for must never be enqueued -- see run_cycle()'s
+    two-pass enqueue below."""
+    covering = blueprints_covering_skill(skill_id)
+    if len(covering) != 1:
+        return None
+    blueprint = covering[0]
+    approved_item_ids = load_approved_item_ids(manifest)
+    demand = compute_blueprint_slot_demand(blueprint, skill_id, approved_item_ids)
+    if not demand or deficient_slots(demand):
+        return None
+    fingerprint = compute_demand_fingerprint(
+        blueprint, skill_id, approved_item_ids,
+        difficulty=difficulty, target_supply=target_supply,
+    )
+    return (
+        f"capacity_exhausted: {blueprint.batch_id} declares only "
+        f"{len(demand)} intent slot(s) for {skill_id}, all already approved "
+        "bank items; author additional intents in the blueprint before more "
+        f"can be generated (target_supply={target_supply}, "
+        f"demand_fingerprint={fingerprint})"
+    )
+
+
 def _tick_budget_delta(job_type: str, config: CycleBudgetConfig) -> dict:
     from authoring.replenishment.budget import (
         GENERATION_JOB_TYPES,
@@ -226,18 +267,22 @@ def run_cycle(
 
     review_config = cli._review_config()
 
-    # Two passes: first resolve every decision's difficulty and whether it is
-    # blocked, in deterministic course-then-taxonomy scan order; only then
-    # cap the first budget_config.max_new_candidates *eligible* (should-
-    # enqueue, not blocked) ones as this run's execution plan, so "the first
-    # N" is decided from the complete picture, not truncated mid-course.
-    candidates: list[tuple[ReplenishmentDecision, str, str | None]] = []
+    # Three passes: first resolve every decision's difficulty, whether it is
+    # blocked (no resolvable blueprint), and whether its one resolvable
+    # blueprint's declared capacity for this skill is already exhausted, in
+    # deterministic course-then-taxonomy scan order; only then cap the first
+    # budget_config.max_new_candidates *eligible* (should-enqueue, not
+    # blocked, not capacity-exhausted) ones as this run's execution plan, so
+    # "the first N" is decided from the complete picture, not truncated
+    # mid-course.
+    candidates: list[tuple[ReplenishmentDecision, str, str | None, str | None]] = []
     for course_id in COURSE_IDS:
         manifest = manifests.get(course_id)
         if manifest is None:
             continue
         inventory = compute_course_inventory(manifest, repository)
-        decisions = decide_replenishment(inventory, cli._policy_config(manifest))
+        policy_config = cli._policy_config(manifest)
+        decisions = decide_replenishment(inventory, policy_config)
         decisions = apply_review_backlog_caps(
             decisions,
             pending_per_skill={
@@ -269,12 +314,21 @@ def run_cycle(
                     "-- author and review a blueprint for this skill before "
                     "it can be planned as a generation-ready job"
                 )
-            candidates.append((decision, difficulty, blocked_reason))
+            capacity_exhausted_reason = None
+            if decision.should_enqueue and blocked_reason is None:
+                capacity_exhausted_reason = _capacity_exhausted_reason(
+                    decision.skill_id, manifest,
+                    difficulty=difficulty, target_supply=policy_config.target_supply,
+                )
+            candidates.append((decision, difficulty, blocked_reason, capacity_exhausted_reason))
 
     eligible_indices = [
         index
-        for index, (decision, _difficulty, blocked_reason) in enumerate(candidates)
-        if decision.should_enqueue and blocked_reason is None
+        for index, (decision, _difficulty, blocked_reason, capacity_exhausted_reason)
+        in enumerate(candidates)
+        if decision.should_enqueue
+        and blocked_reason is None
+        and capacity_exhausted_reason is None
     ]
     planned_indices = set(eligible_indices[: budget_config.max_new_candidates])
     total_eligible = len(eligible_indices)
@@ -283,10 +337,15 @@ def run_cycle(
     planned_rows: list[report.PlannedJobRow] = []
     queue_rows_written = 0
     plan_rank = 0
-    for index, (decision, difficulty, blocked_reason) in enumerate(candidates):
+    for index, (decision, difficulty, blocked_reason, capacity_exhausted_reason) in enumerate(
+        candidates
+    ):
         is_planned = index in planned_indices
         is_deferred = (
-            decision.should_enqueue and blocked_reason is None and not is_planned
+            decision.should_enqueue
+            and blocked_reason is None
+            and capacity_exhausted_reason is None
+            and not is_planned
         )
         deficiency_rows.append(
             report.deficiency_row(
@@ -294,12 +353,15 @@ def run_cycle(
                 difficulty=difficulty,
                 dry_run=dry_run,
                 decision_override=(
-                    "blocked" if blocked_reason is not None
+                    "capacity_exhausted" if capacity_exhausted_reason is not None
+                    else "blocked" if blocked_reason is not None
                     else "deferred" if is_deferred
                     else None
                 ),
                 reason_override=(
-                    blocked_reason
+                    capacity_exhausted_reason
+                    if capacity_exhausted_reason is not None
+                    else blocked_reason
                     if blocked_reason is not None
                     else (
                         f"{decision.reason}; deferred: exceeds this run's "
@@ -330,25 +392,35 @@ def run_cycle(
         # _blueprint_generation_difficulty already refuses to guess one,
         # permanent-failing that stage with error_code
         # "generation_config_error" if it's still unresolved by then.
+        # capacity_exhausted_reason is different: it means the one blueprint
+        # that DOES cover this skill has no unsatisfied slot left at all, so
+        # enqueueing would only ever produce the exact demand_already_satisfied
+        # /no_longer_needed outcome the worker would immediately reach anyway
+        # -- never enqueued, by either pass below.
         #
-        # Enqueued in two passes -- every eligible (non-blocked) deficiency
-        # first, in scan order, then every blocked one -- rather than one
-        # pass in raw scan order. enqueue()'s created_at is real wall-clock
-        # time at call time (see authoring/replenishment/jobs.py), and the
-        # worker's FIFO claim (_next_claimable_job() below) always takes the
-        # oldest queued job -- so a blocked skill that merely sorts earlier
-        # in the taxonomy than this run's planned target must never be
-        # given an earlier created_at than that target, or it silently
-        # claims this run's new-candidate slot instead.
-        for decision, _difficulty, blocked_reason in candidates:
-            if decision.should_enqueue and blocked_reason is None:
+        # Enqueued in two passes -- every eligible (non-blocked,
+        # non-capacity-exhausted) deficiency first, in scan order, then every
+        # blocked one -- rather than one pass in raw scan order. enqueue()'s
+        # created_at is real wall-clock time at call time (see
+        # authoring/replenishment/jobs.py), and the worker's FIFO claim
+        # (_next_claimable_job() below) always takes the oldest queued job --
+        # so a blocked skill that merely sorts earlier in the taxonomy than
+        # this run's planned target must never be given an earlier
+        # created_at than that target, or it silently claims this run's
+        # new-candidate slot instead.
+        for decision, _difficulty, blocked_reason, capacity_exhausted_reason in candidates:
+            if (
+                decision.should_enqueue
+                and blocked_reason is None
+                and capacity_exhausted_reason is None
+            ):
                 repository.enqueue(
                     course_id=decision.course_id,
                     skill_id=decision.skill_id,
                     requested_count=decision.requested_count,
                 )
                 queue_rows_written += 1
-        for decision, _difficulty, blocked_reason in candidates:
+        for decision, _difficulty, blocked_reason, _unused in candidates:
             if decision.should_enqueue and blocked_reason is not None:
                 repository.enqueue(
                     course_id=decision.course_id,
@@ -358,6 +430,7 @@ def run_cycle(
                 queue_rows_written += 1
 
     job_outcomes: list[report.JobOutcomeRow] = []
+    promotion_evaluations: list[automerge.AutoMergeEvaluation] = []
     archived: list[str] = []
     stop_reason: str | None = None
     tracker = CycleBudgetTracker(config=budget_config)
@@ -409,6 +482,13 @@ def run_cycle(
             job_outcomes.append(report.job_outcome_row(current, is_new_candidate=is_new))
 
             manifest = manifests.get(current.course_id)
+            if (
+                current.job_type == "promote_approved_items"
+                and current.status == "completed"
+                and manifest is not None
+            ):
+                promotion_evaluations.append(automerge.evaluate_promotion_job(current, manifest))
+
             if manifest is not None:
                 snapshot_job_artifacts(
                     current,
@@ -439,6 +519,13 @@ def run_cycle(
     else:
         budget_summary = tracker.to_dict()
 
+    if dry_run:
+        auto_merge_eligible, auto_merge_reasons = False, ["dry run"]
+    else:
+        auto_merge_eligible, auto_merge_reasons = automerge.combine_evaluations(
+            promotion_evaluations
+        )
+
     return report.build_report(
         dry_run=dry_run,
         deficiencies=deficiency_rows,
@@ -450,6 +537,8 @@ def run_cycle(
         archived_job_dirs=archived,
         clock=clock,
         queue_rows_written=queue_rows_written,
+        auto_merge_eligible=auto_merge_eligible,
+        auto_merge_reasons=auto_merge_reasons,
     )
 
 

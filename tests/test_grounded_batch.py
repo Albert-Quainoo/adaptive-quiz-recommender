@@ -218,8 +218,10 @@ def test_pending_question_provenance_is_complete(tmp_path):
         "git_commit",
         "raw_response",
         "question",
+        "generation_method",
     }
     assert record["validation_status"] == "valid"
+    assert record["generation_method"] == "model"
     assert record["review_status"] == "pending"
     assert record["model_revision"] == DeterministicFakeModel.model_revision
     assert len(record["prompt_hash"]) == 64

@@ -39,6 +39,178 @@
       "skill_id": "AI-FND-03"
     },
     {
+      "assessment_focus": "Recognize whether a described problem is well-suited to an AI-based approach or is better solved with a simple deterministic procedure.",
+      "cognitive_demand": "Recognize whether a described task calls for AI techniques or a straightforward fixed procedure.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should mislabel a simple, fully-specified arithmetic or lookup task as requiring AI."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-02",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a task that plausibly could go either way.",
+        "Do not require naming a specific AI subfield in this intent."
+      ],
+      "prohibited_conflations": [
+        "any computational task automatically counts as an AI application"
+      ],
+      "question_archetype": "AI-suitability judgment",
+      "required_concepts": [
+        "tasks suited to AI (pattern recognition, ambiguous or complex mapping, large search space)",
+        "tasks better solved by a simple fixed procedure"
+      ],
+      "required_question_characteristics": [
+        "Describe one concrete problem or task.",
+        "Ask whether it is well-suited to an AI-based approach or better solved with a simple deterministic procedure."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "assessment_focus": "Given a named AI subfield, identify which of two candidate real-world scenario descriptions is an example of it.",
+      "cognitive_demand": "Given a named AI subfield, identify which of two candidate scenarios exemplifies it.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should pick the scenario that superficially resembles the subfield's name without matching its actual technique."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-03",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe two scenarios that both plausibly exemplify the named subfield."
+      ],
+      "prohibited_conflations": [
+        "any application involving a computer program counts as an example of the named subfield"
+      ],
+      "question_archetype": "subfield-to-scenario matching",
+      "required_concepts": [
+        "named AI subfield definition",
+        "matching an application example to its subfield"
+      ],
+      "required_question_characteristics": [
+        "Name one AI subfield and describe two candidate real-world scenarios.",
+        "Ask which scenario is an example of the named subfield."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "assessment_focus": "Compare two candidate AI approaches for solving a described problem and judge which is the better fit.",
+      "cognitive_demand": "Compare a search-based approach against a learning-based approach to judge which better fits a described problem.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should pick the approach that does not match the problem's structure (e.g. search for a problem needing pattern generalization from data)."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-04",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe a problem where both approaches are equally appropriate."
+      ],
+      "prohibited_conflations": [
+        "a search-based approach and a learning-based approach are interchangeable for any AI problem"
+      ],
+      "question_archetype": "candidate-approach comparison",
+      "required_concepts": [
+        "search-based approach",
+        "learning-based approach",
+        "problem-approach fit"
+      ],
+      "required_question_characteristics": [
+        "Describe one problem and two candidate approaches (e.g. a search-based approach and a learning-based approach).",
+        "Ask which candidate approach is the better fit and why."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "assessment_focus": "Diagnose why a stated classification of a real-world AI application into a named subfield is incorrect.",
+      "cognitive_demand": "Diagnose why a described application has been mislabeled with the wrong AI subfield.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should defend the incorrect label using a surface-level resemblance to the named subfield."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-05",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not assert a subfield label that is actually correct."
+      ],
+      "prohibited_conflations": [
+        "a superficial resemblance between two applications means they use the same AI subfield"
+      ],
+      "question_archetype": "subfield-misclassification diagnosis",
+      "required_concepts": [
+        "subfield misclassification",
+        "distinguishing surface similarity from underlying technique"
+      ],
+      "required_question_characteristics": [
+        "Describe a real-world AI application together with an asserted, incorrect subfield label for it.",
+        "Ask why that label is incorrect."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
+      "assessment_focus": "Apply a stated practical constraint, such as limited labeled data or a need for explainable decisions, to judge which of two candidate AI approaches is more appropriate.",
+      "cognitive_demand": "Apply a stated data-availability or explainability constraint to judge which candidate AI approach is more appropriate.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should recommend the approach the constraint actually rules out."
+      ],
+      "generation_constraints": [
+        "Use an intermediate application task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-03-INT-06",
+      "learning_objective": "Identify appropriate applications of AI in different fields.",
+      "preferred_reference_ids": [
+        "AI-FND-03-1277170ce874",
+        "AI-FND-03-81534113035f"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not state a constraint that both candidate approaches satisfy equally well."
+      ],
+      "prohibited_conflations": [
+        "the most powerful AI approach is always the appropriate choice regardless of practical constraints"
+      ],
+      "question_archetype": "approach-selection constraint reasoning",
+      "required_concepts": [
+        "data availability as a constraint on approach choice",
+        "explainability as a constraint on approach choice"
+      ],
+      "required_question_characteristics": [
+        "State one practical constraint (e.g. very little labeled data available, or a need for explainable decisions) and two candidate approaches.",
+        "Ask which approach the constraint favors."
+      ],
+      "skill_id": "AI-FND-03"
+    },
+    {
       "assessment_focus": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
       "cognitive_demand": "Given a description of the Turing Test or the Chinese Room argument, identify what it claims to test or argue.",
       "difficulty": "introductory",
@@ -74,12 +246,178 @@
         "Ask what that description claims to test or argue about machine intelligence or understanding."
       ],
       "skill_id": "AI-FND-04"
+    },
+    {
+      "assessment_focus": "Recognize how the Turing Test is conducted, in terms of the interrogator, the person, and the machine.",
+      "cognitive_demand": "Recognize the roles of the interrogator, the person, and the machine in how the Turing Test is conducted.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the interrogator can see or directly examine the machine rather than only converse with it."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-04-INT-03",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-1d9f2a7b336c"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require judging a specific transcript in this intent."
+      ],
+      "prohibited_conflations": [
+        "the interrogator directly observes which participant is the machine rather than only conversing with them"
+      ],
+      "question_archetype": "Turing Test procedure recognition",
+      "required_concepts": [
+        "interrogator separated from the person and the machine",
+        "the interrogator's goal of determining which is which"
+      ],
+      "required_question_characteristics": [
+        "Describe the setup of the interrogator, the person, and the machine.",
+        "Ask what the interrogator's task is in this setup."
+      ],
+      "skill_id": "AI-FND-04"
+    },
+    {
+      "assessment_focus": "Recognize what the Chinese Room argument's setup involves and what it claims about a system that manipulates symbols according to a program.",
+      "cognitive_demand": "Recognize the Chinese Room's setup and its claim that following a program does not by itself grant understanding.",
+      "difficulty": "introductory",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the man (or the computer) understands Chinese because the program produces correct responses."
+      ],
+      "generation_constraints": [
+        "Use an introductory recognition task.",
+        "Provide exactly one defensible answer supported by the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-04-INT-04",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not require the learner to judge whether the argument succeeds in this intent."
+      ],
+      "prohibited_conflations": [
+        "the man in the room understands Chinese as long as he correctly follows the program's instructions"
+      ],
+      "question_archetype": "Chinese Room setup recognition",
+      "required_concepts": [
+        "the man in the room implementing a program for manipulating symbols",
+        "the argument's claim that program-following alone does not entail understanding"
+      ],
+      "required_question_characteristics": [
+        "Describe the man in the room following a program to manipulate symbols.",
+        "Ask what the argument claims about whether he, or any computer doing the same, understands Chinese."
+      ],
+      "skill_id": "AI-FND-04"
+    },
+    {
+      "assessment_focus": "Apply the Turing Test's setup to judge whether a described interrogator/machine exchange would count as the machine passing the test.",
+      "cognitive_demand": "Apply the behavioral-indistinguishability criterion to judge whether a described exchange counts as passing the Turing Test.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should judge the machine by factual accuracy rather than by indistinguishability from the person."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-04-INT-05",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-1d9f2a7b336c"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not describe an exchange where the interrogator's ability to distinguish them is ambiguous."
+      ],
+      "prohibited_conflations": [
+        "the Turing Test is passed by the machine giving factually correct answers rather than by being indistinguishable from the person"
+      ],
+      "question_archetype": "Turing-Test-pass judgment",
+      "required_concepts": [
+        "interrogator's inability to reliably distinguish machine from person",
+        "passing the Turing Test as a behavioral outcome"
+      ],
+      "required_question_characteristics": [
+        "Describe a conversation between the interrogator and the machine, and whether the interrogator could reliably tell it was the machine.",
+        "Ask whether the machine passed the Turing Test."
+      ],
+      "skill_id": "AI-FND-04"
+    },
+    {
+      "assessment_focus": "Diagnose a described restatement of the Chinese Room argument that misrepresents what the argument actually claims.",
+      "cognitive_demand": "Diagnose why a described restatement of the Chinese Room argument misrepresents its actual, narrower claim.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should accept the overreaching restatement as an accurate summary of the argument."
+      ],
+      "generation_constraints": [
+        "Use an intermediate diagnostic task.",
+        "Provide exactly one defensible answer supported by the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-04-INT-06",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not present a restatement that is actually an accurate paraphrase."
+      ],
+      "prohibited_conflations": [
+        "the Chinese Room argument claims computers can never behave as if they understand, rather than that behavior alone does not establish genuine understanding"
+      ],
+      "question_archetype": "Chinese-Room-misunderstanding diagnosis",
+      "required_concepts": [
+        "the argument's narrow target: program-following alone does not entail understanding",
+        "common misreadings of the argument"
+      ],
+      "required_question_characteristics": [
+        "State a described restatement of the Chinese Room argument that overreaches its actual claim.",
+        "Ask what is wrong with that restatement."
+      ],
+      "skill_id": "AI-FND-04"
+    },
+    {
+      "assessment_focus": "Compare what the Turing Test and the Chinese Room argument each do and do not establish about machine intelligence or understanding.",
+      "cognitive_demand": "Compare the behavioral claim of the Turing Test against the understanding-based challenge of the Chinese Room.",
+      "difficulty": "intermediate",
+      "expected_misconception_or_distractor_strategy": [
+        "Distractors should claim the two establish the same conclusion about machine understanding."
+      ],
+      "generation_constraints": [
+        "Use an intermediate comparison task.",
+        "Keep every factual claim within the mapped reference passages."
+      ],
+      "intent_id": "AI-FND-04-INT-07",
+      "learning_objective": "Explain how the Turing Test and Chinese Room argument relate to machine intelligence and understanding.",
+      "preferred_reference_ids": [
+        "AI-FND-04-1d9f2a7b336c",
+        "AI-FND-04-0a36a4f50e30"
+      ],
+      "prohibited_ambiguity_patterns": [
+        "Do not ask which argument is correct; ask only what each one claims or implies."
+      ],
+      "prohibited_conflations": [
+        "passing the Turing Test and satisfying the Chinese Room's understanding standard are the same achievement"
+      ],
+      "question_archetype": "Turing-Test-versus-Chinese-Room implication comparison",
+      "required_concepts": [
+        "Turing Test as evidence of behavioral capability, not proof of understanding",
+        "Chinese Room as a challenge to inferring understanding from behavior alone"
+      ],
+      "required_question_characteristics": [
+        "Describe both the Turing Test and the Chinese Room argument together.",
+        "Ask what each one does, and does not, establish about machine intelligence or understanding."
+      ],
+      "skill_id": "AI-FND-04"
     }
   ],
   "prompt_version": "v3.3",
   "questions_per_intent": 1,
   "review_status": "blueprint-approved",
-  "reviewed_at": "2026-08-17T09:37:54Z",
-  "reviewer_id": "claude (intro-ai foundations release candidate, delegated blueprint authoring by Albert Quainoo)",
+  "reviewed_at": "2026-08-18T15:30:00Z",
+  "reviewer_id": "claude (AI-FND-03/AI-FND-04 capacity-gap intents added, closing both to 6/6, delegated blueprint authoring by Albert Quainoo)",
   "skill_conventions": {}
 }

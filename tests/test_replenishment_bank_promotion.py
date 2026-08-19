@@ -86,7 +86,13 @@ def _write_review(path: Path, item_ids: list[str]) -> None:
 def manifest_at(tmp_path, **overrides) -> CourseManifest:
     taxonomy_dir = tmp_path / "taxonomy"
     taxonomy_dir.mkdir(exist_ok=True)
-    (taxonomy_dir / "skills.csv").write_text("skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids\n", encoding="utf-8")
+    (taxonomy_dir / "skills.csv").write_text(
+        "skill_id,topic,subtopic,name,learning_objective,cognitive_process,generation_strategy,template_id,prerequisite_skill_ids\n"
+        "AI-SRC-08,Search and Problem Solving,Informed search,Heuristic function,"
+        "Explain how a heuristic estimates the remaining cost from a state to the goal.,"
+        "understand,generated,,\n",
+        encoding="utf-8",
+    )
     (taxonomy_dir / "references.csv").write_text("skill_id,reference_material\n", encoding="utf-8")
     fields = dict(
         course_id="ai", title="t", version="1", taxonomy_path=taxonomy_dir,
@@ -207,3 +213,21 @@ def test_the_real_43_item_bank_is_never_touched_by_this_test_suite():
     assert len(items) == 43
     after = manifest.approved_bank_path.read_bytes()
     assert before == after
+
+
+def test_promotion_succeeds_when_course_id_does_not_match_its_taxonomy_directory_name(tmp_path, repository):
+    """Reproduces the real intro-ai bug: course_id ("intro-ai") does not equal the
+    taxonomy directory's name ("ai"). validate_bank's course=course_id fallback
+    convention (taxonomy/data/{course_id}/) would raise FileNotFoundError here --
+    _handle_promote_approved_items must pass manifest.skills_path()/references_path()
+    explicitly so promotion is independent of that naming coincidence."""
+    manifest = manifest_at(tmp_path, course_id="intro-ai")
+    review_path = tmp_path / "reviews" / "b1.json"
+    _write_review(review_path, ["AI-SRC-08-q1"])
+    job = _promote_job(repository, manifest, review_path)
+
+    _handle_promote_approved_items(job, manifest, job_repository=repository, clock=fixed_clock)
+
+    assert repository.get(job.job_id).status == "completed"
+    pointer = json.loads(active_bank_pointer_path(manifest).read_text())
+    assert pointer["version"] == 1

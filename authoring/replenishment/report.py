@@ -43,6 +43,7 @@ _OUTCOME_BY_STATUS = {
     "permanent_failure": "permanent_failure",
     "completed": "generated",
     "cancelled": "cancelled",
+    "no_longer_needed": "no_longer_needed",
 }
 
 
@@ -56,7 +57,7 @@ class DeficiencyRow:
     skill_id: str
     difficulty: str
     # "enqueued" (live) | "proposed" (dry run) | "deferred" | "blocked"
-    # | "manual_action_required" | "no_deficiency"
+    # | "capacity_exhausted" | "manual_action_required" | "no_deficiency"
     decision: str
     requested_count: int
     reason: str
@@ -115,6 +116,14 @@ class CycleReport:
     # run (see deficiency_row's dry_run handling above); reported explicitly
     # so "did this run really write nothing" never has to be taken on faith.
     queue_rows_written: int = 0
+    # Whether every promote_approved_items job this run completed promoted
+    # only items whose automated review scored risk_level "low" -- see
+    # authoring/replenishment/automerge.py. False (with a reason) for a dry
+    # run, or a run with no completed promotions, or any mixed/higher-risk
+    # promotion. Consumed by replenishment.yml's auto-merge step; never
+    # itself decides whether the PR is new vs. pre-existing.
+    auto_merge_eligible: bool = False
+    auto_merge_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -129,15 +138,17 @@ def deficiency_row(
     reason_override: str | None = None,
 ) -> DeficiencyRow:
     """decision_override/reason_override let the caller (run_cycle) downgrade
-    an otherwise-enqueueable decision to "blocked" (unresolved difficulty) or
-    "deferred" (beyond this run's max_new_candidates cap) without losing the
-    original policy reason. Never used to *upgrade* a no_deficiency row."""
+    an otherwise-enqueueable decision to "blocked" (unresolved difficulty),
+    "capacity_exhausted" (a resolvable blueprint's declared intent slots for
+    this skill are all already approved bank items), or "deferred" (beyond
+    this run's max_new_candidates cap) without losing the original policy
+    reason. Never used to *upgrade* a no_deficiency row."""
     if decision_override is not None:
         decision_label = decision_override
         reason = reason_override or decision.reason
         proposed_job_key = (
             "-"
-            if decision_override == "blocked"
+            if decision_override in ("blocked", "capacity_exhausted")
             else deterministic_job_key(decision.course_id, decision.skill_id)
         )
     elif decision.should_enqueue:
@@ -225,6 +236,8 @@ def build_report(
     clock,
     execution_plan: list[PlannedJobRow] | None = None,
     queue_rows_written: int = 0,
+    auto_merge_eligible: bool = False,
+    auto_merge_reasons: list[str] | None = None,
 ) -> CycleReport:
     now: datetime = clock()
     return CycleReport(
@@ -238,6 +251,8 @@ def build_report(
         stop_reason=stop_reason,
         archived_job_dirs=archived_job_dirs,
         queue_rows_written=queue_rows_written,
+        auto_merge_eligible=auto_merge_eligible,
+        auto_merge_reasons=auto_merge_reasons or [],
     )
 
 
@@ -255,6 +270,9 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 def render_markdown(report: CycleReport) -> str:
     deferred_count = sum(1 for row in report.deficiencies if row.decision == "deferred")
     blocked_count = sum(1 for row in report.deficiencies if row.decision == "blocked")
+    capacity_exhausted_count = sum(
+        1 for row in report.deficiencies if row.decision == "capacity_exhausted"
+    )
     manual_count = sum(
         1 for row in report.deficiencies if row.decision == "manual_action_required"
     )
@@ -299,6 +317,8 @@ def render_markdown(report: CycleReport) -> str:
         f"Planned this run: **{len(report.execution_plan)}**  \n"
         f"Deferred (eligible, over cap, left for a later run): **{deferred_count}**  \n"
         f"Blocked (unresolved difficulty, needs a reviewed blueprint): **{blocked_count}**  \n"
+        f"Capacity exhausted (blueprint's declared intent slots all already "
+        f"approved, needs more intents authored): **{capacity_exhausted_count}**  \n"
         f"Manual action required (hand_authored, needs a person to write items): **{manual_count}**\n",
         "## Job processing outcomes this run\n",
         _table(
@@ -327,6 +347,13 @@ def render_markdown(report: CycleReport) -> str:
         ),
         "## Budget\n",
         "\n".join(f"- **{key}**: {value}" for key, value in report.budget.items()) + "\n",
+        "## Auto-merge eligibility\n"
+        f"Eligible: **{report.auto_merge_eligible}**\n\n"
+        + (
+            "\n".join(f"- {reason}" for reason in report.auto_merge_reasons) + "\n"
+            if report.auto_merge_reasons
+            else "_no blocking reasons_\n"
+        ),
     ]
     if report.archived_job_dirs:
         parts.append(

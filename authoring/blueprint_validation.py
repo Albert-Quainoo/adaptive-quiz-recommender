@@ -21,9 +21,14 @@ independent of which course or skills it covers:
 - every preferred_reference_id resolves to an approved, same-skill reference
   in taxonomy/data/<course>/reference_provenance.csv (the same grounding
   check the worker's generation step depends on implicitly)
-- every skill's intents declare one consistent, explicit difficulty --
-  worker.py's _blueprint_generation_difficulty fails a job closed on this at
-  generation time; this catches the same defect before a job is ever queued
+- every skill's intents each declare an explicit difficulty (no intent may
+  leave it unset) -- worker.py's _blueprint_generation_difficulty fails a job
+  closed on this at generation time; this catches the same defect before a
+  job is ever queued. A skill's intents are free to span more than one
+  explicit difficulty (resolved as "mixed" -- see
+  _blueprint_generation_difficulty and generate_batch's own
+  BatchConfig(difficulty="mixed") support, which resolves each question from
+  its own intent.difficulty in that case)
 - within each skill, intents appear in intent_id order -- deterministic
   scheduling depends on blueprint order being stable and inspectable
 """
@@ -63,11 +68,10 @@ def validate_replenishment_blueprint(
             raise ValueError(f"{skill_id} intents are not in deterministic order")
 
         declared_difficulties = {intent.difficulty for intent in intents}
-        if len(declared_difficulties) != 1 or None in declared_difficulties:
-            offending = ", ".join(f"{i.intent_id}={i.difficulty}" for i in intents)
+        if None in declared_difficulties:
+            offending = ", ".join(i.intent_id for i in intents if i.difficulty is None)
             raise ValueError(
-                f"{skill_id} blueprint intents do not declare one consistent, "
-                f"explicit difficulty: {offending}"
+                f"{skill_id} blueprint intent(s) have no explicit difficulty: {offending}"
             )
 
     for intent in blueprint.intents:
@@ -112,7 +116,10 @@ def validate_replenishment_blueprint(
         "intent_count": len(blueprint.intents),
         "skill_ids": sorted(grouped),
         "difficulty_counts": {
-            skill_id: next(iter({i.difficulty for i in intents}))
+            skill_id: (
+                declared.pop() if len(declared := {i.difficulty for i in intents}) == 1
+                else "mixed"
+            )
             for skill_id, intents in grouped.items()
         },
         "checks": {
@@ -120,7 +127,7 @@ def validate_replenishment_blueprint(
             "one_question_per_intent": True,
             "every_skill_id_is_defined": True,
             "deterministic_ordering_per_skill": True,
-            "one_consistent_difficulty_per_skill": True,
+            "every_intent_has_an_explicit_difficulty": True,
             "canonical_learning_objectives": True,
             "narrative_fields_present": True,
             "approved_reference_mappings": True,

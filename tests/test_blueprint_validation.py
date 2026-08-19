@@ -76,14 +76,38 @@ def blueprint(**overrides):
     return PilotBlueprint(**fields)
 
 
-def test_the_real_bounded_ai_fnd_blueprint_passes_every_invariant():
+def test_the_real_bounded_ai_fnd_blueprint_passes_every_invariant_with_mixed_difficulty():
+    """grounded-ai-fnd-release-v1.json: AI-FND-03 and AI-FND-04 each now declare 6
+    intents (1 original + 5 added to close the target-supply gap), spanning both
+    introductory and intermediate tiers -- the same mixed-difficulty shape as DSA/
+    Linear Algebra/Database Systems, and the reason this blueprint must resolve
+    "mixed" rather than being rejected."""
     blueprint = load_blueprint_for_batch("grounded-ai-fnd-release-v1")
     skills, provenance = real_ai_inputs()
 
     summary = validate_replenishment_blueprint(blueprint, skills, provenance)
 
-    assert summary["intent_count"] == 2
+    assert summary["intent_count"] == 12
     assert summary["skill_ids"] == ["AI-FND-03", "AI-FND-04"]
+    assert all(difficulty == "mixed" for difficulty in summary["difficulty_counts"].values())
+    assert all(summary["checks"].values())
+
+
+def test_the_real_dsa_blueprint_passes_every_invariant_with_mixed_difficulty():
+    """grounded-dsa-v1.json: every one of its 7 skills declares 2 introductory + 4
+    intermediate intents (2 original intermediate + 2 added to close the
+    target-supply gap) -- the real shape this repo's capacity-gap packet
+    identified, and the reason _blueprint_generation_difficulty/this module's
+    difficulty check were changed to accept "mixed" instead of rejecting it."""
+    blueprint = load_blueprint_for_batch("grounded-dsa-v1")
+    skills = load_skills(*course_paths("dsa")).skills
+    provenance = load_reference_provenance(course_provenance_path("dsa"))
+
+    summary = validate_replenishment_blueprint(blueprint, skills, provenance)
+
+    assert summary["intent_count"] == 42
+    assert len(summary["skill_ids"]) == 7
+    assert all(difficulty == "mixed" for difficulty in summary["difficulty_counts"].values())
     assert all(summary["checks"].values())
 
 
@@ -118,14 +142,33 @@ def test_reference_belonging_to_a_different_skill_fails():
         validate_replenishment_blueprint(bp, [skill()], [other_skill_reference])
 
 
-def test_mixed_difficulty_within_one_skill_fails():
+def test_mixed_difficulty_within_one_skill_reports_mixed_and_passes():
+    """Intentional behavior change (mirrors _blueprint_generation_difficulty in
+    worker.py): a skill whose intents span more than one explicit difficulty is no
+    longer a validation failure -- generate_batch's own mixed-mode support (see
+    grounded_batch.py) resolves each question from its own intent.difficulty. Only a
+    missing explicit difficulty remains a real defect (see the test below)."""
     bp = blueprint(
         intents=[
             intent(intent_id="AI-FND-03-INT-01", difficulty="introductory"),
             intent(intent_id="AI-FND-03-INT-02", difficulty="intermediate"),
         ]
     )
-    with pytest.raises(ValueError, match="one consistent, explicit difficulty"):
+    summary = validate_replenishment_blueprint(
+        bp, [skill()], [reference(), reference("AI-FND-03-bbbbbbbbbbbb")]
+    )
+    assert summary["difficulty_counts"]["AI-FND-03"] == "mixed"
+    assert all(summary["checks"].values())
+
+
+def test_missing_declared_difficulty_still_fails():
+    bp = blueprint(
+        intents=[
+            intent(intent_id="AI-FND-03-INT-01", difficulty="introductory"),
+            intent(intent_id="AI-FND-03-INT-02", difficulty=None),
+        ]
+    )
+    with pytest.raises(ValueError, match="no explicit difficulty"):
         validate_replenishment_blueprint(bp, [skill()], [reference(), reference("AI-FND-03-bbbbbbbbbbbb")])
 
 

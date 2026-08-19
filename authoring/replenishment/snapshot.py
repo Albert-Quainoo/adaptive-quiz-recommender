@@ -38,7 +38,7 @@ from authoring.grounded_review import (
 )
 from authoring.replenishment.jobs import ReplenishmentJob
 from authoring.replenishment.manifest import CourseManifest
-from authoring.replenishment.worker import _batch_output_dir
+from authoring.replenishment.worker import batch_output_dir
 from authoring.retrieval.store import CandidateStore
 from authoring.review.reports import AutomatedReviewReportStore, review_report_path
 
@@ -49,6 +49,7 @@ TERMINAL_STATUSES = frozenset(
         "permanent_failure",
         "rejected_by_automated_review",
         "rejected_deterministically",
+        "no_longer_needed",
     }
 )
 
@@ -131,7 +132,7 @@ def snapshot_job_artifacts(
         if report_store.path.is_file():
             shutil.copy2(report_store.path, job_dir / "review_reports.json")
 
-        output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+        output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
         if output_dir.is_dir():
             for filename in _BATCH_FILES:
                 source = output_dir / filename

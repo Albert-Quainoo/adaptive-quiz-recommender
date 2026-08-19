@@ -1,9 +1,5 @@
+torch==2.2.2
 transformers
-datasets
-accelerate
-peft
-trl
-bitsandbytes
 sentencepiece
 safetensors
 

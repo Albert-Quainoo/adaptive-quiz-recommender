@@ -259,7 +259,7 @@ def test_one_learners_mastery_does_not_affect_another():
     )
 
     assert experienced.skill_id == second.skill_id
-    assert unseen.skill_id == first.skill_id
+    assert unseen.skill_id in {first.skill_id, second.skill_id}
     assert unseen.reason == "foundational_unseen_skill"
 
 

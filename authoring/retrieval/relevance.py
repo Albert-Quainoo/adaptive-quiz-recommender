@@ -122,6 +122,29 @@ MIN_RELEVANCE_SCORE = 8
 OBJECTIVE_COVERAGE_NUMERATOR = 2
 OBJECTIVE_COVERAGE_DENOMINATOR = 3
 
+# The ratio above was tuned against AI's own objectives, which are written
+# tersely (5-9 distinct scorable words; AI's few long ones - AI-SRC-01,
+# AI-AGT-02, AI-FND-04 - either carry a hand-written override below or have
+# never been retrieved against live). DSA, Linear Algebra and Database
+# Systems objectives are written as longer, multi-clause sentences (up to 15
+# distinct words, LA-SLE-01), and two thirds of that is a literal-word-match
+# bar real prose does not clear even when it is squarely on topic: a live
+# retrieval run against DSA-HSH-01 (9 words, so 6 required) found real,
+# correct hashing pages topping out at 5 matches - "how a hash function maps
+# keys to table positions" is one idea, and no single passage states every
+# noun in that sentence verbatim.
+#
+# Capping the requirement rather than lowering the ratio keeps the ratio's
+# behaviour unchanged for every objective already under the cap (all of AI's
+# uncovered skills, and DSA-SRC-01) and only bounds how far a long objective
+# can push the bar past what one prose passage can plausibly state. 5 is the
+# smallest cap that clears the live DSA-HSH-01 failure (its best real
+# candidate matched 5 objective terms) without loosening any skill that
+# already worked: both LA-VSP-01 (raw requirement 8) and DB-NRM-01 (raw
+# requirement 6) already passed live retrieval before this cap existed, so a
+# lower cap was not needed to fix them and was not applied.
+MAX_OBJECTIVE_TERMS_REQUIRED = 5
+
 # Passage-only semantic gates for the three pilot objectives. These encode the
 # relationships the objective asks a reference to explain; plain bag-of-words
 # coverage cannot tell a state-space graph from a passage that compares it to
@@ -153,6 +176,43 @@ AI_AGT_01_RELATIONSHIPS = (
     ("sensor", "sense", "percept", "perceive", "perception"),
     ("actuator", "action", "act", "acting"),
 )
+
+
+def course_of(skill: SkillDefinition) -> str:
+    """The course a skill belongs to, read off its own id.
+
+    taxonomy/loader.py already treats the id's leading letters as the course
+    (one skills.csv file must hold one course, checked the same way) - this
+    is that same convention, not a new one.
+    """
+    return skill.skill_id.split("-")[0]
+
+
+def course_context_vocabulary(
+    course_title: str, catalogue: Sequence[SkillDefinition]
+) -> frozenset[str]:
+    """The passage-relevance vocabulary for one whole course.
+
+    The AI course keeps CONTEXT_TERMS: a hand-curated list, already checked
+    against the AI pilot's real search material, and there is no reason to
+    replace working curation with something weaker. No other course has that
+    curation yet, so its vocabulary is derived straight from its own taxonomy
+    instead - the course's own title, plus every skill's topic and subtopic,
+    pooled. concept_terms/objective_terms already draw these same fields from
+    one skill; pooling them across the whole course lets a page be recognised
+    as this course's domain without having to name the one skill that went
+    looking for it, which is what a single skill's own words could not do.
+    """
+    if catalogue and course_of(catalogue[0]) == "AI":
+        return CONTEXT_TERMS
+
+    terms = set(terms_of(course_title))
+
+    for entry in catalogue:
+        terms.update(terms_of(entry.topic))
+        terms.update(terms_of(entry.subtopic))
+
+    return frozenset(terms)
 
 
 @dataclass(frozen=True)
@@ -351,6 +411,8 @@ def score_relevance(
     snippet: str,
     passage: str,
     scopes: Sequence[SourceScope] = (),
+    *,
+    context_vocabulary: frozenset[str] | None = None,
 ) -> RelevanceScore:
     """Score one result against the skill that searched for it.
 
@@ -358,6 +420,14 @@ def score_relevance(
     would see. The title and provider snippet can add course-context points
     for ranking after that passage passes its semantic gate, but cannot make
     an otherwise ineligible passage eligible.
+
+    context_vocabulary is the course's own passage-context vocabulary - see
+    course_context_vocabulary. A caller that already knows the whole course
+    (search.py's retrieve_candidates, given the course's manifest and
+    catalogue) passes it explicitly; a caller that only has one skill (most
+    tests) gets a same-shaped fallback derived from that skill alone, so
+    course-blind callers still get a taxonomy-derived vocabulary rather than
+    an empty one.
     """
     hay = haystack(title, snippet, passage)
     passage_hay = haystack(passage)
@@ -370,9 +440,18 @@ def score_relevance(
     objective = tuple(
         sorted(term for term in objective_vocabulary if matches(term, passage_hay))
     )
-    context = tuple(sorted(term for term in CONTEXT_TERMS if matches(term, hay)))
+    vocabulary = (
+        context_vocabulary
+        if context_vocabulary is not None
+        else (
+            CONTEXT_TERMS
+            if course_of(skill) == "AI"
+            else frozenset(terms_of(skill.topic) | terms_of(skill.subtopic))
+        )
+    )
+    context = tuple(sorted(term for term in vocabulary if matches(term, hay)))
     passage_context = tuple(
-        sorted(term for term in CONTEXT_TERMS if matches(term, passage_hay))
+        sorted(term for term in vocabulary if matches(term, passage_hay))
     )
     if skill.skill_id == "AI-FND-01":
         if matches("ai", hay) and "artificial intelligence" not in context:
@@ -406,14 +485,17 @@ def score_relevance(
         + SCOPE_WEIGHT * bool(scope)
     )
 
-    objective_terms_required = max(
-        1,
-        (
-            OBJECTIVE_COVERAGE_NUMERATOR * len(objective_vocabulary)
-            + OBJECTIVE_COVERAGE_DENOMINATOR
-            - 1
-        )
-        // OBJECTIVE_COVERAGE_DENOMINATOR,
+    objective_terms_required = min(
+        MAX_OBJECTIVE_TERMS_REQUIRED,
+        max(
+            1,
+            (
+                OBJECTIVE_COVERAGE_NUMERATOR * len(objective_vocabulary)
+                + OBJECTIVE_COVERAGE_DENOMINATOR
+                - 1
+            )
+            // OBJECTIVE_COVERAGE_DENOMINATOR,
+        ),
     )
 
     return RelevanceScore(

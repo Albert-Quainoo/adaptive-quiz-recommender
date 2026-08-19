@@ -37,15 +37,22 @@ from authoring.grounded_review import (
     list_pending,
     load_source_questions,
     question_content_hash,
+    resolved_content_hash,
 )
 from authoring import question_intents
+from authoring.deterministic_templates import DETERMINISTIC_TEMPLATES
 from authoring.question_intents import (
     PilotBlueprint,
     QuestionIntent,
     intents_by_skill,
     load_blueprint_for_batch,
 )
-from authoring.replenishment.demand import compute_blueprint_slot_demand, deficient_slots
+from authoring.replenishment.demand import (
+    compute_blueprint_slot_demand,
+    compute_demand_fingerprint,
+    deficient_slots,
+    load_approved_item_ids,
+)
 from authoring.replenishment.jobs import ReplenishmentJob, SQLiteReplenishmentJobRepository
 from authoring.replenishment.manifest import (
     CourseManifest,
@@ -55,6 +62,7 @@ from authoring.replenishment.manifest import (
 from authoring.retrieval.brave import MissingCredentials
 from authoring.retrieval.diagnostics import RetrievalDiagnostics
 from authoring.retrieval.models import ReferenceCandidate
+from authoring.retrieval.relevance import course_context_vocabulary
 from authoring.retrieval.search import (
     PageFetcher,
     RetrievalError,
@@ -296,7 +304,7 @@ def _write_active_pointer(
     temporary.replace(pointer_path)
 
 
-def _batch_output_dir(manifest: CourseManifest, batch_id: str, skill_id: str) -> Path:
+def batch_output_dir(manifest: CourseManifest, batch_id: str, skill_id: str) -> Path:
     # Scoped per (batch_id, skill_id): the worker always generates one skill
     # at a time, even when a reviewed blueprint's intents span several
     # skills, so two skills sharing a blueprint never collide on one
@@ -353,17 +361,12 @@ def _handle_retrieve_references(
     batch_metadata = {"batch_id": resolved_batch_id} if resolved_batch_id else {}
 
     if blueprint_for_demand is not None:
-        current_bank_path = active_bank_path(manifest)
-        approved_item_ids = (
-            {item.item_id for item in load_approved_bank(current_bank_path) if item.item_id}
-            if current_bank_path.is_file()
-            else set()
-        )
+        approved_item_ids = load_approved_item_ids(manifest)
         demand = compute_blueprint_slot_demand(
             blueprint_for_demand, job.skill_id, approved_item_ids
         )
         if demand and not deficient_slots(demand):
-            job_repository.mark_permanent_failure(
+            job_repository.mark_no_longer_needed(
                 job.job_id,
                 error_code="demand_already_satisfied",
                 error_message=(
@@ -371,6 +374,11 @@ def _handle_retrieve_references(
                     f"{job.skill_id} is already an approved bank item; nothing to "
                     "retrieve or generate"
                 ),
+                metadata={
+                    "demand_fingerprint": _demand_fingerprint(
+                        blueprint_for_demand, job.skill_id, approved_item_ids, manifest
+                    ),
+                },
             )
             return
 
@@ -393,6 +401,10 @@ def _handle_retrieve_references(
                 diagnostics=RetrievalDiagnostics(),
                 known=known_for(job.skill_id, held),
                 clock=clock,
+                course_anchor=manifest.title,
+                context_vocabulary=course_context_vocabulary(
+                    manifest.title, catalogue.skills
+                ),
             )
         except MissingCredentials as exc:
             job_repository.mark_retryable_failure(
@@ -445,9 +457,17 @@ def _blueprint_generation_difficulty(skill_id: str, intents: list[QuestionIntent
     rather than falling back to BatchConfig's "intermediate" default. The blueprint is
     authoritative: an automated worker has no human present to pick a difficulty the
     blueprint itself leaves ambiguous. Every intent for this skill must both belong to
-    skill_id and declare the exact same explicit difficulty; anything else is a
-    deterministic configuration defect the caller must fail on before generate_batch
-    ever calls the model, not something to guess through."""
+    skill_id and declare an explicit difficulty -- a missing one is a deterministic
+    configuration defect the caller must fail on before generate_batch ever calls the
+    model, not something to guess through.
+
+    When every intent shares one explicit difficulty, that value is returned. When
+    they declare more than one, "mixed" is returned instead: generate_batch's own
+    BatchConfig(difficulty="mixed") support already resolves each question's
+    difficulty from its own intent.difficulty in that case (see
+    authoring/grounded_batch.py), so a blueprint intentionally spanning tiers for one
+    skill -- e.g. two introductory + two intermediate intents -- generates correctly
+    rather than being rejected outright just because its tiers aren't uniform."""
     if not intents:
         raise BatchGenerationError(f"{skill_id} has no reviewed question intents")
     declared: set[str | None] = set()
@@ -457,13 +477,35 @@ def _blueprint_generation_difficulty(skill_id: str, intents: list[QuestionIntent
                 f"{intent.intent_id} belongs to skill {intent.skill_id}, not {skill_id}"
             )
         declared.add(intent.difficulty)
-    if len(declared) != 1 or None in declared:
-        offending = ", ".join(f"{intent.intent_id}={intent.difficulty}" for intent in intents)
-        raise BatchGenerationError(
-            f"{skill_id} blueprint intents do not declare one consistent, explicit "
-            f"difficulty (automated replenishment cannot guess): {offending}"
+    if None in declared:
+        offending = ", ".join(
+            intent.intent_id for intent in intents if intent.difficulty is None
         )
-    return declared.pop()
+        raise BatchGenerationError(
+            f"{skill_id} blueprint intent(s) have no explicit difficulty "
+            f"(automated replenishment cannot guess): {offending}"
+        )
+    return declared.pop() if len(declared) == 1 else "mixed"
+
+
+def _demand_fingerprint(
+    blueprint: PilotBlueprint,
+    skill_id: str,
+    approved_item_ids: set[str],
+    manifest: CourseManifest,
+) -> str:
+    """Best-effort difficulty resolution -- "unknown" rather than raising --
+    since this only feeds an audit fingerprint recorded alongside a
+    no_longer_needed outcome, never a gate on whether generation proceeds."""
+    intents = intents_by_skill(blueprint).get(skill_id, [])
+    try:
+        difficulty = _blueprint_generation_difficulty(skill_id, intents)
+    except BatchGenerationError:
+        difficulty = "unknown"
+    return compute_demand_fingerprint(
+        blueprint, skill_id, approved_item_ids,
+        difficulty=difficulty, target_supply=manifest.target_supply,
+    )
 
 
 def _handle_generate_questions(
@@ -521,7 +563,7 @@ def _handle_generate_questions(
         return
 
     intents_for_skill = intents_by_skill(blueprint).get(job.skill_id, [])
-    output_dir = _batch_output_dir(manifest, blueprint.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, blueprint.batch_id, job.skill_id)
     # An explicit blueprint.base_seed is deliberate operator intent (e.g. reproducing
     # a specific calibration run) and always wins. Absent one, the seed is derived
     # from job_id as before -- unique per replenishment episode, with no reproducible
@@ -536,21 +578,21 @@ def _handle_generate_questions(
     # makes: an approved item added by another job or a human since retrieval last
     # ran must be respected -- never generate a slot that became satisfied in the
     # meantime. See authoring/replenishment/demand.py.
-    current_bank_path = active_bank_path(manifest)
-    approved_item_ids = (
-        {item.item_id for item in load_approved_bank(current_bank_path) if item.item_id}
-        if current_bank_path.is_file()
-        else set()
-    )
+    approved_item_ids = load_approved_item_ids(manifest)
     demand = compute_blueprint_slot_demand(blueprint, job.skill_id, approved_item_ids)
     if demand and not deficient_slots(demand):
-        job_repository.mark_permanent_failure(
+        job_repository.mark_no_longer_needed(
             job.job_id,
             error_code="demand_already_satisfied",
             error_message=(
                 f"every intent slot in {blueprint.batch_id} for {job.skill_id} became "
                 "an approved bank item since this job last ran; nothing left to generate"
             ),
+            metadata={
+                "demand_fingerprint": _demand_fingerprint(
+                    blueprint, job.skill_id, approved_item_ids, manifest
+                ),
+            },
         )
         return
     skip_question_indices = frozenset(slot.question_index for slot in demand if slot.satisfied)
@@ -593,6 +635,7 @@ def _handle_generate_questions(
             git_commit=current_commit_allow_dirty(),
             resume=(output_dir / "manifest.json").is_file(),
             skip_question_indices=skip_question_indices,
+            templates=DETERMINISTIC_TEMPLATES,
         )
     except ModelUnavailableError:
         job_repository.mark_waiting(
@@ -648,7 +691,7 @@ def _handle_generate_questions(
     # Automated review runs next, before a human ever sees this batch -- see
     # _handle_automated_review below. output_dir is not carried in metadata: it is
     # always re-derived from (manifest, review.batch_id, job.skill_id) via
-    # _batch_output_dir, so it can never drift from the review file's own batch_id.
+    # batch_output_dir, so it can never drift from the review file's own batch_id.
     job_repository.mark_queued(
         job.job_id,
         job_type="automated_review",
@@ -745,7 +788,7 @@ def _handle_automated_review(
     review_path = Path(review_path_value)
     review_store = GroundedReviewStore(review_path)
     review = review_store.load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = {question.question_id: question for question in load_source_questions(output_dir)}
 
     catalogue = load_skills(manifest.skills_path(), manifest.references_path())
@@ -932,7 +975,7 @@ def _handle_automated_revision(
     review_path = Path(review_path_value)
     review_store = GroundedReviewStore(review_path)
     review = review_store.load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = {question.question_id: question for question in load_source_questions(output_dir)}
 
     catalogue = load_skills(manifest.skills_path(), manifest.references_path())
@@ -1072,7 +1115,7 @@ def _handle_promote_approved_items(
 
     review_path = Path(review_path_value)
     review = GroundedReviewStore(review_path).load()
-    output_dir = _batch_output_dir(manifest, review.batch_id, job.skill_id)
+    output_dir = batch_output_dir(manifest, review.batch_id, job.skill_id)
     source_questions = (
         {question.question_id: question for question in load_source_questions(output_dir)}
         if output_dir.is_dir()
@@ -1097,8 +1140,8 @@ def _handle_promote_approved_items(
         unreviewed = sorted(
             item.original_question_id
             for item in approve_as_written_items
-            if (source := source_questions.get(item.original_question_id)) is None
-            or report_store.latest_for_hash(question_content_hash(source.question)) is None
+            if (content_hash := resolved_content_hash(item, source_questions)) is None
+            or report_store.latest_for_hash(content_hash) is None
         )
         if unreviewed:
             job_repository.mark_permanent_failure(
@@ -1145,6 +1188,8 @@ def _handle_promote_approved_items(
         course=manifest.course_id,
         expected_count=len(existing_items) + len(new_items),
         required_skill_ids=[],
+        skills_path=manifest.skills_path(),
+        references_path=manifest.references_path(),
     )
     _write_active_pointer(manifest, new_bank_path, version, clock=clock)
     job_repository.mark_completed(job.job_id, clock=clock)

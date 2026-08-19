@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
@@ -45,6 +46,20 @@ class RecommendationPolicyConfig:
             raise ValueError("policy_version cannot be empty")
 
 
+def _pick_tied(candidates, priority_key, tie_key, learner_id: str, salt: str):
+    """Rank candidates by priority_key, then break ties uniformly at random
+    (seeded by learner_id+salt+priority so a given learner sees a stable but
+    learner-specific order) instead of always falling through to tie_key."""
+    best_priority = min(priority_key(candidate) for candidate in candidates)
+    tied = sorted(
+        (candidate for candidate in candidates if priority_key(candidate) == best_priority),
+        key=tie_key,
+    )
+    if not learner_id:
+        return tied[0]
+    return random.Random(f"{learner_id}:{salt}:{best_priority}").choice(tied)
+
+
 @dataclass(frozen=True)
 class SkillSelection:
     skill: SkillDefinition
@@ -90,6 +105,7 @@ def select_skill(
     config: RecommendationPolicyConfig,
     exhausted_skill_ids: set[str] = frozenset(),
     restrict_to_weak: bool = False,
+    learner_id: str = "",
 ) -> SkillSelection | None:
     """Choose an eligible skill; input order is the taxonomy tie-breaker.
 
@@ -117,13 +133,12 @@ def select_skill(
             < config.introductory_mastery_threshold
         ]
         if weak:
-            _, skill = min(
+            _, skill = _pick_tied(
                 weak,
-                key=lambda entry: (
-                    mastery_for(entry[1].skill_id, mastery_by_skill, config),
-                    entry[0],
-                    entry[1].skill_id,
-                ),
+                priority_key=lambda entry: mastery_for(entry[1].skill_id, mastery_by_skill, config),
+                tie_key=lambda entry: (entry[0], entry[1].skill_id),
+                learner_id=learner_id,
+                salt="weak_skill",
             )
             return SkillSelection(
                 skill=skill,
@@ -134,8 +149,12 @@ def select_skill(
     if not mastery_by_skill:
         foundational = [entry for entry in eligible if not entry[1].prerequisite_skill_ids]
         if foundational:
-            taxonomy_order, skill = min(
-                foundational, key=lambda entry: (entry[0], entry[1].skill_id)
+            taxonomy_order, skill = _pick_tied(
+                foundational,
+                priority_key=lambda entry: 0,
+                tie_key=lambda entry: (entry[0], entry[1].skill_id),
+                learner_id=learner_id,
+                salt="foundational_skill",
             )
             return SkillSelection(
                 skill=skill,
@@ -143,13 +162,12 @@ def select_skill(
                 reason="foundational_unseen_skill",
             )
 
-    _, skill = min(
+    _, skill = _pick_tied(
         eligible,
-        key=lambda entry: (
-            mastery_for(entry[1].skill_id, mastery_by_skill, config),
-            entry[0],
-            entry[1].skill_id,
-        ),
+        priority_key=lambda entry: mastery_for(entry[1].skill_id, mastery_by_skill, config),
+        tie_key=lambda entry: (entry[0], entry[1].skill_id),
+        learner_id=learner_id,
+        salt="eligible_skill",
     )
     unlocked_via_exhaustion = any(
         prerequisite_id in exhausted_skill_ids
@@ -187,6 +205,7 @@ def select_item(
     excluded_item_ids: set[str],
     last_answered_item_id: str | None,
     attempted_item_ids: frozenset[str] = frozenset(),
+    learner_id: str = "",
 ) -> ItemSelection | None:
     """attempted_item_ids is the learner's lifetime attempt history (not just
     this round's excluded_item_ids): items never attempted before are
@@ -208,13 +227,15 @@ def select_item(
         candidates = non_repeats
 
     difficulty_order = DIFFICULTY_FALLBACKS[desired_difficulty]
-    selected = min(
+    selected = _pick_tied(
         candidates,
-        key=lambda item: (
+        priority_key=lambda item: (
             item.item_id in attempted_item_ids,
             difficulty_order.index(item.question.difficulty),
-            item.item_id,
         ),
+        tie_key=lambda item: item.item_id,
+        learner_id=learner_id,
+        salt=f"item:{skill_id}",
     )
     reason = (
         None

@@ -499,14 +499,19 @@ def test_blueprint_generation_difficulty_retains_each_declared_value(difficulty)
 
 def test_blueprint_generation_difficulty_rejects_missing_declared_difficulty():
     intents = [_intent(SKILL_ID, 1, "introductory"), _intent(SKILL_ID, 2, None)]
-    with pytest.raises(BatchGenerationError, match="consistent, explicit"):
+    with pytest.raises(BatchGenerationError, match="no explicit difficulty"):
         _blueprint_generation_difficulty(SKILL_ID, intents)
 
 
-def test_blueprint_generation_difficulty_rejects_inconsistent_declared_difficulty():
+def test_blueprint_generation_difficulty_returns_mixed_for_inconsistent_declared_difficulty():
+    """Intentional behavior change: an intent pool spanning more than one explicit
+    difficulty (e.g. a skill's blueprint declaring both introductory and intermediate
+    intents) is no longer a configuration defect -- it resolves to "mixed", which
+    generate_batch's own BatchConfig(difficulty="mixed") support already knows how to
+    honor per-intent (see grounded_batch.py). Only a missing explicit difficulty
+    remains a real defect (see the test above)."""
     intents = [_intent(SKILL_ID, 1, "introductory"), _intent(SKILL_ID, 2, "advanced")]
-    with pytest.raises(BatchGenerationError, match="consistent, explicit"):
-        _blueprint_generation_difficulty(SKILL_ID, intents)
+    assert _blueprint_generation_difficulty(SKILL_ID, intents) == "mixed"
 
 
 def test_blueprint_generation_difficulty_rejects_intent_from_a_different_skill():
@@ -608,6 +613,125 @@ def test_generation_derives_introductory_difficulty_from_blueprint_end_to_end(
     assert generated[0].question.difficulty == "introductory"
 
 
+def test_generation_resolves_each_intents_own_difficulty_for_a_mixed_blueprint_end_to_end(
+    manifest, repository, tmp_path, monkeypatch, approved_candidate
+):
+    """The real DSA/Linear-Algebra/Database-Systems shape: one skill's blueprint
+    declaring two introductory + two intermediate intents (here, one of each, for a
+    minimal reproduction). BatchConfig.difficulty must resolve to "mixed", and
+    generate_batch itself enforces per-question correctness -- its own
+    `if parsed.difficulty != requested_difficulty: raise ValueError(...)` (see
+    grounded_batch.py) would reject either question if requested_difficulty were not
+    correctly resolved per-intent, so both questions reaching automated_review with
+    their own declared difficulty intact is proof the mixed-mode resolution is
+    correct, not just that "mixed" was accepted as a label."""
+    blueprint_dir = tmp_path / "blueprints"
+    blueprint_dir.mkdir()
+    intents = [
+        QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-01",
+            skill_id=SKILL_ID,
+            assessment_focus="What a heuristic estimates",
+            question_archetype="definition recall",
+            preferred_reference_ids=[approved_candidate.candidate_id],
+            required_concepts=["heuristic"],
+            prohibited_conflations=["heuristic equals exact cost"],
+            difficulty="introductory",
+        ),
+        QuestionIntent(
+            intent_id=f"{SKILL_ID}-INT-02",
+            skill_id=SKILL_ID,
+            assessment_focus="Comparing two candidate heuristics for admissibility",
+            question_archetype="comparison diagnosis",
+            preferred_reference_ids=[approved_candidate.candidate_id],
+            required_concepts=["heuristic", "admissibility"],
+            prohibited_conflations=["heuristic equals exact cost"],
+            difficulty="intermediate",
+        ),
+    ]
+    blueprint = PilotBlueprint(
+        batch_id="test-batch-mixed",
+        prompt_version=question_intents.PILOT_PROMPT_VERSION,
+        review_status="blueprint-approved",
+        reviewer_id="albert",
+        reviewed_at=FIXED_TIME,
+        base_seed=1,
+        intents=intents,
+    )
+    (blueprint_dir / "test-batch-mixed.json").write_text(
+        json.dumps(blueprint.model_dump(mode="json")), encoding="utf-8"
+    )
+    monkeypatch.setattr(question_intents, "BLUEPRINT_DIRECTORY", blueprint_dir)
+    monkeypatch.setattr(
+        grounding_briefs,
+        "PILOT_GROUNDING_BRIEFS",
+        {
+            SKILL_ID: CanonicalGroundingBrief(
+                skill_id=SKILL_ID,
+                version="test-v1",
+                statements=["A heuristic estimates the remaining cost to the goal."],
+            )
+        },
+    )
+
+    def _response(question: str, difficulty: str) -> str:
+        return json.dumps(
+            {
+                "questions": [
+                    {
+                        "question": question,
+                        "options": [
+                            "Remaining cost to goal",
+                            "Total memory used",
+                            "Number of nodes",
+                            "Branching factor",
+                        ],
+                        "correct_answer": "Remaining cost to goal",
+                        "explanation": "A heuristic estimates the cheapest remaining path cost.",
+                        "concept": "Heuristics",
+                        "difficulty": difficulty,
+                    }
+                ]
+            }
+        )
+
+    introductory_response = _response("What does a heuristic estimate?", "introductory")
+    intermediate_response = _response(
+        "Which of two candidate heuristics remains admissible?", "intermediate"
+    )
+
+    repository.enqueue(course_id="ai", skill_id=SKILL_ID, requested_count=2, clock=fixed_clock)
+    retrieve_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        retrieve_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=DeterministicFakeModel, clock=fixed_clock,
+    )
+    generate_job = repository.claim_next(clock=fixed_clock)
+    process_job(
+        generate_job, manifest, job_repository=repository,
+        search_provider=None, fetcher=None,
+        model_factory=lambda: DeterministicFakeModel(
+            [introductory_response, intermediate_response]
+        ),
+        clock=fixed_clock,
+    )
+
+    after = repository.get(generate_job.job_id)
+    assert after.status == "queued"
+    assert after.job_type == "automated_review"  # both intents generated, not a config error
+
+    output_dir = manifest.review_store_path.parent / "batches" / f"test-batch-mixed__{SKILL_ID}"
+    manifest_data = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest_data["difficulty"] == "mixed"
+    generated = {
+        item.intent_id: item.question
+        for item in read_jsonl(output_dir / "pending_questions.jsonl", PendingQuestion)
+    }
+    assert generated[f"{SKILL_ID}-INT-01"].difficulty == "introductory"
+    assert generated[f"{SKILL_ID}-INT-02"].difficulty == "intermediate"
+
+
 def test_generation_uses_the_blueprints_explicit_base_seed_when_present(
     manifest, repository, tmp_path, monkeypatch, approved_candidate
 ):
@@ -677,10 +801,13 @@ def test_generation_uses_the_blueprints_explicit_base_seed_when_present(
 def test_generation_config_error_is_permanent_and_makes_no_model_calls(
     manifest, repository, tmp_path, monkeypatch, approved_candidate
 ):
-    """An intent pool that disagrees on difficulty is a deterministic configuration
-    defect: it must fail closed as permanent_failure (never retryable_failure, which
-    would just re-fail identically max_attempts times) and must never construct or
-    call a model to do so."""
+    """An intent pool where some intent has no explicit difficulty at all is a
+    deterministic configuration defect (automated replenishment cannot guess it): it
+    must fail closed as permanent_failure (never retryable_failure, which would just
+    re-fail identically max_attempts times) and must never construct or call a model
+    to do so. Two intents that both declare an explicit difficulty -- even different
+    ones -- is no longer a defect; see
+    test_blueprint_generation_difficulty_returns_mixed_for_inconsistent_declared_difficulty."""
     blueprint_dir = tmp_path / "blueprints"
     blueprint_dir.mkdir()
     intents = [
@@ -702,7 +829,7 @@ def test_generation_config_error_is_permanent_and_makes_no_model_calls(
             preferred_reference_ids=[approved_candidate.candidate_id],
             required_concepts=["heuristic"],
             prohibited_conflations=["heuristic equals exact cost"],
-            difficulty="advanced",
+            difficulty=None,
         ),
     ]
     blueprint = PilotBlueprint(
@@ -1107,9 +1234,10 @@ def test_fully_satisfied_blueprint_stops_before_any_retrieval_call(
     )
 
     after = repository.get(job.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
     assert after.job_type == "replenish_skill"  # never advanced to generate_questions
+    assert after.metadata["demand_fingerprint"]  # auditable basis for this outcome
 
 
 def test_partially_deficient_blueprint_generates_only_the_non_contiguous_deficit(
@@ -1194,7 +1322,7 @@ def test_approved_item_added_between_retrieval_and_generation_stops_safely(
     )
 
     after = repository.get(generate_job.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
 
 
@@ -1227,7 +1355,7 @@ def test_rerun_after_the_only_slot_is_filled_makes_zero_network_calls(
     )
 
     after = repository.get(second.job_id)
-    assert after.status == "permanent_failure"
+    assert after.status == "no_longer_needed"  # non-blocking: not an error, see jobs.py
     assert after.error_code == "demand_already_satisfied"
 
 

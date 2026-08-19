@@ -105,6 +105,7 @@ class RecommendationService:
                 self.config,
                 set(exhausted_skill_ids),
                 restrict_to_weak=request.restrict_to_weak_skills,
+                learner_id=request.learner_id,
             )
             if skill_selection is None:
                 break
@@ -125,6 +126,7 @@ class RecommendationService:
                 excluded_item_ids=excluded_item_ids,
                 last_answered_item_id=last_answered_item_id,
                 attempted_item_ids=attempted_item_ids,
+                learner_id=request.learner_id,
             )
             if item_selection is None:
                 LOGGER.info(

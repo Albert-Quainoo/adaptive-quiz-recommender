@@ -18,7 +18,9 @@ from authoring.grounded_review import (
     generic_quality_issues,
     inspect_question,
     propose_revision,
+    question_content_hash,
     reject_item,
+    resolved_content_hash,
     source_hashes,
     write_approved_bank,
 )
@@ -309,6 +311,36 @@ def test_approve_as_written_export_without_source_question_raises_clear_error():
 
     with pytest.raises(ValueError, match=approved.original_question_id):
         export_approved_bank_items(review_with(approved))
+
+
+def test_resolved_content_hash_uses_approved_revision_hash():
+    revised_candidate = proposed()
+    revised = approve_revision(
+        revised_candidate,
+        revised_candidate.revisions[0].revision_id,
+        "reviewer",
+        reviewed_at=REVIEW_TIME,
+    )
+    approved_revision = next(
+        revision for revision in revised.revisions if revision.final_review_status == "approved"
+    )
+
+    assert resolved_content_hash(revised, {}) == approved_revision.content_hash
+
+
+def test_resolved_content_hash_uses_source_question_hash_for_approve_as_written():
+    source = pending_question()
+    approved = approve_as_written(as_written_item(), "reviewer", reviewed_at=REVIEW_TIME)
+
+    assert resolved_content_hash(approved, {source.question_id: source}) == question_content_hash(
+        source.question
+    )
+
+
+def test_resolved_content_hash_is_none_when_source_question_is_missing():
+    approved = approve_as_written(as_written_item(), "reviewer", reviewed_at=REVIEW_TIME)
+
+    assert resolved_content_hash(approved, {}) is None
 
 
 def test_mixed_batch_exports_written_and_revised_items_excluding_rejected_and_pending():
